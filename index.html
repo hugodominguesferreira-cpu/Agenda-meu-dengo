@@ -93,7 +93,7 @@
   .block{position:absolute; left:3px; right:3px; border-radius:8px; padding:4px 6px; font-size:10.5px; overflow:hidden; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.18); cursor:pointer;}
   .btime{font-size:9px; opacity:0.9; font-weight:700;}
   .bname{font-weight:700; font-size:11px; line-height:1.15; margin-top:1px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;}
-  .bstatus{font-size:9px; opacity:0.85;}
+  .bstatus{font-size:9px; opacity:0.9; font-style:italic; font-weight:600;}
   .block.almoco, .block.deslocamento{background:var(--muted)!important; opacity:0.88;}
   .bdel{position:absolute; top:2px; right:3px; background:rgba(255,255,255,0.35); border:none; color:#fff; font-size:9px; width:15px; height:15px; border-radius:50%; cursor:pointer; line-height:1; padding:0;}
   .bpend{position:absolute; bottom:2px; right:3px; font-size:10px;}
@@ -122,6 +122,15 @@
   .servicerow .sname{flex:1; font-weight:700; font-size:13.5px;}
   .servicerow .sprice{width:75px;}
   .servicerow button{background:none; border:none; color:var(--muted); font-size:15px; cursor:pointer;}
+  .colorcircle{width:40px; height:40px; border-radius:50%; overflow:hidden; border:2px solid var(--line); flex-shrink:0; position:relative;}
+  .colorcircle input[type="color"]{position:absolute; top:-25%; left:-25%; width:150%; height:150%; border:none; padding:0; cursor:pointer;}
+  .servicecard{background:var(--card-soft); border-radius:16px; padding:14px; margin-bottom:12px;}
+  .servicecard .stop{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .servicecard .sname2{flex:1; font-weight:700; font-size:15px; color:var(--roxo-dark); font-family:'Baloo 2',sans-serif;}
+  .servicecard .sdel{background:none; border:none; color:var(--full); font-size:16px; cursor:pointer; padding:4px;}
+  .servicecard .sfields{display:flex; gap:8px;}
+  .servicecard .sfield{flex:1;}
+  .servicecard .sfield label{font-size:10.5px; margin:0 0 3px;}
   .addservicerow{display:flex; gap:6px; margin-top:10px; align-items:center; flex-wrap:wrap;}
   .addservicerow input[type="color"]{width:38px; flex:0 0 auto;}
   .addservicerow input[type="number"]{flex:1 1 70px; min-width:60px;}
@@ -215,7 +224,7 @@
 <body>
 <div id="loginScreen">
   <div class="logincard">
-    <div style="font-size:40px;">🐾</div>
+    <img id="loginLogoImg" style="width:72px; height:72px; border-radius:16px; object-fit:cover;">
     <div class="lbrand">Meu Dengo</div>
     <div class="lsub">Entre com seu nome e senha</div>
     <label style="text-align:left;">Nome</label>
@@ -257,6 +266,7 @@
   <main>
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
+      <div id="dashGreeting" style="font-family:'Baloo 2',sans-serif; font-size:19px; font-weight:700; color:var(--roxo-dark); margin-bottom:12px;"></div>
       <div class="card">
         <h3>🗓️ Hoje</h3>
         <div id="dashHoje"></div>
@@ -500,8 +510,8 @@
         <label>Dia de vencimento</label>
         <input type="number" id="pacoteDia" min="1" max="28">
       </div>
-      <button class="btn btn-primary btn-block" id="saveConfigBtn">Salvar configurações</button>
-      <p class="footer-note">Os dados ficam salvos neste dispositivo/navegador.</p>
+      <button class="btn btn-primary btn-block" id="saveConfigBtn">Salvar logo</button>
+      <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
 
       <div class="card">
         <h3>👥 Usuários</h3>
@@ -686,6 +696,9 @@
   </div>
 </div>
 
+<div class="modal-bg" id="lightboxBg" style="background:rgba(0,0,0,0.85); align-items:center;">
+  <img id="lightboxImg" style="max-width:92%; max-height:80vh; border-radius:16px; object-fit:contain;">
+</div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -722,6 +735,7 @@ function fbListen(path, callback){
 }
 
 let currentUser = null; // {nome, role}
+document.getElementById('loginLogoImg').src = DEFAULT_LOGO;
 
 const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 const DIAS_UTEIS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
@@ -999,6 +1013,7 @@ document.querySelectorAll('.dtab').forEach(b=>{
 // ---------- DASHBOARD ----------
 function renderDashboard(){
   const isAdmin = currentUser && currentUser.role==='admin';
+  document.getElementById('dashGreeting').textContent = currentUser ? ('Olá, '+currentUser.nome+'! 👋') : '';
   document.getElementById('dashCobrancasCard').style.display = isAdmin ? 'block' : 'none';
   const iso = todayISO();
   const el = document.getElementById('dashHoje');
@@ -1124,7 +1139,7 @@ function buildTimeAxis(workStartMin, workEndMin){
     axis.appendChild(lab);
   }
 }
-const STATUS_COLORS = {deslocamento:'#3B82C4', andamento:'#C99A2E', concluido:'#4C8C6B', cancelado:'#8A7690'};
+const STATUS_COLORS = {deslocamento:'#472F7D', andamento:'#C99A2E', concluido:'#4C8C6B', cancelado:'#8A7690'};
 function renderColumn(op, workStartMin, workEndMin){
   const key = opKey(op);
   const body = document.getElementById('gridBody'+key);
@@ -1144,15 +1159,16 @@ function renderColumn(op, workStartMin, workEndMin){
       const svcColor = svc ? svc.color : '#AA426C';
       if(status==='nenhum'){
         block.style.background = svcColor;
+        block.style.border = '2px solid '+svcColor;
       } else {
         block.style.background = STATUS_COLORS[status] || svcColor;
-        block.style.borderLeft = '5px solid '+svcColor;
+        block.style.border = '3px solid '+svcColor;
         if(status==='cancelado') block.style.opacity = '0.55';
       }
     }
     let label = s.tipo==='cliente'? s.nome : (s.tipo==='almoco'?'Almoço':'Deslocamento');
     const statusLbl = s.tipo==='cliente' ? (STATUS_LABEL[status]||'') : '';
-    block.innerHTML = '<div class="btime">'+s.inicio+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
+    block.innerHTML = '<div class="btime">'+s.inicio+(s.seriesId?' 🔄':'')+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
       (statusLbl && status!=='cancelado' ? '<div class="bstatus">'+statusLbl+'</div>' : '')+
       (s.tipo==='cliente' && s.pago===false ? '<span class="bpend">💸</span>':'')+
       '<button class="bdel" data-id="'+s.id+'">✕</button>';
@@ -1521,7 +1537,7 @@ function renderPetList(){
       '<div class="rmeta">'+p.porte+' · '+p.sexo+(p.castrado?' · Castrado':'')+'</div>'+
       (p.comportamento&&p.comportamento.length?'<div class="rmeta">'+p.comportamento.join(' ')+'</div>':'')+'</div>'+
       '<div class="actions">'+(isAdmin?'<button data-act="del">🗑️</button>':'')+'</div>';
-    row.addEventListener('click',(e)=>{ if(e.target.dataset.act==='del') return; openPetModal(p.id); });
+    row.addEventListener('click',(e)=>{ if(e.target.dataset.act==='del') return; if(e.target.classList.contains('rphoto') && p.photo){ openLightbox(p.photo); return; } openPetModal(p.id); });
     if(isAdmin) row.querySelector('[data-act="del"]').addEventListener('click', async (e)=>{
       e.stopPropagation();
       STATE.pets = STATE.pets.filter(x=>x.id!==p.id);
@@ -1563,6 +1579,14 @@ function openPetModal(id){
   document.getElementById('petModalBg').classList.add('show');
 }
 document.getElementById('closePetModal').addEventListener('click',()=>document.getElementById('petModalBg').classList.remove('show'));
+function openLightbox(src){
+  if(!src) return;
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxBg').classList.add('show');
+}
+document.getElementById('lightboxBg').addEventListener('click',()=>document.getElementById('lightboxBg').classList.remove('show'));
+document.getElementById('pFotoPreview').style.cursor='pointer';
+document.getElementById('pFotoPreview').addEventListener('click',()=>openLightbox(document.getElementById('pFotoPreview').src));
 document.getElementById('pFoto').addEventListener('change',(e)=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
@@ -1761,26 +1785,28 @@ function renderServicesArea(){
   area.innerHTML='';
   STATE.config.services.forEach((s,idx)=>{
     const row = document.createElement('div');
-    row.className='servicerow';
-    row.innerHTML = '<div style="display:flex; align-items:center; gap:8px;">'+
-      '<input type="color" value="'+s.color+'" data-idx="'+idx+'" data-field="color">'+
-      '<span class="sname" style="flex:1;">'+s.name+'</span>'+
-      '<button data-idx="'+idx+'" data-act="del">✕</button></div>'+
-      '<div class="row" style="margin-top:6px;">'+
-        '<div><label style="margin:0 0 2px;">Valor (R$0000,00)</label><input type="text" inputmode="numeric" class="sprice" value="'+formatBRLMaskValue(s.price)+'" data-idx="'+idx+'" data-field="price"></div>'+
-        '<div><label style="margin:0 0 2px;">Duração (minutos)</label><input type="number" class="sprice" value="'+s.duration+'" data-idx="'+idx+'" data-field="duration" step="5" min="10"></div>'+
+    row.className='servicecard';
+    row.innerHTML =
+      '<div class="stop">'+
+        '<div class="colorcircle"><input type="color" value="'+s.color+'" data-field="color"></div>'+
+        '<span class="sname2">'+s.name+'</span>'+
+        '<button class="sdel" data-act="del">🗑️</button>'+
+      '</div>'+
+      '<div class="sfields">'+
+        '<div class="sfield"><label>Valor (R$0000,00)</label><input type="text" inputmode="numeric" value="'+formatBRLMaskValue(s.price)+'" data-field="price"></div>'+
+        '<div class="sfield"><label>Duração (minutos)</label><input type="number" value="'+s.duration+'" data-field="duration" step="5" min="10"></div>'+
       '</div>';
     const priceEl = row.querySelector('[data-field="price"]');
     attachCurrencyMask(priceEl);
-    priceEl.addEventListener('change',e=>{ STATE.config.services[idx].price = parseBRLMask(e.target.value); });
-    row.querySelector('[data-field="color"]').addEventListener('change',e=>{ STATE.config.services[idx].color=e.target.value; });
-    row.querySelector('[data-field="duration"]').addEventListener('change',e=>{ STATE.config.services[idx].duration=parseInt(e.target.value)||60; });
-    row.querySelector('[data-act="del"]').addEventListener('click',()=>{ STATE.config.services.splice(idx,1); renderServicesArea(); });
+    priceEl.addEventListener('change', async e=>{ STATE.config.services[idx].price = parseBRLMask(e.target.value); await saveConfig(); toast('Salvo!'); });
+    row.querySelector('[data-field="color"]').addEventListener('change', async e=>{ STATE.config.services[idx].color=e.target.value; await saveConfig(); renderWeek(); toast('Salvo!'); });
+    row.querySelector('[data-field="duration"]').addEventListener('change', async e=>{ STATE.config.services[idx].duration=parseInt(e.target.value)||60; await saveConfig(); toast('Salvo!'); });
+    row.querySelector('[data-act="del"]').addEventListener('click', async ()=>{ STATE.config.services.splice(idx,1); await saveConfig(); renderServicesArea(); toast('Serviço removido!'); });
     area.appendChild(row);
   });
 }
 attachCurrencyMask(document.getElementById('newServicePrice'));
-document.getElementById('addServiceBtn').addEventListener('click',()=>{
+document.getElementById('addServiceBtn').addEventListener('click', async ()=>{
   const nameInp = document.getElementById('newServiceName');
   const colorInp = document.getElementById('newServiceColor');
   const priceInp = document.getElementById('newServicePrice');
@@ -1789,8 +1815,10 @@ document.getElementById('addServiceBtn').addEventListener('click',()=>{
   if(!val) return;
   if(STATE.config.services.some(s=>s.name===val)){ toast('Esse serviço já existe'); return; }
   STATE.config.services.push({name:val, color:colorInp.value, price:parseBRLMask(priceInp.value), duration:parseInt(durInp.value)||60});
+  await saveConfig();
   nameInp.value=''; priceInp.value=''; durInp.value=''; colorInp.value='#AA426C';
   renderServicesArea();
+  toast('Serviço adicionado!');
 });
 
 // ---------- CONFIG ----------
@@ -1827,25 +1855,33 @@ function renderConfigForm(){
     const box = document.createElement('div');
     box.className='zonebox';
     box.innerHTML = '<div class="dayname">'+dia+'</div><input data-dia="'+dia+'" placeholder="Ex: Centro, Vila Nova">';
-    box.querySelector('input').value = (STATE.config.zones[dia]||[]).join(', ');
+    const inp = box.querySelector('input');
+    inp.value = (STATE.config.zones[dia]||[]).join(', ');
+    inp.addEventListener('change', async ()=>{
+      STATE.config.zones[dia] = inp.value.split(',').map(s=>s.trim()).filter(Boolean);
+      await saveConfig();
+      toast('Zona salva!');
+    });
     zonesArea.appendChild(box);
   });
-  document.getElementById('capFixo').value = STATE.config.capacity.Fixo;
-  document.getElementById('capMovel').value = STATE.config.capacity.Móvel;
-  document.getElementById('workStart').value = STATE.config.workHours.start;
-  document.getElementById('workEnd').value = STATE.config.workHours.end;
-  document.getElementById('pacoteDia').value = STATE.config.pacoteDia;
+  const capFixoEl = document.getElementById('capFixo');
+  const capMovelEl = document.getElementById('capMovel');
+  const workStartEl = document.getElementById('workStart');
+  const workEndEl = document.getElementById('workEnd');
+  const pacoteDiaEl = document.getElementById('pacoteDia');
+  capFixoEl.value = STATE.config.capacity.Fixo;
+  capMovelEl.value = STATE.config.capacity.Móvel;
+  workStartEl.value = STATE.config.workHours.start;
+  workEndEl.value = STATE.config.workHours.end;
+  pacoteDiaEl.value = STATE.config.pacoteDia;
+  capFixoEl.onchange = async ()=>{ STATE.config.capacity.Fixo = parseInt(capFixoEl.value)||8; await saveConfig(); renderWeek(); toast('Salvo!'); };
+  capMovelEl.onchange = async ()=>{ STATE.config.capacity.Móvel = parseInt(capMovelEl.value)||8; await saveConfig(); renderWeek(); toast('Salvo!'); };
+  workStartEl.onchange = async ()=>{ STATE.config.workHours.start = workStartEl.value; await saveConfig(); renderWeek(); toast('Salvo!'); };
+  workEndEl.onchange = async ()=>{ STATE.config.workHours.end = workEndEl.value; await saveConfig(); renderWeek(); toast('Salvo!'); };
+  pacoteDiaEl.onchange = async ()=>{ STATE.config.pacoteDia = Math.min(28, Math.max(1, parseInt(pacoteDiaEl.value)||25)); await saveConfig(); toast('Salvo!'); };
   if(STATE.config.logo){ document.getElementById('logoPreview').src=STATE.config.logo; document.getElementById('logoPreview').style.display='block'; }
 }
 document.getElementById('saveConfigBtn').addEventListener('click', async ()=>{
-  document.querySelectorAll('#zonesArea input').forEach(inp=>{
-    STATE.config.zones[inp.dataset.dia] = inp.value.split(',').map(s=>s.trim()).filter(Boolean);
-  });
-  STATE.config.capacity.Fixo = parseInt(document.getElementById('capFixo').value)||8;
-  STATE.config.capacity.Móvel = parseInt(document.getElementById('capMovel').value)||8;
-  STATE.config.workHours.start = document.getElementById('workStart').value;
-  STATE.config.workHours.end = document.getElementById('workEnd').value;
-  STATE.config.pacoteDia = Math.min(28, Math.max(1, parseInt(document.getElementById('pacoteDia').value)||25));
   if(document.getElementById('logoUpload').dataset.value) STATE.config.logo = document.getElementById('logoUpload').dataset.value;
   await saveConfig();
   populateServiceSelects();
@@ -1956,7 +1992,7 @@ function collectPendencias(){
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
         const isPacoteItem = s.seriesId && s.servico==='Banho' && !s.recorrenteAvulso;
-        if(s.tipo==='cliente' && !s.pago && !s.cobrancaId && (s.valor||0)>0 && !isPacoteItem){
+        if(s.tipo==='cliente' && !s.pago && !s.cobrancaId && (s.valor||0)>0 && !isPacoteItem && s.statusAtendimento==='concluido'){
           const p = getPet(s.petId);
           const tutorId = p ? p.tutorId : null;
           const key = tutorId || ('avulso:'+s.nome);
@@ -2046,13 +2082,13 @@ async function autoGeneratePackageCobrancas(){
     });
   }
 
-  // extras do mesmo tutor/mês (avulsos ou outros serviços) entram na mesma cobrança de pacote
+  // extras do mesmo tutor/mês (avulsos ou outros serviços) entram na mesma cobrança de pacote, só depois de concluídos
   Object.keys(STATE.agenda).forEach(iso=>{
     const ym = iso.slice(0,7);
     if(ym > currentYm) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && !s.cobrancaId && !s.pago && (s.valor||0)>0){
+        if(s.tipo==='cliente' && !s.cobrancaId && !s.pago && (s.valor||0)>0 && s.statusAtendimento==='concluido'){
           const p = getPet(s.petId);
           if(!p) return;
           const cobranca = STATE.cobrancas.find(c=>c.auto && !c.pago && c.tutorId===p.tutorId && c.meses.includes(ym));
@@ -2246,8 +2282,8 @@ async function renderFinanceiro(){
 
   const pacotesArea = document.getElementById('pacotesArea');
   pacotesArea.innerHTML='';
-  const pacotesAbertos = STATE.cobrancas.filter(c=>!c.pago && c.auto);
-  if(pacotesAbertos.length===0){ pacotesArea.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum pacote em aberto ainda.</div>'; }
+  const pacotesAbertos = STATE.cobrancas.filter(c=>!c.pago && c.auto && c.dataPagamento && c.dataPagamento<=todayISO());
+  if(pacotesAbertos.length===0){ pacotesArea.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum pacote vencido ou a pagar hoje.</div>'; }
   pacotesAbertos.forEach(cb=>renderCobrancaCard(cb, pacotesArea, true));
 
   const cbArea = document.getElementById('cobrancasArea');
