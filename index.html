@@ -705,7 +705,7 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
-try{ await enableIndexedDbPersistence(db); }catch(e){ console.log('Persistência offline não habilitada:', e && e.code); }
+enableIndexedDbPersistence(db).catch(e=>console.log('Persistência offline não habilitada:', e && e.code));
 
 const COL = 'meudengo';
 async function fbGet(path){
