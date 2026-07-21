@@ -891,19 +891,32 @@ document.getElementById('logoutBtn').addEventListener('click', ()=>{
   document.getElementById('loginScreen').classList.remove('hide');
 });
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
-  const nome = document.getElementById('loginNome').value.trim();
-  const senha = document.getElementById('loginSenha').value;
-  const usuarios = (await fbGet('usuarios')) || {};
-  const found = Object.values(usuarios).find(u=>u.nome.toLowerCase()===nome.toLowerCase() && u.senha===senha);
-  if(!found){
-    document.getElementById('loginErro').style.display='block';
-    return;
+  const btn = document.getElementById('loginBtn');
+  const erroEl = document.getElementById('loginErro');
+  btn.disabled = true;
+  erroEl.style.display='none';
+  try{
+    const nome = document.getElementById('loginNome').value.trim();
+    const senha = document.getElementById('loginSenha').value;
+    const usuarios = (await fbGet('usuarios')) || {};
+    const found = Object.values(usuarios).find(u=>u.nome.toLowerCase()===nome.toLowerCase() && u.senha===senha);
+    if(!found){
+      erroEl.textContent = 'Nome ou senha incorretos.';
+      erroEl.style.display='block';
+      btn.disabled = false;
+      return;
+    }
+    currentUser = {nome:found.nome, role:found.role};
+    localStorage.setItem('md_currentUser', JSON.stringify(currentUser));
+    document.getElementById('loginScreen').classList.add('hide');
+    applyPermissions();
+    await startApp();
+  }catch(e){
+    console.log('Erro no login:', e);
+    erroEl.textContent = 'Erro: '+(e && e.message ? e.message : 'tente novamente');
+    erroEl.style.display='block';
+    btn.disabled = false;
   }
-  currentUser = {nome:found.nome, role:found.role};
-  localStorage.setItem('md_currentUser', JSON.stringify(currentUser));
-  document.getElementById('loginScreen').classList.add('hide');
-  applyPermissions();
-  startApp();
 });
 
 
