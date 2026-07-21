@@ -690,7 +690,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -703,15 +703,22 @@ const firebaseConfig = {
   appId: "1:692827478910:web:e42e8f039568a8adf8312f"
 };
 const fbApp = initializeApp(firebaseConfig);
-const db = getDatabase(fbApp);
+const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
+try{ await enableIndexedDbPersistence(db); }catch(e){ console.log('Persistência offline não habilitada:', e && e.code); }
 
+const COL = 'meudengo';
 async function fbGet(path){
-  const snap = await get(ref(db, path));
-  return snap.exists() ? snap.val() : null;
+  const snap = await getDoc(doc(db, COL, path));
+  return snap.exists() ? snap.data().value : null;
 }
 async function fbSet(path, value){
-  await set(ref(db, path), value);
+  await setDoc(doc(db, COL, path), { value });
+}
+function fbListen(path, callback){
+  return onSnapshot(doc(db, COL, path), snap=>{
+    callback(snap.exists() ? snap.data().value : null);
+  });
 }
 
 let currentUser = null; // {nome, role}
@@ -810,11 +817,11 @@ function refreshVisibleTab(){
   if(tab==='clientes'){ if(currentTutorId) openTutorProfile(currentTutorId); else renderTutorList(); }
 }
 function attachRealtimeListeners(){
-  onValue(ref(db,'agenda'), snap=>{ STATE.agenda = snap.val()||{}; refreshVisibleTab(); });
-  onValue(ref(db,'tutors'), snap=>{ STATE.tutors = snap.val()||[]; refreshVisibleTab(); });
-  onValue(ref(db,'pets'), snap=>{ STATE.pets = snap.val()||[]; refreshVisibleTab(); });
-  onValue(ref(db,'cobrancas'), snap=>{ STATE.cobrancas = snap.val()||[]; STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes?[c.mes]:[]; delete c.mes; } }); refreshVisibleTab(); });
-  onValue(ref(db,'despesas'), snap=>{ STATE.despesas = snap.val()||[]; refreshVisibleTab(); });
+  fbListen('agenda', val=>{ STATE.agenda = val||{}; refreshVisibleTab(); });
+  fbListen('tutors', val=>{ STATE.tutors = val||[]; refreshVisibleTab(); });
+  fbListen('pets', val=>{ STATE.pets = val||[]; refreshVisibleTab(); });
+  fbListen('cobrancas', val=>{ STATE.cobrancas = val||[]; STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes?[c.mes]:[]; delete c.mes; } }); refreshVisibleTab(); });
+  fbListen('despesas', val=>{ STATE.despesas = val||[]; refreshVisibleTab(); });
 }
 
 // ---------- LOGIN E USUÁRIOS ----------
