@@ -160,6 +160,7 @@
   .badge.pago{background:var(--free-bg); color:var(--free);}
   .badge.pendente{background:var(--amarelo-bg); color:var(--amarelo);}
   .badge.atrasado{background:var(--full-bg); color:var(--full);}
+  .badge.parcial{background:#FDEAD7; color:#C1701D;}
 
   .behaviorgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
   .behaviorchip{padding:6px 10px; border-radius:20px; background:var(--card-soft); font-size:12px; font-weight:600; cursor:pointer; color:var(--roxo-dark); border:1.5px solid transparent;}
@@ -289,6 +290,7 @@
       <div class="weeknav">
         <button id="prevWeek">‹</button>
         <span class="weeklabel" id="weekLabel">semana</span>
+        <button id="btnHojeAgenda" style="font-size:12px; font-weight:700; font-family:'Baloo 2',sans-serif; background:var(--card-soft); border-radius:20px; padding:6px 14px; color:var(--roxo-dark);">Hoje</button>
         <button id="nextWeek">›</button>
       </div>
       <div class="daypills" id="dayPills"></div>
@@ -529,6 +531,17 @@
         </select>
         <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addUserBtn">+ Adicionar usuário</button>
       </div>
+
+      <div class="card" style="border:1.5px solid var(--full);">
+        <h3 style="color:var(--full);">⚠️ Zona de risco</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Apaga toda a agenda, cobranças e despesas — pra você testar e depois começar do zero. Tutores, pets, serviços e usuários NÃO são afetados.</p>
+        <button class="btn btn-ghost btn-block" style="color:var(--full);" id="btnResetAgendaFin">🗑️ Resetar agendamento e financeiro</button>
+        <div id="resetConfirmBox" style="display:none; margin-top:10px;">
+          <p class="footer-note" style="text-align:left; padding:0; color:var(--full); font-weight:700;">Tem certeza? Isso apaga TODOS os agendamentos, cobranças e despesas, de forma permanente.</p>
+          <button class="btn btn-primary btn-block" style="background:var(--full); margin-top:8px;" id="btnResetConfirmar">Sim, apagar tudo</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="btnResetCancelar">Cancelar</button>
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -598,7 +611,20 @@
   <div class="modal">
     <button class="closebtn" id="closeDetailModal">×</button>
     <h3 id="dTitulo">Atendimento</h3>
-    <div class="footer-note" style="text-align:left; padding:0;" id="dSub"></div>
+    <div class="footer-note" id="dSeriesInfo" style="display:none; text-align:left; background:var(--card-soft); border-radius:8px; padding:8px; margin:0 0 10px;"></div>
+
+    <div id="dClienteEditFields">
+      <div class="row">
+        <div><label>Data</label><input type="date" id="dData"></div>
+        <div><label>Horário</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="dInicioEdit"></div>
+      </div>
+      <div class="row">
+        <div><label>Serviço</label><select id="dServico"></select></div>
+        <div><label>Valor (R$0000,00)</label><input type="text" inputmode="numeric" id="dValor"></div>
+      </div>
+    </div>
+    <label>Duração (minutos)</label>
+    <input type="number" id="dDuracao" min="10" step="5">
     <label>Status do atendimento</label>
     <select id="dStatus">
       <option value="nenhum">Nenhum</option>
@@ -607,16 +633,23 @@
       <option value="concluido">Concluído</option>
       <option value="cancelado">Cancelado</option>
     </select>
-    <label>Duração (minutos)</label>
-    <input type="number" id="dDuracao" min="10" step="5">
+    <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="dSalvarEdicao">Salvar alterações</button>
     <hr class="divider">
     <div id="dPagoInfo"></div>
     <div id="dPagarArea" style="display:none;">
+      <label>Valor pago agora (R$)</label>
+      <input type="text" inputmode="numeric" id="dValorPagoInput">
       <label>Forma de pagamento</label>
       <div class="row">
         <button class="btn btn-ghost btn-block" id="dPagarDinheiro">💵 Dinheiro</button>
         <button class="btn btn-ghost btn-block" id="dPagarPix">📱 Pix</button>
       </div>
+    </div>
+    <hr class="divider">
+    <button class="btn btn-primary btn-block" id="dWhatsBtn">📲 WhatsApp</button>
+    <div id="dWhatsChoice" style="display:none; margin-top:8px;">
+      <button class="btn btn-ghost btn-block" id="dWhatsAbrir">Só abrir o chat</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dWhatsModelo">Enviar mensagem pré-escrita</button>
     </div>
     <button class="btn btn-ghost btn-block" style="margin-top:14px; color:var(--full);" id="dExcluir">Excluir agendamento</button>
     <div id="dExcluirChoice" style="display:none; margin-top:10px;">
@@ -889,6 +922,23 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
   renderUsersArea();
   toast('Usuário adicionado!');
 });
+
+document.getElementById('btnResetAgendaFin').addEventListener('click',()=>{
+  document.getElementById('resetConfirmBox').style.display='block';
+});
+document.getElementById('btnResetCancelar').addEventListener('click',()=>{
+  document.getElementById('resetConfirmBox').style.display='none';
+});
+document.getElementById('btnResetConfirmar').addEventListener('click', async ()=>{
+  STATE.agenda = {};
+  STATE.cobrancas = [];
+  STATE.despesas = [];
+  await Promise.all([saveAgenda(), saveCobrancas(), saveDespesas()]);
+  document.getElementById('resetConfirmBox').style.display='none';
+  renderWeek();
+  renderDashboard();
+  toast('Agendamento e financeiro resetados!');
+});
 function applyPermissions(){
   const isAdmin = currentUser && currentUser.role==='admin';
   document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"]').forEach(b=>{
@@ -1092,6 +1142,7 @@ function updateDayStrip(){
   document.getElementById('weekLabel').textContent = label.charAt(0).toUpperCase()+label.slice(1);
 }
 document.getElementById('prevWeek').addEventListener('click',()=>shiftSelectedDay(-7));
+document.getElementById('btnHojeAgenda').addEventListener('click',()=>{ selectedDateISO = todayISO(); renderWeek(); });
 attachSwipe(document.querySelector('.calendarWrap'));
 // A fita de dias usa só rolagem nativa (arrastar não troca o dia selecionado, só o clique/toque troca)
 document.getElementById('nextWeek').addEventListener('click',()=>shiftSelectedDay(7));
@@ -1311,53 +1362,134 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
 });
 
 // ---------- MODAL: detalhe ----------
+function valorDevido(s){ return Math.max(0, (s.valor||0)-(s.valorPago||0)); }
+function populateDetailServiceSelect(current){
+  const sel = document.getElementById('dServico');
+  sel.innerHTML='';
+  STATE.config.services.forEach(s=>{ const o=document.createElement('option'); o.textContent=s.name; sel.appendChild(o); });
+  if(STATE.config.services.some(s=>s.name===current)) sel.value = current;
+}
 function openDetailModal(iso, op, id){
   const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
   if(!slot) return;
   detailRef = {iso, op, id};
   document.getElementById('dExcluir').style.display='block';
   document.getElementById('dExcluirChoice').style.display='none';
+  document.getElementById('dWhatsChoice').style.display='none';
   const label = slot.tipo==='cliente'?slot.nome:(slot.tipo==='almoco'?'Almoço':'Deslocamento');
   document.getElementById('dTitulo').textContent = label;
-  document.getElementById('dSub').textContent = slot.inicio+' • '+op+(slot.servico?' • '+slot.servico:'');
+  const seriesInfo = document.getElementById('dSeriesInfo');
+  if(slot.seriesId){ seriesInfo.style.display='block'; seriesInfo.textContent = '🔄 Este agendamento faz parte de uma recorrência.'; }
+  else { seriesInfo.style.display='none'; }
+
+  const isCliente = slot.tipo==='cliente';
+  document.getElementById('dClienteEditFields').style.display = isCliente ? 'block' : 'none';
+  document.getElementById('dWhatsBtn').style.display = isCliente ? 'block' : 'none';
+  if(isCliente){
+    document.getElementById('dData').value = iso;
+    document.getElementById('dInicioEdit').value = slot.inicio;
+    populateDetailServiceSelect(slot.servico);
+    document.getElementById('dValor').value = formatBRLMaskValue(slot.valor||0);
+  }
   document.getElementById('dStatus').value = slot.statusAtendimento||'nenhum';
   document.getElementById('dDuracao').value = slot.duracao||60;
+
   const pagoInfo = document.getElementById('dPagoInfo');
   const pagarArea = document.getElementById('dPagarArea');
-  if(slot.tipo!=='cliente'){
+  if(!isCliente){
     pagoInfo.innerHTML=''; pagarArea.style.display='none';
   } else if(slot.pago){
     pagoInfo.innerHTML = '<span class="badge pago">🟢 Pago via '+(slot.formaPagamento||'—')+'</span> <span style="font-weight:700;">'+formatBRL((slot.valor||0))+'</span>';
     pagarArea.style.display='none';
   } else {
+    const valorPago = slot.valorPago||0;
+    const devendo = valorDevido(slot);
     let status = 'pendente';
     if(slot.cobrancaId){ const g = STATE.cobrancas.find(c=>c.id===slot.cobrancaId); if(g) status = getCobrancaStatus(g); }
-    pagoInfo.innerHTML = '<span class="badge '+status+'">'+(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente')+'</span> <span style="font-weight:700;">'+formatBRL((slot.valor||0))+'</span>';
+    if(valorPago>0){
+      pagoInfo.innerHTML = '<span class="badge parcial">🟠 Parcial</span> Pago: <b>'+formatBRL(valorPago)+'</b> • Devendo: <b>'+formatBRL(devendo)+'</b>';
+    } else {
+      pagoInfo.innerHTML = '<span class="badge '+status+'">'+(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente')+'</span> <span style="font-weight:700;">'+formatBRL(devendo)+'</span>';
+    }
     pagarArea.style.display='block';
+    document.getElementById('dValorPagoInput').value = formatBRLMaskValue(devendo);
   }
   document.getElementById('detailModalBg').classList.add('show');
 }
+attachCurrencyMask(document.getElementById('dValor'));
+attachCurrencyMask(document.getElementById('dValorPagoInput'));
+attachTimeMask('dInicioEdit');
 document.getElementById('closeDetailModal').addEventListener('click',()=>document.getElementById('detailModalBg').classList.remove('show'));
+document.getElementById('dSalvarEdicao').addEventListener('click', async ()=>{
+  if(!detailRef) return;
+  const oldIso = detailRef.iso, op = detailRef.op, id = detailRef.id;
+  const slot = (STATE.agenda[oldIso][op]||[]).find(s=>s.id===id);
+  if(!slot) return;
+  slot.duracao = parseInt(document.getElementById('dDuracao').value)||60;
+  if(slot.tipo==='cliente'){
+    slot.inicio = document.getElementById('dInicioEdit').value;
+    slot.servico = document.getElementById('dServico').value;
+    slot.valor = parseBRLMask(document.getElementById('dValor').value);
+    const newIso = document.getElementById('dData').value;
+    if(newIso && newIso!==oldIso){
+      STATE.agenda[oldIso][op] = STATE.agenda[oldIso][op].filter(s=>s.id!==id);
+      if(!STATE.agenda[newIso]) STATE.agenda[newIso] = {Fixo:[],Móvel:[]};
+      if(!STATE.agenda[newIso][op]) STATE.agenda[newIso][op] = [];
+      STATE.agenda[newIso][op].push(slot);
+      detailRef.iso = newIso;
+      selectedDateISO = newIso;
+    }
+  } else {
+    slot.inicio = slot.inicio; // sem alteração de horário pra almoço/deslocamento por aqui
+  }
+  await saveAgenda();
+  document.getElementById('detailModalBg').classList.remove('show');
+  renderWeek();
+  toast('Agendamento atualizado!');
+});
 document.getElementById('dStatus').addEventListener('change', async (e)=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
   if(slot){ slot.statusAtendimento = e.target.value; await saveAgenda(); renderWeek(); }
 });
-document.getElementById('dDuracao').addEventListener('change', async (e)=>{
-  if(!detailRef) return;
-  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.duracao = parseInt(e.target.value)||60; await saveAgenda(); renderWeek(); toast('Duração atualizada!'); }
-});
 function marcarPago(forma){
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){
-    slot.pago=true; slot.formaPagamento=forma;
-    saveAgenda().then(()=>{ renderWeek(); document.getElementById('detailModalBg').classList.remove('show'); toast('Marcado como pago!'); });
-  }
+  if(!slot) return;
+  const valorInformado = parseBRLMask(document.getElementById('dValorPagoInput').value);
+  slot.valorPago = (slot.valorPago||0) + valorInformado;
+  slot.formaPagamento = forma;
+  if(slot.valorPago >= slot.valor){ slot.pago = true; slot.valorPago = slot.valor; }
+  saveAgenda().then(()=>{
+    renderWeek();
+    if(slot.pago){ document.getElementById('detailModalBg').classList.remove('show'); toast('Pago integralmente!'); }
+    else { openDetailModal(detailRef.iso, detailRef.op, detailRef.id); toast('Pagamento parcial registrado!'); }
+  });
 }
 document.getElementById('dPagarDinheiro').addEventListener('click',()=>marcarPago('Dinheiro'));
 document.getElementById('dPagarPix').addEventListener('click',()=>marcarPago('Pix'));
+
+// ---------- WHATSAPP DIRETO DO AGENDAMENTO ----------
+document.getElementById('dWhatsBtn').addEventListener('click',()=>{
+  document.getElementById('dWhatsChoice').style.display = document.getElementById('dWhatsChoice').style.display==='block' ? 'none' : 'block';
+});
+document.getElementById('dWhatsAbrir').addEventListener('click',()=>{
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  const p = slot && getPet(slot.petId);
+  const t = p && getTutor(p.tutorId);
+  if(!t || !t.phone){ toast('Sem telefone cadastrado'); return; }
+  window.open('https://wa.me/55'+t.phone.replace(/\D/g,''), '_blank');
+});
+document.getElementById('dWhatsModelo').addEventListener('click',()=>{
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  const p = slot && getPet(slot.petId);
+  if(!p){ toast('Esse agendamento não tem um pet vinculado'); return; }
+  document.getElementById('detailModalBg').classList.remove('show');
+  openMsgModal(p.tutorId, p.id);
+});
+
 document.getElementById('dExcluir').addEventListener('click', async ()=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
@@ -1635,10 +1767,11 @@ document.getElementById('savePetBtn').addEventListener('click', async ()=>{
 });
 
 // ---------- MENSAGEM PRONTA ----------
+let msgModalTutorId = null;
 function fillMsgPreview(){
   const tplId = document.getElementById('msgTemplate').value;
   const tpl = STATE.config.templates.find(t=>t.id===tplId);
-  const t = getTutor(currentTutorId);
+  const t = getTutor(msgModalTutorId);
   const petId = document.getElementById('msgPet').value;
   const p = getPet(petId);
   const servico = document.getElementById('msgServico').value;
@@ -1650,15 +1783,17 @@ function fillMsgPreview(){
              .replaceAll('{valor}', valor?parseFloat(valor).toFixed(2).replace('.', ','):'0,00');
   document.getElementById('msgPreview').value = text;
 }
-document.getElementById('btnMensagem').addEventListener('click',()=>{
+function openMsgModal(tutorId, defaultPetId){
   if(STATE.config.templates.length===0){ toast('Cadastre um modelo de mensagem em Configurações primeiro'); return; }
+  msgModalTutorId = tutorId;
   const tplSel = document.getElementById('msgTemplate');
   tplSel.innerHTML='';
   STATE.config.templates.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; tplSel.appendChild(o); });
 
   const petSel = document.getElementById('msgPet');
   petSel.innerHTML='<option value="">— nenhum —</option>';
-  STATE.pets.filter(p=>p.tutorId===currentTutorId).forEach(p=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; petSel.appendChild(o); });
+  STATE.pets.filter(p=>p.tutorId===tutorId).forEach(p=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; petSel.appendChild(o); });
+  if(defaultPetId) petSel.value = defaultPetId;
 
   populateServiceSelects();
   const msgServicoSel = document.getElementById('msgServico');
@@ -1668,6 +1803,9 @@ document.getElementById('btnMensagem').addEventListener('click',()=>{
 
   fillMsgPreview();
   document.getElementById('msgModalBg').classList.add('show');
+}
+document.getElementById('btnMensagem').addEventListener('click',()=>{
+  openMsgModal(currentTutorId, null);
 });
 document.getElementById('msgPet').addEventListener('change',()=>{
   fillMsgPreview();
@@ -1681,7 +1819,7 @@ document.getElementById('msgServico').addEventListener('change', ()=>{
 document.getElementById('msgValor').addEventListener('input', fillMsgPreview);
 document.getElementById('closeMsgModal').addEventListener('click',()=>document.getElementById('msgModalBg').classList.remove('show'));
 document.getElementById('msgEnviarBtn').addEventListener('click',()=>{
-  const t = getTutor(currentTutorId);
+  const t = getTutor(msgModalTutorId);
   if(!t || !t.phone){ toast('Sem telefone cadastrado pra esse tutor'); return; }
   const digits = t.phone.replace(/\D/g,'');
   const text = encodeURIComponent(document.getElementById('msgPreview').value);
@@ -1998,7 +2136,7 @@ function collectPendencias(){
           const tutorId = p ? p.tutorId : null;
           const key = tutorId || ('avulso:'+s.nome);
           if(!groups[key]) groups[key]={name: tutorId?getTutor(tutorId).name:s.nome, tutorId, items:[]};
-          groups[key].items.push({iso, op, id:s.id, servico:s.servico, valor:s.valor});
+          groups[key].items.push({iso, op, id:s.id, servico:s.servico, valor:valorDevido(s)});
         }
       });
     });
@@ -2206,7 +2344,7 @@ async function renderFinanceiro(){
     let items=[];
     Object.keys(STATE.agenda).forEach(iso=>{
       ['Fixo','Móvel'].forEach(op=>{
-        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,servico:s.servico,valor:s.valor,petId:s.petId,seriesId:s.seriesId}); });
+        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,servico:s.servico,valor:valorDevido(s),petId:s.petId,seriesId:s.seriesId}); });
       });
     });
     const total = items.reduce((a,i)=>a+i.valor,0);
@@ -2251,7 +2389,7 @@ async function renderFinanceiro(){
       toast('Vencimento atualizado!');
     });
     function marcarCbPago(forma){
-      items.forEach(i=>{ const slot=(STATE.agenda[i.iso][i.op]||[]).find(x=>x.id===i.id); if(slot){ slot.pago=true; slot.formaPagamento=forma; } });
+      items.forEach(i=>{ const slot=(STATE.agenda[i.iso][i.op]||[]).find(x=>x.id===i.id); if(slot){ slot.pago=true; slot.valorPago=slot.valor; slot.formaPagamento=forma; } });
       cb.pago=true;
       Promise.all([saveAgenda(), saveCobrancas()]).then(()=>{ renderFinanceiro(); toast('Cobrança marcada como paga!'); });
     }
