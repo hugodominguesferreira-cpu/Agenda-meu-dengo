@@ -163,6 +163,8 @@
   .badge.parcial{background:#FDEAD7; color:#C1701D;}
   body.theme2{ --rosa:#472F7D; --rosa-dark:#392564; --roxo:#AA426C; --roxo-dark:#8A3459; }
   body.theme3{ --rosa:#6B4A8A; --rosa-dark:#523669; --roxo:#472F7D; --roxo-dark:#33235C; }
+  body.theme4{ --rosa:#3E4A6B; --rosa-dark:#2E3852; --roxo:#232B42; --roxo-dark:#171C2E; --card-soft:#EBEEF3; }
+  body.theme5{ --rosa:#2E6FA3; --rosa-dark:#235680; --roxo:#1B3A5C; --roxo-dark:#12283F; --card-soft:#E6EFF7; }
   .temaBtn{width:100%; border-radius:14px; border:2px solid var(--line); padding:12px; cursor:pointer; background:#fff; margin-bottom:8px; display:flex; align-items:center; gap:10px;}
   .temaBtn.selected{border-color:var(--roxo);}
   .temaBtn .temaSwatch{display:flex; border-radius:8px; overflow:hidden; width:50px; height:26px; flex-shrink:0;}
@@ -217,6 +219,10 @@
   .estoquecard .eqtd{font-weight:800; font-size:14px; font-family:'Baloo 2',sans-serif; text-align:right;}
   .estoquecard.baixo{border:1.5px solid var(--full);}
   .estoquecard.baixo .eqtd{color:var(--full);}
+  .fornecedorrow{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line);}
+  .fornecedorrow:last-child{border-bottom:none;}
+  .fornecedorrow .fname{font-weight:700; font-size:13.5px;}
+  .fornecedorrow .fmeta{font-size:11.5px; color:var(--muted);}
 
   /* DRAWER NAV */
   header.top{justify-content:flex-start;}
@@ -438,10 +444,9 @@
         <h3>Avulsos (sem cobrança agrupada)</h3>
         <p class="footer-note" style="margin:0 0 10px; text-align:left;">Selecione itens do mesmo tutor pra agrupar numa cobrança com vencimento.</p>
         <div id="avulsosArea"></div>
-        <div class="row" style="margin-top:10px;">
-          <input type="date" id="grupoVencimento">
-          <button class="btn btn-primary" id="agruparBtn">Agrupar selecionados</button>
-        </div>
+        <label style="margin-top:14px;">Vencimento da cobrança</label>
+        <input type="date" id="grupoVencimento">
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="agruparBtn">Agrupar selecionados</button>
         <hr class="divider">
         <label>🔍 Histórico de pagamentos avulsos</label>
         <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
@@ -502,6 +507,8 @@
         <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico (rosa em destaque)</span></button>
         <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
         <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave (tons unificados)</span></button>
+        <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio (mais masculino)</span></button>
+        <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
       </div>
       <div class="card">
         <h3>Modelos de mensagem (WhatsApp)</h3>
@@ -592,6 +599,38 @@
         <h3>📦 Itens em estoque</h3>
         <div id="estoqueArea"></div>
         <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addEstoqueBtn">➕ Adicionar item</button>
+      </div>
+
+      <div class="card">
+        <h3>🚚 Fornecedores</h3>
+        <div id="fornecedoresArea"></div>
+        <hr class="divider">
+        <label>Novo fornecedor</label>
+        <input id="fNome" placeholder="Nome do fornecedor">
+        <label>Tipo de produtos</label>
+        <input id="fTipoProdutos" placeholder="Ex: Shampoos, acessórios...">
+        <label>Telefone</label>
+        <input id="fTelefone" placeholder="(opcional)">
+        <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addFornecedorBtn">+ Adicionar fornecedor</button>
+      </div>
+
+      <div class="card">
+        <h3>🧾 Registrar compra</h3>
+        <label>Fornecedor</label>
+        <select id="compraFornecedor"></select>
+        <label>Item do estoque</label>
+        <select id="compraItem"></select>
+        <div class="row">
+          <div><label>Quantidade comprada</label><input type="number" id="compraQuantidade" min="0" step="0.1"></div>
+          <div><label>Valor unitário (R$0000,00)</label><input type="text" inputmode="numeric" id="compraValorUnitario"></div>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="registrarCompraBtn">Registrar compra (soma no estoque)</button>
+      </div>
+
+      <div class="card">
+        <h3>🔍 Histórico de compras</h3>
+        <input id="buscaHistCompra" placeholder="Buscar por fornecedor ou item...">
+        <div id="histCompraResultado" style="margin-top:10px;"></div>
       </div>
     </section>
   </main>
@@ -874,6 +913,8 @@ let STATE = {
   cobrancas: [],
   despesas: [],
   estoque: [],
+  fornecedores: [],
+  compras: [],
   config: {
     logo: DEFAULT_LOGO,
     templates: [
@@ -918,6 +959,8 @@ async function loadAll(){
   STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes ? [c.mes] : []; delete c.mes; } });
   try{ STATE.despesas = (await fbGet('despesas')) || []; }catch(e){ STATE.despesas=[]; }
   try{ STATE.estoque = (await fbGet('estoque')) || []; }catch(e){ STATE.estoque=[]; }
+  try{ STATE.fornecedores = (await fbGet('fornecedores')) || []; }catch(e){ STATE.fornecedores=[]; }
+  try{ STATE.compras = (await fbGet('compras')) || []; }catch(e){ STATE.compras=[]; }
   try{
     const parsed = await fbGet('config');
     if(parsed){
@@ -949,17 +992,22 @@ async function loadAll(){
   applyTema(STATE.config.tema||1);
 }
 function applyTema(n){
-  document.body.classList.remove('theme2','theme3');
+  document.body.classList.remove('theme2','theme3','theme4','theme5');
   if(n===2) document.body.classList.add('theme2');
   if(n===3) document.body.classList.add('theme3');
+  if(n===4) document.body.classList.add('theme4');
+  if(n===5) document.body.classList.add('theme5');
 }
 async function saveTutors(){ try{ await fbSet('tutors', STATE.tutors); }catch(e){ toast('Erro ao salvar tutores'); } }
 async function savePets(){ try{ await fbSet('pets', STATE.pets); }catch(e){ toast('Erro ao salvar pets'); } }
 async function saveCobrancas(){ try{ await fbSet('cobrancas', STATE.cobrancas); }catch(e){ toast('Erro ao salvar cobranças'); } }
 async function saveDespesas(){ try{ await fbSet('despesas', STATE.despesas); }catch(e){ toast('Erro ao salvar despesas'); } }
 async function saveEstoque(){ try{ await fbSet('estoque', STATE.estoque); }catch(e){ toast('Erro ao salvar estoque'); } }
+async function saveFornecedores(){ try{ await fbSet('fornecedores', STATE.fornecedores); }catch(e){ toast('Erro ao salvar fornecedores'); } }
+async function saveCompras(){ try{ await fbSet('compras', STATE.compras); }catch(e){ toast('Erro ao salvar compras'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
-async function saveAgenda(){ try{ await fbSet('agenda', STATE.agenda); }catch(e){ toast('Erro ao salvar agenda'); } }
+let lastLocalAgendaSave = 0;
+async function saveAgenda(){ try{ lastLocalAgendaSave = Date.now(); await fbSet('agenda', STATE.agenda); }catch(e){ toast('Erro ao salvar agenda'); } }
 
 // ---------- SINCRONIZAÇÃO EM TEMPO REAL ----------
 function refreshVisibleTab(){
@@ -972,8 +1020,41 @@ function refreshVisibleTab(){
   if(tab==='clientes'){ if(currentTutorId) openTutorProfile(currentTutorId); else renderTutorList(); }
   if(tab==='estoque') renderEstoqueList();
 }
+function flattenAgenda(ag){
+  let out=[];
+  Object.keys(ag||{}).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      ((ag[iso]&&ag[iso][op])||[]).forEach(s=>{ if(s.tipo==='cliente') out.push({iso,op,id:s.id,nome:s.nome,status:s.statusAtendimento}); });
+    });
+  });
+  return out;
+}
+async function notifyIfPossible(title, body){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification(title, {body, icon:'icon-192.png', badge:'icon-192.png'});
+  }catch(e){ console.log('notificação falhou', e); }
+}
 function attachRealtimeListeners(){
-  fbListen('agenda', val=>{ STATE.agenda = val||{}; refreshVisibleTab(); });
+  fbListen('agenda', val=>{
+    const newAgenda = val||{};
+    if(Date.now()-lastLocalAgendaSave > 3000){
+      const oldFlat = flattenAgenda(STATE.agenda);
+      const newFlat = flattenAgenda(newAgenda);
+      const oldMap = {}; oldFlat.forEach(x=>oldMap[x.id]=x);
+      const newMap = {}; newFlat.forEach(x=>newMap[x.id]=x);
+      newFlat.forEach(x=>{ if(!oldMap[x.id]) notifyIfPossible('📅 Novo agendamento', x.nome+' — '+fmtDatePt(new Date(x.iso+'T00:00:00'))+' • '+x.op); });
+      oldFlat.forEach(x=>{
+        const still = newMap[x.id];
+        if((!still && x.status!=='cancelado') || (still && still.status==='cancelado' && x.status!=='cancelado')){
+          notifyIfPossible('❌ Agendamento cancelado', x.nome+' — '+fmtDatePt(new Date(x.iso+'T00:00:00')));
+        }
+      });
+    }
+    STATE.agenda = newAgenda;
+    refreshVisibleTab();
+  });
   fbListen('tutors', val=>{ STATE.tutors = val||[]; refreshVisibleTab(); });
   fbListen('pets', val=>{ STATE.pets = val||[]; refreshVisibleTab(); });
   fbListen('cobrancas', val=>{ STATE.cobrancas = val||[]; STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes?[c.mes]:[]; delete c.mes; } }); refreshVisibleTab(); });
@@ -1225,22 +1306,62 @@ function renderDashboard(){
 }
 
 // ---------- AGENDA ----------
+const STRIP_MIN = new Date(2026,0,1);
+const STRIP_MAX = new Date(2099,11,31);
+let stripStart=null, stripEnd=null;
+function createPill(d){
+  const iso = toISO(d);
+  const pill = document.createElement('div');
+  pill.className='daypill';
+  pill.dataset.iso = iso;
+  pill.innerHTML = DIAS[d.getDay()].slice(0,3)+'<span class="num">'+d.getDate()+'</span>';
+  pill.addEventListener('click',()=>{ selectedDateISO=iso; renderWeek(); });
+  return pill;
+}
+function appendPillsRange(from, to, prepend){
+  const pillsEl = document.getElementById('dayPills');
+  const frag = document.createDocumentFragment();
+  const d = new Date(from);
+  while(d<=to){
+    if(d.getDay()!==0) frag.appendChild(createPill(d));
+    d.setDate(d.getDate()+1);
+  }
+  if(prepend) pillsEl.insertBefore(frag, pillsEl.firstChild);
+  else pillsEl.appendChild(frag);
+}
+function onStripScroll(){
+  const pillsEl = document.getElementById('dayPills');
+  const threshold = 300;
+  if(pillsEl.scrollLeft < threshold && stripStart > STRIP_MIN){
+    const oldScrollWidth = pillsEl.scrollWidth;
+    let newStart = new Date(stripStart); newStart.setDate(newStart.getDate()-60);
+    if(newStart < STRIP_MIN) newStart = new Date(STRIP_MIN);
+    const rangeEnd = new Date(stripStart); rangeEnd.setDate(rangeEnd.getDate()-1);
+    if(rangeEnd>=newStart){ appendPillsRange(newStart, rangeEnd, true); }
+    stripStart = newStart;
+    updateDayStrip();
+    pillsEl.scrollLeft += (pillsEl.scrollWidth-oldScrollWidth);
+  }
+  if(pillsEl.scrollWidth - pillsEl.scrollLeft - pillsEl.clientWidth < threshold && stripEnd < STRIP_MAX){
+    let newEnd = new Date(stripEnd); newEnd.setDate(newEnd.getDate()+60);
+    if(newEnd > STRIP_MAX) newEnd = new Date(STRIP_MAX);
+    const rangeStart = new Date(stripEnd); rangeStart.setDate(rangeStart.getDate()+1);
+    if(rangeStart<=newEnd){ appendPillsRange(rangeStart, newEnd, false); }
+    stripEnd = newEnd;
+    updateDayStrip();
+  }
+}
 function buildDayStrip(){
   const pillsEl = document.getElementById('dayPills');
   pillsEl.innerHTML='';
-  const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-30);
-  const totalDays = 430;
-  for(let i=0;i<totalDays;i++){
-    const d = new Date(start); d.setDate(start.getDate()+i);
-    if(d.getDay()===0) continue; // pula domingo (sem atendimento)
-    const iso = toISO(d);
-    const pill = document.createElement('div');
-    pill.className='daypill';
-    pill.dataset.iso = iso;
-    pill.innerHTML = DIAS[d.getDay()].slice(0,3)+'<span class="num">'+d.getDate()+'</span>';
-    pill.addEventListener('click',()=>{ selectedDateISO=iso; renderWeek(); });
-    pillsEl.appendChild(pill);
-  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  let start = new Date(today); start.setDate(start.getDate()-45);
+  let end = new Date(today); end.setDate(end.getDate()+90);
+  if(start < STRIP_MIN) start = new Date(STRIP_MIN);
+  if(end > STRIP_MAX) end = new Date(STRIP_MAX);
+  stripStart = start; stripEnd = end;
+  appendPillsRange(start, end, false);
+  pillsEl.addEventListener('scroll', onStripScroll);
 }
 function updateDayStrip(){
   const capF = STATE.config.capacity.Fixo||8, capM = STATE.config.capacity.Móvel||8;
@@ -2107,21 +2228,100 @@ document.getElementById('addTplBtn').addEventListener('click',()=>{
 });
 
 // ---------- ESTOQUE ----------
+// ---------- FORNECEDORES E COMPRAS ----------
+function renderFornecedoresArea(){
+  const area = document.getElementById('fornecedoresArea');
+  if(STATE.fornecedores.length===0){ area.innerHTML='<div class="empty"><span class="emoji">🚚</span>Nenhum fornecedor cadastrado.</div>'; }
+  else{
+    area.innerHTML='';
+    STATE.fornecedores.forEach(f=>{
+      const row=document.createElement('div');
+      row.className='fornecedorrow';
+      row.innerHTML='<div><div class="fname">'+f.nome+'</div><div class="fmeta">'+(f.tipoProdutos||'—')+(f.telefone?' • '+f.telefone:'')+'</div></div>'+
+        '<button data-act="del">🗑️</button>';
+      row.querySelector('[data-act="del"]').addEventListener('click', async ()=>{
+        STATE.fornecedores = STATE.fornecedores.filter(x=>x.id!==f.id);
+        await saveFornecedores();
+        renderFornecedoresArea();
+        populateCompraSelects();
+      });
+      area.appendChild(row);
+    });
+  }
+  populateCompraSelects();
+}
+document.getElementById('addFornecedorBtn').addEventListener('click', async ()=>{
+  const nome = document.getElementById('fNome').value.trim();
+  if(!nome){ toast('Informe o nome do fornecedor'); return; }
+  STATE.fornecedores.push({ id:'f'+Date.now(), nome, tipoProdutos: document.getElementById('fTipoProdutos').value.trim(), telefone: document.getElementById('fTelefone').value.trim() });
+  await saveFornecedores();
+  document.getElementById('fNome').value=''; document.getElementById('fTipoProdutos').value=''; document.getElementById('fTelefone').value='';
+  renderFornecedoresArea();
+  toast('Fornecedor adicionado!');
+});
+function populateCompraSelects(){
+  const fSel = document.getElementById('compraFornecedor');
+  fSel.innerHTML = STATE.fornecedores.length ? '' : '<option value="">Nenhum fornecedor cadastrado</option>';
+  STATE.fornecedores.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.nome; fSel.appendChild(o); });
+  const iSel = document.getElementById('compraItem');
+  iSel.innerHTML = STATE.estoque.length ? '' : '<option value="">Nenhum item cadastrado</option>';
+  STATE.estoque.forEach(it=>{ const o=document.createElement('option'); o.value=it.id; o.textContent=it.nome; iSel.appendChild(o); });
+}
+attachCurrencyMask(document.getElementById('compraValorUnitario'));
+document.getElementById('registrarCompraBtn').addEventListener('click', async ()=>{
+  const fornecedorId = document.getElementById('compraFornecedor').value;
+  const itemId = document.getElementById('compraItem').value;
+  const quantidade = parseFloat(document.getElementById('compraQuantidade').value)||0;
+  const valorUnitario = parseBRLMask(document.getElementById('compraValorUnitario').value);
+  if(!fornecedorId || !itemId || quantidade<=0){ toast('Preencha fornecedor, item e quantidade'); return; }
+  const item = STATE.estoque.find(x=>x.id===itemId);
+  if(!item){ toast('Item não encontrado'); return; }
+  item.quantidade = (item.quantidade||0) + quantidade;
+  if(valorUnitario>0) item.valorCusto = valorUnitario;
+  await saveEstoque();
+  STATE.compras.push({ id:'c'+Date.now(), fornecedorId, itemId, quantidade, valorUnitario, valorTotal: quantidade*valorUnitario, data: todayISO() });
+  await saveCompras();
+  document.getElementById('compraQuantidade').value='';
+  document.getElementById('compraValorUnitario').value='';
+  renderEstoqueList();
+  toast('Compra registrada e estoque atualizado!');
+});
+function renderHistCompraSearch(){
+  const term = document.getElementById('buscaHistCompra').value.trim().toLowerCase();
+  const resEl = document.getElementById('histCompraResultado');
+  if(!term){ resEl.innerHTML=''; return; }
+  const results = STATE.compras.filter(c=>{
+    const f = STATE.fornecedores.find(x=>x.id===c.fornecedorId);
+    const it = STATE.estoque.find(x=>x.id===c.itemId);
+    return (f && f.nome.toLowerCase().includes(term)) || (it && it.nome.toLowerCase().includes(term));
+  }).sort((a,b)=>b.data.localeCompare(a.data));
+  if(results.length===0){ resEl.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma compra encontrada.</div>'; return; }
+  resEl.innerHTML = results.map(c=>{
+    const f = STATE.fornecedores.find(x=>x.id===c.fornecedorId);
+    const it = STATE.estoque.find(x=>x.id===c.itemId);
+    return '<div class="penditem"><span>'+fmtDateFull(new Date(c.data+'T00:00:00'))+' • '+(it?it.nome:'?')+' • '+(f?f.nome:'?')+' • '+c.quantidade+'</span><span>'+formatBRL(c.valorTotal)+'</span></div>';
+  }).join('');
+}
+document.getElementById('buscaHistCompra').addEventListener('input', renderHistCompraSearch);
+
 function renderEstoqueList(){
   const area = document.getElementById('estoqueArea');
-  if(STATE.estoque.length===0){ area.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum item cadastrado ainda.</div>'; return; }
-  area.innerHTML='';
-  STATE.estoque.forEach(it=>{
-    const baixo = (it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo;
-    const card = document.createElement('div');
-    card.className='estoquecard'+(baixo?' baixo':'');
-    card.innerHTML = (it.foto?'<img class="ephoto" src="'+it.foto+'">':'<div class="ephoto"></div>')+
-      '<div class="einfo"><div class="ename">'+it.nome+'</div>'+
-      '<div class="emeta">'+(it.categoria||'—')+'</div></div>'+
-      '<div class="eqtd">'+(it.quantidade||0)+' '+(it.unidade||'')+(baixo?'<br><span style="font-size:10px;">⚠️ baixo</span>':'')+'</div>';
-    card.addEventListener('click',()=>openEstoqueModal(it.id));
-    area.appendChild(card);
-  });
+  if(STATE.estoque.length===0){ area.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum item cadastrado ainda.</div>'; }
+  else{
+    area.innerHTML='';
+    STATE.estoque.forEach(it=>{
+      const baixo = (it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo;
+      const card = document.createElement('div');
+      card.className='estoquecard'+(baixo?' baixo':'');
+      card.innerHTML = (it.foto?'<img class="ephoto" src="'+it.foto+'">':'<div class="ephoto"></div>')+
+        '<div class="einfo"><div class="ename">'+it.nome+'</div>'+
+        '<div class="emeta">'+(it.categoria||'—')+'</div></div>'+
+        '<div class="eqtd">'+(it.quantidade||0)+' '+(it.unidade||'')+(baixo?'<br><span style="font-size:10px;">⚠️ baixo</span>':'')+'</div>';
+      card.addEventListener('click',()=>openEstoqueModal(it.id));
+      area.appendChild(card);
+    });
+  }
+  renderFornecedoresArea();
 }
 function openEstoqueModal(id){
   const it = id ? STATE.estoque.find(x=>x.id===id) : null;
@@ -2425,7 +2625,7 @@ async function autoGeneratePackageCobrancas(){
     if(ym > currentYm) return; // só agrupa a partir do mês atual (dia 01) em diante, nunca meses futuros sozinho
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && s.seriesId && !s.recorrenteAvulso && !s.cobrancaId && (s.valor||0)>0){
+        if(s.tipo==='cliente' && s.seriesId && !s.recorrenteAvulso && !s.cobrancaId && (s.valor||0)>0 && s.statusAtendimento!=='cancelado'){
           const p = getPet(s.petId);
           if(!p) return;
           const key = p.tutorId+'|'+ym;
@@ -2757,6 +2957,9 @@ async function startApp(){
   await autoGeneratePackageCobrancas();
   renderDashboard();
   attachRealtimeListeners();
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
 }
 
 (async function init(){
@@ -2782,13 +2985,14 @@ async function startApp(){
   if(saved){
     try{
       currentUser = JSON.parse(saved);
-      if(currentUser.key){
-        try{
-          const usuarios = (await fbGet('usuarios')) || {};
-          const u = usuarios[currentUser.key];
-          if(u) agendaViewMode = u.agendaViewMode || 'ambos';
-        }catch(e){}
-      }
+      try{
+        const usuarios = (await fbGet('usuarios')) || {};
+        if(!currentUser.key){
+          const foundEntry = Object.entries(usuarios).find(([k,u])=>u.nome.toLowerCase()===currentUser.nome.toLowerCase());
+          if(foundEntry){ currentUser.key = foundEntry[0]; localStorage.setItem('md_currentUser', JSON.stringify(currentUser)); }
+        }
+        if(currentUser.key && usuarios[currentUser.key]){ agendaViewMode = usuarios[currentUser.key].agendaViewMode || 'ambos'; }
+      }catch(e){}
       document.getElementById('loginScreen').classList.add('hide');
       applyPermissions();
       await startApp();
