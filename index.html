@@ -193,6 +193,24 @@
   .monthnav button{background:none; border:none; font-size:18px; color:var(--roxo); cursor:pointer;}
   .histitem{display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line);}
 
+  .dashgreetbox{margin-bottom:14px;}
+  .dashgreetbox #dashGreeting{font-family:'Baloo 2',sans-serif; font-size:21px; font-weight:700; color:var(--roxo-dark); line-height:1.25;}
+  .dashgreetbox #dashGreetingSub{font-size:13.5px; color:var(--muted); margin-top:2px;}
+  .carddash h3{font-size:16.5px;}
+  .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line);}
+  .dashitem:last-child{border-bottom:none;}
+  .dashitem .dbar{width:6px; height:42px; border-radius:6px; flex-shrink:0;}
+  .dashitem .dname{font-size:15px; font-weight:700; color:var(--text); line-height:1.3;}
+  .dashitem .dmeta{font-size:12.5px; color:var(--muted); margin-top:2px;}
+  .estoquecard{display:flex; gap:12px; align-items:center; background:var(--card); border-radius:14px; padding:12px; margin-bottom:10px; box-shadow:0 1px 3px rgba(76,20,50,0.06); cursor:pointer;}
+  .estoquecard .ephoto{width:52px; height:52px; border-radius:12px; object-fit:cover; background:var(--card-soft); flex-shrink:0;}
+  .estoquecard .einfo{flex:1; min-width:0;}
+  .estoquecard .ename{font-weight:700; font-size:14.5px;}
+  .estoquecard .emeta{font-size:12px; color:var(--muted); margin-top:2px;}
+  .estoquecard .eqtd{font-weight:800; font-size:14px; font-family:'Baloo 2',sans-serif; text-align:right;}
+  .estoquecard.baixo{border:1.5px solid var(--full);}
+  .estoquecard.baixo .eqtd{color:var(--full);}
+
   /* DRAWER NAV */
   header.top{justify-content:flex-start;}
   .menubtn{background:rgba(255,255,255,0.18); border:none; color:#fff; width:38px; height:38px; border-radius:10px; font-size:18px; cursor:pointer; flex-shrink:0; margin-right:2px;}
@@ -258,6 +276,7 @@
       <button class="dtab" data-tab="clientes">👤 Tutores</button>
       <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
       <button class="dtab" data-tab="config">⚙️ Config.</button>
+      <button class="dtab" data-tab="estoque">📦 Estoque</button>
       <hr class="divider">
       <div class="footer-note" id="drawerUserInfo" style="text-align:left; padding:0 10px;"></div>
       <button class="dtab" id="logoutBtn" style="color:var(--full);">🚪 Sair</button>
@@ -267,12 +286,15 @@
   <main>
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
-      <div id="dashGreeting" style="font-family:'Baloo 2',sans-serif; font-size:19px; font-weight:700; color:var(--roxo-dark); margin-bottom:12px;"></div>
-      <div class="card">
+      <div class="dashgreetbox">
+        <div id="dashGreeting"></div>
+        <div id="dashGreetingSub">Tenha um dia abençoado</div>
+      </div>
+      <div class="card carddash">
         <h3>🗓️ Hoje</h3>
         <div id="dashHoje"></div>
       </div>
-      <div class="card" id="dashCobrancasCard">
+      <div class="card carddash" id="dashCobrancasCard">
         <h3>💰 Cobranças e pagamentos a fazer</h3>
         <div id="dashCobrancas"></div>
       </div>
@@ -543,6 +565,15 @@
         </div>
       </div>
     </section>
+
+    <!-- ESTOQUE -->
+    <section id="tab-estoque">
+      <div class="card">
+        <h3>📦 Itens em estoque</h3>
+        <div id="estoqueArea"></div>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addEstoqueBtn">➕ Adicionar item</button>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -658,6 +689,37 @@
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dExcluirProximos">Este e os próximos</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px; color:var(--full);" id="dExcluirTodos">Todos (incluindo anteriores)</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Estoque -->
+<div class="modal-bg" id="estoqueModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeEstoqueModal">×</button>
+    <h3 id="estoqueModalTitle">Novo item</h3>
+    <input type="hidden" id="eEditId">
+    <label>Foto do item</label>
+    <label for="eFoto" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">📷 Escolher foto</label>
+    <input type="file" accept="image/*" id="eFoto" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
+    <img id="eFotoPreview" class="photopreview" style="display:none;">
+    <label>Nome</label>
+    <input id="eNome" placeholder="Ex: Shampoo neutro">
+    <label>Descrição</label>
+    <textarea id="eDescricao" placeholder="Detalhes do produto..."></textarea>
+    <label>Categoria</label>
+    <input id="eCategoria" placeholder="Ex: Shampoo, Luvas, Perfume...">
+    <div class="row">
+      <div><label>Quantidade atual</label><input type="number" id="eQuantidade" min="0" step="0.1"></div>
+      <div><label>Unidade</label><input id="eUnidade" placeholder="ml, un, kg..."></div>
+    </div>
+    <div class="row">
+      <div><label>Valor de custo (R$0000,00)</label><input type="text" inputmode="numeric" id="eValorCusto"></div>
+      <div><label>Nível mínimo</label><input type="number" id="eNivelMinimo" min="0" step="0.1"></div>
+    </div>
+    <label>Consumo por atendimento (opcional — uso futuro)</label>
+    <input type="number" id="eConsumoAtendimento" min="0" step="0.1" placeholder="Deixe 0 por enquanto">
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" id="saveEstoqueBtn">Salvar item</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px; color:var(--full); display:none;" id="deleteEstoqueBtn">Excluir item</button>
   </div>
 </div>
 
@@ -782,6 +844,7 @@ let STATE = {
   pets: [],
   cobrancas: [],
   despesas: [],
+  estoque: [],
   config: {
     logo: DEFAULT_LOGO,
     templates: [
@@ -822,6 +885,7 @@ async function loadAll(){
   try{ STATE.cobrancas = (await fbGet('cobrancas')) || []; }catch(e){ STATE.cobrancas=[]; }
   STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes ? [c.mes] : []; delete c.mes; } });
   try{ STATE.despesas = (await fbGet('despesas')) || []; }catch(e){ STATE.despesas=[]; }
+  try{ STATE.estoque = (await fbGet('estoque')) || []; }catch(e){ STATE.estoque=[]; }
   try{
     const parsed = await fbGet('config');
     if(parsed){
@@ -851,6 +915,7 @@ async function saveTutors(){ try{ await fbSet('tutors', STATE.tutors); }catch(e)
 async function savePets(){ try{ await fbSet('pets', STATE.pets); }catch(e){ toast('Erro ao salvar pets'); } }
 async function saveCobrancas(){ try{ await fbSet('cobrancas', STATE.cobrancas); }catch(e){ toast('Erro ao salvar cobranças'); } }
 async function saveDespesas(){ try{ await fbSet('despesas', STATE.despesas); }catch(e){ toast('Erro ao salvar despesas'); } }
+async function saveEstoque(){ try{ await fbSet('estoque', STATE.estoque); }catch(e){ toast('Erro ao salvar estoque'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
 async function saveAgenda(){ try{ await fbSet('agenda', STATE.agenda); }catch(e){ toast('Erro ao salvar agenda'); } }
 
@@ -863,6 +928,7 @@ function refreshVisibleTab(){
   if(tab==='agenda') renderWeek();
   if(tab==='financeiro') renderFinanceiro();
   if(tab==='clientes'){ if(currentTutorId) openTutorProfile(currentTutorId); else renderTutorList(); }
+  if(tab==='estoque') renderEstoqueList();
 }
 function attachRealtimeListeners(){
   fbListen('agenda', val=>{ STATE.agenda = val||{}; refreshVisibleTab(); });
@@ -870,6 +936,7 @@ function attachRealtimeListeners(){
   fbListen('pets', val=>{ STATE.pets = val||[]; refreshVisibleTab(); });
   fbListen('cobrancas', val=>{ STATE.cobrancas = val||[]; STATE.cobrancas.forEach(c=>{ if(!c.meses){ c.meses = c.mes?[c.mes]:[]; delete c.mes; } }); refreshVisibleTab(); });
   fbListen('despesas', val=>{ STATE.despesas = val||[]; refreshVisibleTab(); });
+  fbListen('estoque', val=>{ STATE.estoque = val||[]; refreshVisibleTab(); });
 }
 
 // ---------- LOGIN E USUÁRIOS ----------
@@ -941,7 +1008,7 @@ document.getElementById('btnResetConfirmar').addEventListener('click', async ()=
 });
 function applyPermissions(){
   const isAdmin = currentUser && currentUser.role==='admin';
-  document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"]').forEach(b=>{
+  document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"], .dtab[data-tab="estoque"]').forEach(b=>{
     b.style.display = isAdmin ? '' : 'none';
   });
   document.getElementById('drawerUserInfo').textContent = currentUser ? (currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')) : '';
@@ -1056,6 +1123,7 @@ document.querySelectorAll('.dtab').forEach(b=>{
     if(b.dataset.tab==='dashboard'){ autoGeneratePackageCobrancas().then(renderDashboard); }
     if(b.dataset.tab==='clientes'){ showTutoresList(); }
     if(b.dataset.tab==='config') renderConfigForm();
+    if(b.dataset.tab==='estoque') renderEstoqueList();
     if(b.dataset.tab==='sugestao'){ renderSugForm(); populateServiceSelects(); }
     if(b.dataset.tab==='financeiro') renderFinanceiro();
   });
@@ -1080,8 +1148,8 @@ function renderDashboard(){
       const svc = s.tipo==='cliente' ? getService(s.servico) : null;
       const color = svc ? svc.color : 'var(--muted)';
       const statusLbl = STATUS_LABEL[s.statusAtendimento]||'';
-      return '<div class="histitem"><div style="width:8px;height:36px;border-radius:4px;background:'+color+';"></div>'+
-        '<div class="hinfo"><div class="hname">'+s.inicio+' — '+label+'</div><div>'+s.op+(statusLbl?' • '+statusLbl:'')+'</div></div></div>';
+      return '<div class="dashitem"><div class="dbar" style="background:'+color+';"></div>'+
+        '<div><div class="dname">'+s.inicio+' — '+label+'</div><div class="dmeta">'+s.op+(statusLbl?' • '+statusLbl:'')+'</div></div></div>';
     }).join('');
   }
 
@@ -1984,6 +2052,97 @@ document.getElementById('addTplBtn').addEventListener('click',()=>{
   renderTemplatesArea();
 });
 
+// ---------- ESTOQUE ----------
+function renderEstoqueList(){
+  const area = document.getElementById('estoqueArea');
+  if(STATE.estoque.length===0){ area.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum item cadastrado ainda.</div>'; return; }
+  area.innerHTML='';
+  STATE.estoque.forEach(it=>{
+    const baixo = (it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo;
+    const card = document.createElement('div');
+    card.className='estoquecard'+(baixo?' baixo':'');
+    card.innerHTML = (it.foto?'<img class="ephoto" src="'+it.foto+'">':'<div class="ephoto"></div>')+
+      '<div class="einfo"><div class="ename">'+it.nome+'</div>'+
+      '<div class="emeta">'+(it.categoria||'—')+'</div></div>'+
+      '<div class="eqtd">'+(it.quantidade||0)+' '+(it.unidade||'')+(baixo?'<br><span style="font-size:10px;">⚠️ baixo</span>':'')+'</div>';
+    card.addEventListener('click',()=>openEstoqueModal(it.id));
+    area.appendChild(card);
+  });
+}
+function openEstoqueModal(id){
+  const it = id ? STATE.estoque.find(x=>x.id===id) : null;
+  document.getElementById('eEditId').value = id||'';
+  document.getElementById('estoqueModalTitle').textContent = id?'Editar item':'Novo item';
+  document.getElementById('eNome').value = it?it.nome:'';
+  document.getElementById('eDescricao').value = it?(it.descricao||''):'';
+  document.getElementById('eCategoria').value = it?(it.categoria||''):'';
+  document.getElementById('eQuantidade').value = it?(it.quantidade||0):0;
+  document.getElementById('eUnidade').value = it?(it.unidade||''):'';
+  document.getElementById('eValorCusto').value = formatBRLMaskValue(it?(it.valorCusto||0):0);
+  document.getElementById('eNivelMinimo').value = it?(it.nivelMinimo||0):0;
+  document.getElementById('eConsumoAtendimento').value = it?(it.consumoPorAtendimento||0):0;
+  document.getElementById('eFoto').value=''; document.getElementById('eFoto').dataset.value = it?(it.foto||''):'';
+  if(it && it.foto){ document.getElementById('eFotoPreview').src=it.foto; document.getElementById('eFotoPreview').style.display='block'; }
+  else{ document.getElementById('eFotoPreview').style.display='none'; }
+  document.getElementById('deleteEstoqueBtn').style.display = id ? 'block' : 'none';
+  document.getElementById('estoqueModalBg').classList.add('show');
+}
+document.getElementById('deleteEstoqueBtn').addEventListener('click', async ()=>{
+  const id = document.getElementById('eEditId').value;
+  if(!id) return;
+  STATE.estoque = STATE.estoque.filter(x=>x.id!==id);
+  await saveEstoque();
+  document.getElementById('estoqueModalBg').classList.remove('show');
+  renderEstoqueList();
+  toast('Item removido!');
+});
+document.getElementById('addEstoqueBtn').addEventListener('click',()=>openEstoqueModal(null));
+document.getElementById('closeEstoqueModal').addEventListener('click',()=>document.getElementById('estoqueModalBg').classList.remove('show'));
+attachCurrencyMask(document.getElementById('eValorCusto'));
+document.getElementById('eFotoPreview').style.cursor='pointer';
+document.getElementById('eFotoPreview').addEventListener('click',()=>openLightbox(document.getElementById('eFotoPreview').src));
+document.getElementById('eFoto').addEventListener('change',(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxDim=300; let w=img.width,h=img.height;
+      if(w>h){ if(w>maxDim){h*=maxDim/w; w=maxDim;} } else { if(h>maxDim){w*=maxDim/h; h=maxDim;} }
+      const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+      document.getElementById('eFotoPreview').src=dataUrl;
+      document.getElementById('eFotoPreview').style.display='block';
+      document.getElementById('eFoto').dataset.value=dataUrl;
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
+  const id = document.getElementById('eEditId').value;
+  const item = {
+    id: id || 'e'+Date.now(),
+    nome: document.getElementById('eNome').value.trim(),
+    descricao: document.getElementById('eDescricao').value.trim(),
+    categoria: document.getElementById('eCategoria').value.trim(),
+    quantidade: parseFloat(document.getElementById('eQuantidade').value)||0,
+    unidade: document.getElementById('eUnidade').value.trim(),
+    valorCusto: parseBRLMask(document.getElementById('eValorCusto').value),
+    nivelMinimo: parseFloat(document.getElementById('eNivelMinimo').value)||0,
+    consumoPorAtendimento: parseFloat(document.getElementById('eConsumoAtendimento').value)||0,
+    foto: document.getElementById('eFoto').dataset.value || null
+  };
+  if(!item.nome){ toast('Informe o nome do item'); return; }
+  if(id){ STATE.estoque = STATE.estoque.map(x=>x.id===id?item:x); }
+  else { STATE.estoque.push(item); }
+  await saveEstoque();
+  document.getElementById('estoqueModalBg').classList.remove('show');
+  renderEstoqueList();
+  toast('Item salvo!');
+});
+
 function renderConfigForm(){
   renderServicesArea();
   renderTemplatesArea();
@@ -2130,7 +2289,7 @@ function collectPendencias(){
   Object.keys(STATE.agenda).forEach(iso=>{
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        const isPacoteItem = s.seriesId && s.servico==='Banho' && !s.recorrenteAvulso;
+        const isPacoteItem = s.seriesId && !s.recorrenteAvulso;
         if(s.tipo==='cliente' && !s.pago && !s.cobrancaId && (s.valor||0)>0 && !isPacoteItem && s.statusAtendimento==='concluido'){
           const p = getPet(s.petId);
           const tutorId = p ? p.tutorId : null;
@@ -2195,7 +2354,7 @@ async function autoGeneratePackageCobrancas(){
     if(ym > currentYm) return; // só agrupa a partir do mês atual (dia 01) em diante, nunca meses futuros sozinho
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && s.seriesId && s.servico==='Banho' && !s.recorrenteAvulso && !s.cobrancaId && (s.valor||0)>0){
+        if(s.tipo==='cliente' && s.seriesId && !s.recorrenteAvulso && !s.cobrancaId && (s.valor||0)>0){
           const p = getPet(s.petId);
           if(!p) return;
           const key = p.tutorId+'|'+ym;
@@ -2277,7 +2436,7 @@ function searchPaidItems(term, wantPacote){
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
         if(s.tipo!=='cliente' || !s.pago) return;
-        const isPacoteItem = !!(s.seriesId && s.servico==='Banho' && !s.recorrenteAvulso);
+        const isPacoteItem = !!(s.seriesId && !s.recorrenteAvulso);
         if(isPacoteItem !== wantPacote) return;
         if(!(s.nome||'').toLowerCase().includes(term)) return;
         results.push({iso, op, servico:s.servico, valor:s.valor, formaPagamento:s.formaPagamento, nome:s.nome});
@@ -2350,17 +2509,17 @@ async function renderFinanceiro(){
     const total = items.reduce((a,i)=>a+i.valor,0);
     const status = getCobrancaStatus(cb);
 
-    const pacoteItems = items.filter(i=>i.seriesId && i.servico==='Banho' && i.petId);
-    const extraItems = items.filter(i=>!(i.seriesId && i.servico==='Banho' && i.petId));
+    const pacoteItems = items.filter(i=>i.seriesId && i.petId);
+    const extraItems = items.filter(i=>!(i.seriesId && i.petId));
     const pacotePorPet = {};
     pacoteItems.forEach(i=>{
-      if(!pacotePorPet[i.petId]) pacotePorPet[i.petId]={count:0, total:0};
+      if(!pacotePorPet[i.petId]) pacotePorPet[i.petId]={count:0, total:0, servico:i.servico};
       pacotePorPet[i.petId].count++; pacotePorPet[i.petId].total+=i.valor;
     });
     let linhasHtml = Object.keys(pacotePorPet).map(petId=>{
       const p = getPet(petId);
       const g = pacotePorPet[petId];
-      return '<div class="penditem"><span>📦 Pacote de '+g.count+' Banhos — '+(p?p.name:'?')+'</span><span>'+formatBRL(g.total)+'</span></div>';
+      return '<div class="penditem"><span>📦 Pacote de '+g.count+'× '+g.servico+' — '+(p?p.name:'?')+'</span><span>'+formatBRL(g.total)+'</span></div>';
     }).join('');
     linhasHtml += extraItems.map(i=>'<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')</span><span>'+formatBRL(i.valor)+'</span></div>').join('');
 
@@ -2401,7 +2560,7 @@ async function renderFinanceiro(){
     card.querySelector('[data-act="cobrar"]').addEventListener('click',()=>{
       const linhasTxt = Object.keys(pacotePorPet).map(petId=>{
         const p = getPet(petId); const g = pacotePorPet[petId];
-        return '- 📦 Pacote de '+g.count+' Banhos — '+(p?p.name:'?')+' • '+formatBRL(g.total);
+        return '- 📦 Pacote de '+g.count+'× '+g.servico+' — '+(p?p.name:'?')+' • '+formatBRL(g.total);
       }).concat(extraItems.map(i=>'- '+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' • '+formatBRL(i.valor)));
       const txt = 'Olá '+(t?t.name:'')+'! Passando pra lembrar dos atendimentos em aberto:\n'+
         linhasTxt.join('\n')+
