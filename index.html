@@ -161,6 +161,13 @@
   .badge.pendente{background:var(--amarelo-bg); color:var(--amarelo);}
   .badge.atrasado{background:var(--full-bg); color:var(--full);}
   .badge.parcial{background:#FDEAD7; color:#C1701D;}
+  body.theme2{ --rosa:#472F7D; --rosa-dark:#392564; --roxo:#AA426C; --roxo-dark:#8A3459; }
+  body.theme3{ --rosa:#6B4A8A; --rosa-dark:#523669; --roxo:#472F7D; --roxo-dark:#33235C; }
+  .temaBtn{width:100%; border-radius:14px; border:2px solid var(--line); padding:12px; cursor:pointer; background:#fff; margin-bottom:8px; display:flex; align-items:center; gap:10px;}
+  .temaBtn.selected{border-color:var(--roxo);}
+  .temaBtn .temaSwatch{display:flex; border-radius:8px; overflow:hidden; width:50px; height:26px; flex-shrink:0;}
+  .temaBtn .temaSwatch div{flex:1;}
+  .temaBtn .temaLabel{font-weight:700; font-size:13.5px; color:var(--text);}
 
   .behaviorgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
   .behaviorchip{padding:6px 10px; border-radius:20px; background:var(--card-soft); font-size:12px; font-weight:600; cursor:pointer; color:var(--roxo-dark); border:1.5px solid transparent;}
@@ -197,7 +204,7 @@
   .dashgreetbox #dashGreeting{font-family:'Baloo 2',sans-serif; font-size:21px; font-weight:700; color:var(--roxo-dark); line-height:1.25;}
   .dashgreetbox #dashGreetingSub{font-size:13.5px; color:var(--muted); margin-top:2px;}
   .carddash h3{font-size:16.5px;}
-  .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line);}
+  .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
   .dashitem:last-child{border-bottom:none;}
   .dashitem .dbar{width:6px; height:42px; border-radius:6px; flex-shrink:0;}
   .dashitem .dname{font-size:15px; font-weight:700; color:var(--text); line-height:1.3;}
@@ -262,7 +269,7 @@
     <img id="headerLogoImg" class="logoimg" style="display:none;">
     <span id="headerLogoPh" class="logoph">🐾</span>
     <div>
-      <p class="brand">Meu Dengo</p>
+      <p class="brand" id="headerBrandName">Meu Dengo</p>
       <p class="sub" id="headerSub">Dashboard</p>
     </div>
   </header>
@@ -444,6 +451,7 @@
         <h3>📦 Pacotes</h3>
         <p class="footer-note" style="margin:0 0 10px; text-align:left;">Cobranças automáticas dos banhos recorrentes. Vencimento editável a qualquer momento.</p>
         <div id="pacotesArea"></div>
+        <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
         <hr class="divider">
         <label>🔍 Histórico de pagamentos de pacotes</label>
         <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
@@ -478,10 +486,22 @@
     <!-- CONFIG -->
     <section id="tab-config">
       <div class="card">
-        <h3>Logo da empresa</h3>
+        <h3>🏢 Perfil da empresa</h3>
+        <label>Logo</label>
         <label for="logoUpload" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">🖼️ Escolher imagem</label>
         <input type="file" accept="image/*" id="logoUpload" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
         <img id="logoPreview" class="photopreview" style="display:none;">
+        <label>Nome da empresa</label>
+        <input id="perfilNomeEmpresa" placeholder="Meu Dengo">
+        <label>CNPJ</label>
+        <input id="perfilCnpj" placeholder="00.000.000/0000-00">
+      </div>
+      <div class="card">
+        <h3>🎨 Tema de cores</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Mesma paleta, aplicada de formas diferentes.</p>
+        <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico (rosa em destaque)</span></button>
+        <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
+        <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave (tons unificados)</span></button>
       </div>
       <div class="card">
         <h3>Modelos de mensagem (WhatsApp)</h3>
@@ -692,6 +712,15 @@
   </div>
 </div>
 
+<!-- MODAL: Todos os pacotes (tela cheia) -->
+<div class="modal-bg" id="todosPacotesModalBg">
+  <div class="modal" style="max-height:96vh; border-radius:0; height:100vh;">
+    <button class="closebtn" id="closeTodosPacotesModal">×</button>
+    <h3>📦 Todos os pacotes</h3>
+    <div id="todosPacotesArea"></div>
+  </div>
+</div>
+
 <!-- MODAL: Estoque -->
 <div class="modal-bg" id="estoqueModalBg">
   <div class="modal">
@@ -859,7 +888,10 @@ let STATE = {
     zones: {Segunda:[],Terça:[],Quarta:[],Quinta:[],Sexta:[],Sábado:[]},
     capacity: {Fixo:8, Móvel:8},
     workHours: {start:'08:00', end:'18:00'},
-    pacoteDia: 25
+    pacoteDia: 25,
+    nomeEmpresa: 'Meu Dengo',
+    cnpj: '',
+    tema: 1
   },
   agenda: {}
 };
@@ -893,6 +925,9 @@ async function loadAll(){
       if(!STATE.config.logo) STATE.config.logo = DEFAULT_LOGO;
       if(!STATE.config.templates) STATE.config.templates = [];
       if(!STATE.config.pacoteDia) STATE.config.pacoteDia = 25;
+      if(!STATE.config.nomeEmpresa) STATE.config.nomeEmpresa = 'Meu Dengo';
+      if(STATE.config.cnpj==null) STATE.config.cnpj = '';
+      if(!STATE.config.tema) STATE.config.tema = 1;
       if(!STATE.config.services || STATE.config.services.length===0 || typeof STATE.config.services[0]==='string'){
         STATE.config.services = [
           {name:'Banho', color:'#AA426C', price:50, duration:50},
@@ -910,6 +945,13 @@ async function loadAll(){
     document.getElementById('headerLogoImg').style.display='block';
     document.getElementById('headerLogoPh').style.display='none';
   }
+  document.getElementById('headerBrandName').textContent = STATE.config.nomeEmpresa || 'Meu Dengo';
+  applyTema(STATE.config.tema||1);
+}
+function applyTema(n){
+  document.body.classList.remove('theme2','theme3');
+  if(n===2) document.body.classList.add('theme2');
+  if(n===3) document.body.classList.add('theme3');
 }
 async function saveTutors(){ try{ await fbSet('tutors', STATE.tutors); }catch(e){ toast('Erro ao salvar tutores'); } }
 async function savePets(){ try{ await fbSet('pets', STATE.pets); }catch(e){ toast('Erro ao salvar pets'); } }
@@ -1031,14 +1073,16 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
     const nome = document.getElementById('loginNome').value.trim();
     const senha = document.getElementById('loginSenha').value;
     const usuarios = (await fbGet('usuarios')) || {};
-    const found = Object.values(usuarios).find(u=>u.nome.toLowerCase()===nome.toLowerCase() && u.senha===senha);
-    if(!found){
+    const foundEntry = Object.entries(usuarios).find(([k,u])=>u.nome.toLowerCase()===nome.toLowerCase() && u.senha===senha);
+    if(!foundEntry){
       erroEl.textContent = 'Nome ou senha incorretos.';
       erroEl.style.display='block';
       btn.disabled = false;
       return;
     }
-    currentUser = {nome:found.nome, role:found.role};
+    const [foundKey, found] = foundEntry;
+    currentUser = {nome:found.nome, role:found.role, key:foundKey};
+    agendaViewMode = found.agendaViewMode || 'ambos';
     localStorage.setItem('md_currentUser', JSON.stringify(currentUser));
     document.getElementById('loginScreen').classList.add('hide');
     applyPermissions();
@@ -1148,9 +1192,12 @@ function renderDashboard(){
       const svc = s.tipo==='cliente' ? getService(s.servico) : null;
       const color = svc ? svc.color : 'var(--muted)';
       const statusLbl = STATUS_LABEL[s.statusAtendimento]||'';
-      return '<div class="dashitem"><div class="dbar" style="background:'+color+';"></div>'+
+      return '<div class="dashitem" data-op="'+s.op+'" data-id="'+s.id+'"><div class="dbar" style="background:'+color+';"></div>'+
         '<div><div class="dname">'+s.inicio+' — '+label+'</div><div class="dmeta">'+s.op+(statusLbl?' • '+statusLbl:'')+'</div></div></div>';
     }).join('');
+    el.querySelectorAll('.dashitem').forEach(elItem=>{
+      elItem.addEventListener('click',()=>openDetailModal(iso, elItem.dataset.op, elItem.dataset.id));
+    });
   }
 
   const groups = collectPendencias();
@@ -1230,6 +1277,7 @@ function getDaySlots(iso,op){
 }
 function renderAgenda(){
   if(!selectedDateISO) return;
+  document.getElementById('viewModeSelect').value = agendaViewMode;
   const d = new Date(selectedDateISO+'T00:00:00');
   document.getElementById('dayFullDate').textContent = DIAS[d.getDay()]+', '+fmtDatePt(d);
   const workStartMin = timeToMinutes(STATE.config.workHours.start);
@@ -1240,9 +1288,15 @@ function renderAgenda(){
   document.getElementById('colFixo').style.display = (agendaViewMode==='Móvel') ? 'none' : 'block';
   document.getElementById('colMovel').style.display = (agendaViewMode==='Fixo') ? 'none' : 'block';
 }
-document.getElementById('viewModeSelect').addEventListener('change',(e)=>{
+document.getElementById('viewModeSelect').addEventListener('change', async (e)=>{
   agendaViewMode = e.target.value;
   renderAgenda();
+  if(currentUser && currentUser.key){
+    try{
+      const usuarios = (await fbGet('usuarios')) || {};
+      if(usuarios[currentUser.key]){ usuarios[currentUser.key].agendaViewMode = agendaViewMode; await fbSet('usuarios', usuarios); }
+    }catch(e){}
+  }
 });
 function buildTimeAxis(workStartMin, workEndMin){
   const axis = document.getElementById('timeAxis');
@@ -2098,6 +2152,7 @@ document.getElementById('deleteEstoqueBtn').addEventListener('click', async ()=>
 });
 document.getElementById('addEstoqueBtn').addEventListener('click',()=>openEstoqueModal(null));
 document.getElementById('closeEstoqueModal').addEventListener('click',()=>document.getElementById('estoqueModalBg').classList.remove('show'));
+document.getElementById('closeTodosPacotesModal').addEventListener('click',()=>document.getElementById('todosPacotesModalBg').classList.remove('show'));
 attachCurrencyMask(document.getElementById('eValorCusto'));
 document.getElementById('eFotoPreview').style.cursor='pointer';
 document.getElementById('eFotoPreview').addEventListener('click',()=>openLightbox(document.getElementById('eFotoPreview').src));
@@ -2178,6 +2233,22 @@ function renderConfigForm(){
   workEndEl.onchange = async ()=>{ STATE.config.workHours.end = workEndEl.value; await saveConfig(); renderWeek(); toast('Salvo!'); };
   pacoteDiaEl.onchange = async ()=>{ STATE.config.pacoteDia = Math.min(28, Math.max(1, parseInt(pacoteDiaEl.value)||25)); await saveConfig(); toast('Salvo!'); };
   if(STATE.config.logo){ document.getElementById('logoPreview').src=STATE.config.logo; document.getElementById('logoPreview').style.display='block'; }
+  const nomeEmpresaEl = document.getElementById('perfilNomeEmpresa');
+  const cnpjEl = document.getElementById('perfilCnpj');
+  nomeEmpresaEl.value = STATE.config.nomeEmpresa || '';
+  cnpjEl.value = STATE.config.cnpj || '';
+  nomeEmpresaEl.onchange = async ()=>{ STATE.config.nomeEmpresa = nomeEmpresaEl.value.trim()||'Meu Dengo'; await saveConfig(); document.getElementById('headerBrandName').textContent = STATE.config.nomeEmpresa; toast('Salvo!'); };
+  cnpjEl.onchange = async ()=>{ STATE.config.cnpj = cnpjEl.value.trim(); await saveConfig(); toast('Salvo!'); };
+  document.querySelectorAll('.temaBtn').forEach(b=>{
+    b.classList.toggle('selected', parseInt(b.dataset.tema)===STATE.config.tema);
+    b.onclick = async ()=>{
+      STATE.config.tema = parseInt(b.dataset.tema);
+      applyTema(STATE.config.tema);
+      await saveConfig();
+      document.querySelectorAll('.temaBtn').forEach(x=>x.classList.toggle('selected', x===b));
+      toast('Tema aplicado!');
+    };
+  });
 }
 document.getElementById('saveConfigBtn').addEventListener('click', async ()=>{
   if(document.getElementById('logoUpload').dataset.value) STATE.config.logo = document.getElementById('logoUpload').dataset.value;
@@ -2580,9 +2651,18 @@ async function renderFinanceiro(){
 
   const pacotesArea = document.getElementById('pacotesArea');
   pacotesArea.innerHTML='';
-  const pacotesAbertos = STATE.cobrancas.filter(c=>!c.pago && c.auto && c.dataPagamento && c.dataPagamento<=todayISO());
-  if(pacotesAbertos.length===0){ pacotesArea.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum pacote vencido ou a pagar hoje.</div>'; }
-  pacotesAbertos.forEach(cb=>renderCobrancaCard(cb, pacotesArea, true));
+  const pacotesAbertos = STATE.cobrancas.filter(c=>!c.pago && c.auto).sort((a,b)=>(a.dataPagamento||'').localeCompare(b.dataPagamento||''));
+  if(pacotesAbertos.length===0){ pacotesArea.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum pacote em aberto ainda.</div>'; }
+  pacotesAbertos.slice(0,3).forEach(cb=>renderCobrancaCard(cb, pacotesArea, true));
+  const verTodosBtn = document.getElementById('verTodosPacotesBtn');
+  verTodosBtn.style.display = pacotesAbertos.length>3 ? 'block' : 'none';
+  verTodosBtn.textContent = 'Ver todos ('+pacotesAbertos.length+')';
+  verTodosBtn.onclick = ()=>{
+    const area = document.getElementById('todosPacotesArea');
+    area.innerHTML='';
+    pacotesAbertos.forEach(cb=>renderCobrancaCard(cb, area, true));
+    document.getElementById('todosPacotesModalBg').classList.add('show');
+  };
 
   const cbArea = document.getElementById('cobrancasArea');
   cbArea.innerHTML='';
@@ -2702,6 +2782,13 @@ async function startApp(){
   if(saved){
     try{
       currentUser = JSON.parse(saved);
+      if(currentUser.key){
+        try{
+          const usuarios = (await fbGet('usuarios')) || {};
+          const u = usuarios[currentUser.key];
+          if(u) agendaViewMode = u.agendaViewMode || 'ambos';
+        }catch(e){}
+      }
       document.getElementById('loginScreen').classList.add('hide');
       applyPermissions();
       await startApp();
