@@ -949,6 +949,15 @@
   </div>
 </div>
 
+<!-- MODAL: Mais agendamentos no mesmo horário -->
+<div class="modal-bg" id="maisHorarioModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeMaisHorarioModal">×</button>
+    <h3>Agendamentos nesse horário</h3>
+    <div id="maisHorarioLista"></div>
+  </div>
+</div>
+
 <!-- MODAL: Calendário mensal -->
 <div class="modal-bg" id="calendarioModalBg">
   <div class="modal">
@@ -1027,7 +1036,8 @@
     <label>Foto do dog</label>
     <label for="pFoto" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">📷 Escolher foto</label>
     <input type="file" accept="image/*" id="pFoto" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
-    <img id="pFotoPreview" class="photopreview" style="display:none;">
+    <img id="pFotoPreview" class="photopreview" style="display:none; width:120px; height:120px; cursor:grab;">
+    <p class="footer-note" id="pFotoDica" style="display:none;">Arraste a foto pra ajustar o enquadramento</p>
     <div class="row">
       <div><label>Nome</label><input id="pNome"></div>
       <div><label>Raça</label><input id="pRaca"></div>
@@ -1520,6 +1530,7 @@ document.getElementById('btnAbrirCalendario').addEventListener('click',()=>{
   renderCalendarioMensal();
   document.getElementById('calendarioModalBg').classList.add('show');
 });
+document.getElementById('closeMaisHorarioModal').addEventListener('click',()=>document.getElementById('maisHorarioModalBg').classList.remove('show'));
 document.getElementById('closeCalendarioModal').addEventListener('click',()=>document.getElementById('calendarioModalBg').classList.remove('show'));
 document.getElementById('calPrevMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()-1); renderCalendarioMensal(); });
 document.getElementById('calNextMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()+1); renderCalendarioMensal(); });
@@ -1842,44 +1853,98 @@ function buildTimeAxis(workStartMin, workEndMin){
   }
 }
 const STATUS_COLORS = {deslocamento:'#472F7D', andamento:'#C99A2E', concluido:'#4C8C6B', cancelado:'#8A7690'};
+function renderBlock(s, body, workStartMin, colIdx, colCount){
+  const top = timeToMinutes(s.inicio)-workStartMin;
+  const h = s.duracao;
+  const block=document.createElement('div');
+  block.className='block '+s.tipo;
+  block.style.top=Math.max(top,0)+'px';
+  block.style.height=Math.max(h,20)+'px';
+  const widthPct = 100/colCount;
+  block.style.left = (colIdx*widthPct)+'%';
+  block.style.right = '';
+  block.style.width = 'calc('+widthPct+'% - 4px)';
+  const status = s.statusAtendimento||'nenhum';
+  if(s.tipo==='cliente'){
+    const svc = getService(s.servico);
+    const svcColor = svc ? svc.color : '#AA426C';
+    if(status==='nenhum'){
+      block.style.background = svcColor;
+      block.style.border = '2px solid '+svcColor;
+    } else {
+      block.style.background = STATUS_COLORS[status] || svcColor;
+      block.style.border = '3px solid '+svcColor;
+      if(status==='cancelado') block.style.opacity = '0.55';
+    }
+  }
+  let label = s.tipo==='cliente'? s.nome : (s.tipo==='almoco'?'Almoço':'Deslocamento');
+  const statusLbl = s.tipo==='cliente' ? (STATUS_LABEL[status]||'') : '';
+  block.innerHTML = '<div class="btime">'+s.inicio+(s.seriesId?' 🔄':'')+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
+    (statusLbl && status!=='cancelado' ? '<div class="bstatus">'+statusLbl+'</div>' : '')+
+    (s.tipo==='cliente' && s.pago===false ? '<span class="bpend">💸</span>':'')+
+    '<button class="bdel" data-id="'+s.id+'">✕</button>';
+  block.addEventListener('click',(e)=>{
+    if(e.target.classList.contains('bdel')) return;
+    openDetailModal(selectedDateISO, s.__op, s.id);
+  });
+  body.appendChild(block);
+}
+function renderMaisIndicator(extras, body, workStartMin, colIdx, colCount, op){
+  const top = Math.max(Math.min(...extras.map(s=>timeToMinutes(s.inicio)))-workStartMin, 0);
+  const block = document.createElement('div');
+  block.className = 'block maisIndicator';
+  block.style.top = top+'px';
+  block.style.height = '32px';
+  const widthPct = 100/colCount;
+  block.style.left = (colIdx*widthPct)+'%';
+  block.style.width = 'calc('+widthPct+'% - 4px)';
+  block.style.background = 'var(--roxo)';
+  block.innerHTML = '<div class="bname">+'+extras.length+' mais</div>';
+  block.addEventListener('click',()=>{
+    document.getElementById('maisHorarioLista').innerHTML = extras.map(s=>
+      '<div class="listrow" data-id="'+s.id+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+s.inicio+' — '+s.nome+'</div><div class="rmeta">'+s.servico+'</div></div></div>'
+    ).join('');
+    document.getElementById('maisHorarioLista').querySelectorAll('.listrow').forEach(row=>{
+      row.addEventListener('click',()=>{
+        document.getElementById('maisHorarioModalBg').classList.remove('show');
+        openDetailModal(selectedDateISO, op, row.dataset.id);
+      });
+    });
+    document.getElementById('maisHorarioModalBg').classList.add('show');
+  });
+  body.appendChild(block);
+}
 function renderColumn(op, workStartMin, workEndMin){
   const key = opKey(op);
   const body = document.getElementById('gridBody'+key);
   body.innerHTML='';
   body.style.height = (workEndMin-workStartMin)+'px';
-  const slots = getDaySlots(selectedDateISO, op);
-  slots.forEach(s=>{
-    const top = timeToMinutes(s.inicio)-workStartMin;
-    const h = s.duracao;
-    const block=document.createElement('div');
-    block.className='block '+s.tipo;
-    block.style.top=Math.max(top,0)+'px';
-    block.style.height=Math.max(h,20)+'px';
-    const status = s.statusAtendimento||'nenhum';
-    if(s.tipo==='cliente'){
-      const svc = getService(s.servico);
-      const svcColor = svc ? svc.color : '#AA426C';
-      if(status==='nenhum'){
-        block.style.background = svcColor;
-        block.style.border = '2px solid '+svcColor;
-      } else {
-        block.style.background = STATUS_COLORS[status] || svcColor;
-        block.style.border = '3px solid '+svcColor;
-        if(status==='cancelado') block.style.opacity = '0.55';
-      }
-    }
-    let label = s.tipo==='cliente'? s.nome : (s.tipo==='almoco'?'Almoço':'Deslocamento');
-    const statusLbl = s.tipo==='cliente' ? (STATUS_LABEL[status]||'') : '';
-    block.innerHTML = '<div class="btime">'+s.inicio+(s.seriesId?' 🔄':'')+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
-      (statusLbl && status!=='cancelado' ? '<div class="bstatus">'+statusLbl+'</div>' : '')+
-      (s.tipo==='cliente' && s.pago===false ? '<span class="bpend">💸</span>':'')+
-      '<button class="bdel" data-id="'+s.id+'">✕</button>';
-    block.addEventListener('click',(e)=>{
-      if(e.target.classList.contains('bdel')) return;
-      openDetailModal(selectedDateISO, op, s.id);
-    });
-    body.appendChild(block);
+  const slots = getDaySlots(selectedDateISO, op).map(s=>Object.assign({}, s, {
+    __op: op,
+    _start: timeToMinutes(s.inicio),
+    _end: timeToMinutes(s.inicio)+s.duracao
+  }));
+  const sorted = slots.slice().sort((a,b)=>a._start-b._start);
+  let clusters=[], current=[], currentEnd=-Infinity;
+  sorted.forEach(s=>{
+    if(current.length===0 || s._start < currentEnd){ current.push(s); currentEnd=Math.max(currentEnd, s._end); }
+    else { clusters.push(current); current=[s]; currentEnd=s._end; }
   });
+  if(current.length) clusters.push(current);
+
+  clusters.forEach(cluster=>{
+    const total = cluster.length;
+    const cols = total<=4 ? total : 4;
+    const visibleCount = total<=4 ? total : 3;
+    cluster.forEach((s,idx)=>{
+      if(idx>=visibleCount) return;
+      renderBlock(s, body, workStartMin, idx, cols);
+    });
+    if(total>4){
+      renderMaisIndicator(cluster.slice(3), body, workStartMin, 3, cols, op);
+    }
+  });
+
   const cap = STATE.config.capacity[op]||8;
   const count = countClienteSlots(selectedDateISO,op);
   const tag = document.getElementById('capTag'+key);
@@ -2033,7 +2098,7 @@ function openDetailModal(iso, op, id){
   const p = isCliente ? getPet(slot.petId) : null;
   const t = p ? getTutor(p.tutorId) : null;
   const petFoto = document.getElementById('dPetFoto');
-  if(p && p.photo){ petFoto.src=p.photo; petFoto.style.display='block'; } else { petFoto.style.display='none'; }
+  if(p && p.photo){ petFoto.src=p.photo; petFoto.style.objectPosition=(p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%'; petFoto.style.display='block'; } else { petFoto.style.display='none'; }
   document.getElementById('dPetNome').textContent = isCliente ? (p?p.name:slot.nome) : (slot.tipo==='almoco'?'Almoço':'Deslocamento');
   document.getElementById('dTutorNome').textContent = t ? t.name : '';
   document.getElementById('dWhatsIconBtn').style.display = isCliente ? 'flex' : 'none';
@@ -2380,7 +2445,7 @@ function renderPetList(){
   pets.forEach(p=>{
     const row=document.createElement('div');
     row.className='listrow';
-    row.innerHTML = (p.photo?'<img class="rphoto" src="'+p.photo+'">':'<div class="rphoto"></div>')+
+    row.innerHTML = (p.photo?'<img class="rphoto" src="'+p.photo+'" style="object-position:'+(p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%;">':'<div class="rphoto"></div>')+
       '<div class="rinfo"><div class="rname">'+p.name+(p.breed?' ('+p.breed+')':'')+'</div>'+
       '<div class="rmeta">'+p.porte+' · '+p.sexo+(p.castrado?' · Castrado':'')+'</div>'+
       (p.comportamento&&p.comportamento.length?'<div class="rmeta">'+p.comportamento.join(' ')+'</div>':'')+'</div>'+
@@ -2421,8 +2486,12 @@ function openPetModal(id){
   document.getElementById('pAlergias').value = p?p.alergias:'';
   document.getElementById('pObs').value = p?(p.obs||''):'';
   document.getElementById('pFoto').value=''; document.getElementById('pFoto').dataset.value = p?(p.photo||''):'';
-  if(p&&p.photo){ document.getElementById('pFotoPreview').src=p.photo; document.getElementById('pFotoPreview').style.display='block'; }
-  else{ document.getElementById('pFotoPreview').style.display='none'; }
+  const preview = document.getElementById('pFotoPreview');
+  const posX = p&&p.fotoPosX!=null ? p.fotoPosX : 50;
+  const posY = p&&p.fotoPosY!=null ? p.fotoPosY : 50;
+  preview.style.objectPosition = posX+'% '+posY+'%';
+  if(p&&p.photo){ preview.src=p.photo; preview.style.display='block'; document.getElementById('pFotoDica').style.display='block'; }
+  else{ preview.style.display='none'; document.getElementById('pFotoDica').style.display='none'; }
   renderBehaviorGrid(p?p.comportamento:[]);
   document.getElementById('petModalBg').classList.add('show');
 }
@@ -2433,8 +2502,33 @@ function openLightbox(src){
   document.getElementById('lightboxBg').classList.add('show');
 }
 document.getElementById('lightboxBg').addEventListener('click',()=>document.getElementById('lightboxBg').classList.remove('show'));
-document.getElementById('pFotoPreview').style.cursor='pointer';
-document.getElementById('pFotoPreview').addEventListener('click',()=>openLightbox(document.getElementById('pFotoPreview').src));
+(function(){
+  const preview = document.getElementById('pFotoPreview');
+  let dragging=false, moved=false, startX=0, startY=0, startPosX=50, startPosY=50;
+  preview.addEventListener('pointerdown',(e)=>{
+    dragging=true; moved=false; startX=e.clientX; startY=e.clientY;
+    const parts = (preview.style.objectPosition||'50% 50%').replace(/%/g,'').split(' ').map(Number);
+    startPosX = parts[0]||50; startPosY = parts[1]||50;
+    preview.style.cursor='grabbing';
+  });
+  window.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    const dx = e.clientX-startX, dy = e.clientY-startY;
+    if(Math.abs(dx)>4 || Math.abs(dy)>4) moved=true;
+    const rect = preview.getBoundingClientRect();
+    let newX = startPosX - (dx/rect.width)*100;
+    let newY = startPosY - (dy/rect.height)*100;
+    newX = Math.max(0, Math.min(100, newX));
+    newY = Math.max(0, Math.min(100, newY));
+    preview.style.objectPosition = newX+'% '+newY+'%';
+  });
+  window.addEventListener('pointerup',()=>{
+    if(!dragging) return;
+    dragging=false;
+    preview.style.cursor='grab';
+    if(!moved) openLightbox(preview.src);
+  });
+})();
 document.getElementById('pFoto').addEventListener('change',(e)=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
@@ -2448,6 +2542,8 @@ document.getElementById('pFoto').addEventListener('change',(e)=>{
       const dataUrl=canvas.toDataURL('image/jpeg',0.75);
       document.getElementById('pFotoPreview').src=dataUrl;
       document.getElementById('pFotoPreview').style.display='block';
+      document.getElementById('pFotoPreview').style.objectPosition='50% 50%';
+      document.getElementById('pFotoDica').style.display='block';
       document.getElementById('pFoto').dataset.value=dataUrl;
     };
     img.src=ev.target.result;
@@ -2457,6 +2553,7 @@ document.getElementById('pFoto').addEventListener('change',(e)=>{
 document.getElementById('savePetBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('pEditId').value;
   const selChips = Array.from(document.querySelectorAll('#behaviorGrid .behaviorchip.sel')).map(c=>c.textContent);
+  const posParts = (document.getElementById('pFotoPreview').style.objectPosition||'50% 50%').replace(/%/g,'').split(' ').map(Number);
   const pet = {
     id: id || 'p'+Date.now(),
     tutorId: currentTutorId,
@@ -2470,7 +2567,9 @@ document.getElementById('savePetBtn').addEventListener('click', async ()=>{
     alergias: document.getElementById('pAlergias').value.trim(),
     comportamento: selChips,
     obs: document.getElementById('pObs').value.trim(),
-    photo: document.getElementById('pFoto').dataset.value || null
+    photo: document.getElementById('pFoto').dataset.value || null,
+    fotoPosX: posParts[0]!=null ? posParts[0] : 50,
+    fotoPosY: posParts[1]!=null ? posParts[1] : 50
   };
   if(!pet.name){ toast('Informe o nome do pet'); return; }
   if(id){ STATE.pets = STATE.pets.map(x=>x.id===id?pet:x); }
