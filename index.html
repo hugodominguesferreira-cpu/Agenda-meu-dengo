@@ -40,6 +40,18 @@
   .calGrid .calDay.today{border:2px solid var(--roxo);}
   .calGrid .calDay.selected{background:var(--rosa); color:#fff;}
   .calGrid .calDay.hasagenda:not(.selected)::after{content:''; display:block; width:5px; height:5px; border-radius:50%; background:var(--rosa); margin:2px auto 0;}
+  .fsPanel{position:fixed; inset:0; background:var(--bg); z-index:150; display:none; flex-direction:column;}
+  .fsPanel.show{display:flex;}
+  .fsPanelHeader{display:flex; align-items:center; gap:10px; padding:16px 16px 14px; background:linear-gradient(135deg,var(--roxo) 0%, var(--rosa) 100%); color:#fff; flex-shrink:0; border-radius:0 0 20px 20px;}
+  .fsPanelHeader h3{margin:0; font-size:17px; flex:1; color:#fff; font-family:'Baloo 2',sans-serif;}
+  .fsPanelHeader .fsCloseBtn{background:rgba(255,255,255,0.2); border:none; color:#fff; font-size:20px; width:34px; height:34px; border-radius:10px; cursor:pointer; flex-shrink:0;}
+  .fsPanelBody{flex:1; overflow-y:auto; padding:16px;}
+  .iconGrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px;}
+  .iconGridBtn{background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:14px 6px; display:flex; flex-direction:column; align-items:center; gap:6px; font-size:26px; box-shadow:0 1px 3px rgba(76,20,50,0.06); cursor:pointer;}
+  .iconGridBtn span{font-size:10.5px; font-weight:700; color:var(--muted); font-family:'Nunito Sans',sans-serif; text-align:center; line-height:1.2;}
+  .daySwitcher{display:flex; gap:6px; overflow-x:auto; margin-bottom:12px;}
+  .daySwitcher button{flex:0 0 auto; padding:8px 14px; border-radius:12px; background:var(--card-soft); border:none; font-weight:700; font-size:12.5px; color:var(--roxo-dark); cursor:pointer;}
+  .daySwitcher button.active{background:var(--roxo); color:#fff;}
   header.top::after{content:"🐾"; position:absolute; right:-10px; top:-10px; font-size:90px; opacity:0.12; transform:rotate(-15deg);}
   header.top .logoimg{width:44px; height:44px; border-radius:12px; object-fit:cover; background:rgba(255,255,255,0.15); flex-shrink:0;}
   header.top .logoph{width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;}
@@ -415,8 +427,18 @@
           </div>
         </div>
         <div class="card">
-          <h3>Tutores cadastrados</h3>
-          <div id="tutorList"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">Tutores cadastrados</h3>
+            <div style="display:flex; gap:6px;">
+              <button id="btnBuscaTutor" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">🔍</button>
+              <button id="btnOrdenarTutor" style="background:none; border:none; font-size:13px; font-weight:700; color:var(--roxo); cursor:pointer;">A-Z</button>
+            </div>
+          </div>
+          <div id="buscaTutorWrap" style="display:none; margin-top:10px;">
+            <input id="buscaTutorInput" placeholder="Nome do tutor ou do pet...">
+          </div>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="btnMostrarTutores">Mostrar tutores</button>
+          <div id="tutorList" style="display:none; margin-top:10px;"></div>
         </div>
       </div>
 
@@ -460,174 +482,266 @@
       </div>
 
       <div class="card">
-        <h3>📊 Relatório mensal</h3>
-        <div class="monthnav">
-          <button id="relPrevMonth">‹</button>
-          <span id="relMonthLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
-          <button id="relNextMonth">›</button>
+        <div class="iconGrid">
+          <button class="iconGridBtn" data-panel="fsRelatorioMensal">📊<span>Relatório mensal</span></button>
+          <button class="iconGridBtn" data-panel="fsAvulsos">🗂️<span>Avulsos</span></button>
+          <button class="iconGridBtn" data-panel="fsPacotesFin">📦<span>Pacotes</span></button>
+          <button class="iconGridBtn" data-panel="fsCobrancas">🧾<span>Cobranças agrupadas</span></button>
+          <button class="iconGridBtn" data-panel="fsDespesas">💸<span>Despesas</span></button>
         </div>
-        <div id="relatorioMensal"></div>
-      </div>
-
-      <div class="card">
-        <h3>Avulsos (sem cobrança agrupada)</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Selecione itens do mesmo tutor pra agrupar numa cobrança com vencimento.</p>
-        <div id="avulsosArea"></div>
-        <label style="margin-top:14px;">Vencimento da cobrança</label>
-        <input type="date" id="grupoVencimento">
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="agruparBtn">Agrupar selecionados</button>
-        <hr class="divider">
-        <label>🔍 Histórico de pagamentos avulsos</label>
-        <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
-        <div id="histAvulsoResultado" style="margin-top:8px;"></div>
-      </div>
-      <div class="card">
-        <h3>📦 Pacotes</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Cobranças automáticas dos banhos recorrentes. Vencimento editável a qualquer momento.</p>
-        <div id="pacotesArea"></div>
-        <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
-        <hr class="divider">
-        <label>🔍 Histórico de pagamentos de pacotes</label>
-        <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
-        <div id="histPacoteResultado" style="margin-top:8px;"></div>
-      </div>
-
-      <div class="card">
-        <h3>Cobranças agrupadas (manuais)</h3>
-        <div id="cobrancasArea"></div>
-      </div>
-
-      <div class="card">
-        <h3>Despesas</h3>
-        <div class="footer-note" style="margin:0 0 10px; text-align:left;" id="despesasResumo"></div>
-        <div class="row">
-          <div><label>Descrição</label><input id="eDescricao" placeholder="Ex: Aluguel"></div>
-          <div><label>Valor (R$)</label><input type="number" id="eValor" min="0" step="0.5"></div>
-        </div>
-        <label>Data de pagamento</label>
-        <input type="date" id="eData">
-        <label><input type="checkbox" id="eRecorrente"> Despesa recorrente</label>
-        <div id="eRecorrenteFields" style="display:none;">
-          <label>Repetir a cada (dias)</label>
-          <input type="number" id="eIntervalo" min="1" value="30">
-        </div>
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addDespesaBtn">+ Adicionar despesa</button>
-        <hr class="divider">
-        <div id="despesasArea"></div>
       </div>
     </section>
+
+    <!-- FS: Relatório mensal -->
+    <div class="fsPanel" id="fsRelatorioMensal">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📊 Relatório mensal</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div class="monthnav">
+            <button id="relPrevMonth">‹</button>
+            <span id="relMonthLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
+            <button id="relNextMonth">›</button>
+          </div>
+          <div id="relatorioMensal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Avulsos -->
+    <div class="fsPanel" id="fsAvulsos">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🗂️ Avulsos</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Selecione itens do mesmo tutor pra agrupar numa cobrança com vencimento.</p>
+          <div id="avulsosArea"></div>
+          <label style="margin-top:14px;">Vencimento da cobrança</label>
+          <input type="date" id="grupoVencimento">
+          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="agruparBtn">Agrupar selecionados</button>
+          <hr class="divider">
+          <label>🔍 Histórico de pagamentos avulsos</label>
+          <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
+          <div id="histAvulsoResultado" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Pacotes -->
+    <div class="fsPanel" id="fsPacotesFin">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📦 Pacotes</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Cobranças automáticas dos banhos recorrentes. Vencimento editável a qualquer momento.</p>
+          <div id="pacotesArea"></div>
+          <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
+          <hr class="divider">
+          <label>🔍 Histórico de pagamentos de pacotes</label>
+          <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
+          <div id="histPacoteResultado" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Cobranças agrupadas -->
+    <div class="fsPanel" id="fsCobrancas">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🧾 Cobranças agrupadas</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div id="cobrancasArea"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Despesas -->
+    <div class="fsPanel" id="fsDespesas">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>💸 Despesas</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div class="footer-note" style="margin:0 0 10px; text-align:left;" id="despesasResumo"></div>
+          <div class="row">
+            <div><label>Descrição</label><input id="despDescricao" placeholder="Ex: Aluguel"></div>
+            <div><label>Valor (R$)</label><input type="number" id="eValor" min="0" step="0.5"></div>
+          </div>
+          <label>Data de pagamento</label>
+          <input type="date" id="eData">
+          <label><input type="checkbox" id="eRecorrente"> Despesa recorrente</label>
+          <div id="eRecorrenteFields" style="display:none;">
+            <label>Repetir a cada (dias)</label>
+            <input type="number" id="eIntervalo" min="1" value="30">
+          </div>
+          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addDespesaBtn">+ Adicionar despesa</button>
+          <hr class="divider">
+          <div id="despesasArea"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- CONFIG -->
     <section id="tab-config">
       <div class="card">
-        <h3>🏢 Perfil da empresa</h3>
-        <label>Logo</label>
-        <label for="logoUpload" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">🖼️ Escolher imagem</label>
-        <input type="file" accept="image/*" id="logoUpload" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
-        <img id="logoPreview" class="photopreview" style="display:none;">
-        <label>Nome da empresa</label>
-        <input id="perfilNomeEmpresa" placeholder="Meu Dengo">
-        <label>CNPJ</label>
-        <input id="perfilCnpj" placeholder="00.000.000/0000-00">
-      </div>
-      <div class="card">
-        <h3>🔔 Notificações</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Avisa no celular quando um agendamento é criado ou cancelado (com o app aberto em segundo plano).</p>
-        <div class="footer-note" id="notifStatus" style="text-align:left; padding:0; margin-bottom:8px; font-weight:700;"></div>
-        <button class="btn btn-primary btn-block" id="ativarNotifBtn">Ativar notificações</button>
-      </div>
-
-      <div class="card">
-        <h3>🎨 Tema de cores</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Mesma paleta, aplicada de formas diferentes.</p>
-        <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico</span></button>
-        <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
-        <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave</span></button>
-        <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio</span></button>
-        <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
-      </div>
-      <div class="card">
-        <h3>Modelos de mensagem (WhatsApp)</h3>
-        <p class="footer-note" style="margin:0 0 8px; text-align:left;">Use os campos {tutor}, {pet}, {servico} e {valor} — eles se preenchem sozinhos na hora de enviar.</p>
-        <div id="templatesArea"></div>
-        <div class="row" style="margin-top:8px;">
-          <input id="newTplName" placeholder="Nome do modelo">
-        </div>
-        <textarea id="newTplText" placeholder="Ex: Olá {tutor}! Lembrando do {servico} do(a) {pet}, valor R$ {valor}." style="margin-top:6px;"></textarea>
-        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="addTplBtn">+ Adicionar modelo</button>
-      </div>
-      <div class="card">
-        <h3>Serviços oferecidos</h3>
-        <p class="footer-note" style="margin:0 0 8px; text-align:left;">Defina cor, nome, valor e duração de cada serviço.</p>
-        <div id="servicesArea"></div>
-        <hr class="divider">
-        <label>Novo serviço</label>
-        <div class="row">
-          <div style="flex:0 0 auto;"><label style="margin-top:0;">Cor</label><input type="color" id="newServiceColor" value="#AA426C"></div>
-          <div style="flex:2;"><label style="margin-top:0;">Nome do serviço</label><input id="newServiceName" placeholder="Ex: Hidratação"></div>
-        </div>
-        <div class="row">
-          <div><label>Valor (R$0000,00)</label><input type="text" inputmode="numeric" id="newServicePrice" placeholder="R$0,00"></div>
-          <div><label>Duração (minutos)</label><input type="number" id="newServiceDuration" placeholder="Ex: 60" min="10" step="5"></div>
-        </div>
-        <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addServiceBtn">+ Adicionar serviço</button>
-      </div>
-      <div class="card">
-        <h3>Zonas por dia (Pet Móvel)</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Liste os bairros atendidos em cada dia, separados por vírgula.</p>
-        <div id="zonesArea"></div>
-      </div>
-      <div class="card">
-        <h3>Capacidade máxima por dia</h3>
-        <div class="row">
-          <div><label>Pet Fixo</label><input type="number" id="capFixo" min="1"></div>
-          <div><label>Pet Móvel</label><input type="number" id="capMovel" min="1"></div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>Horário de trabalho</h3>
-        <div class="row">
-          <div><label>Início</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="08:00" id="workStart"></div>
-          <div><label>Fim</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="18:00" id="workEnd"></div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>📦 Pacotes recorrentes (banho)</h3>
-        <p class="footer-note" style="margin:0 0 8px; text-align:left;">Dia do mês em que a cobrança mensal do pacote vence.</p>
-        <label>Dia de vencimento</label>
-        <input type="number" id="pacoteDia" min="1" max="28">
-      </div>
-      <button class="btn btn-primary btn-block" id="saveConfigBtn">Salvar logo</button>
-      <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
-
-      <div class="card">
-        <h3>👥 Usuários</h3>
-        <div id="usersArea"></div>
-        <hr class="divider">
-        <label>Novo usuário</label>
-        <div class="row">
-          <div><label style="margin-top:0;">Nome</label><input id="newUserNome"></div>
-          <div><label style="margin-top:0;">Senha</label><input id="newUserSenha" type="text"></div>
-        </div>
-        <label>Tipo</label>
-        <select id="newUserRole">
-          <option value="equipe">Equipe (acesso restrito)</option>
-          <option value="admin">Admin (acesso total)</option>
-        </select>
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addUserBtn">+ Adicionar usuário</button>
-      </div>
-
-      <div class="card" style="border:1.5px solid var(--full);">
-        <h3 style="color:var(--full);">⚠️ Zona de risco</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Apaga toda a agenda, cobranças e despesas — pra você testar e depois começar do zero. Tutores, pets, serviços e usuários NÃO são afetados.</p>
-        <button class="btn btn-ghost btn-block" style="color:var(--full);" id="btnResetAgendaFin">🗑️ Resetar agendamento e financeiro</button>
-        <div id="resetConfirmBox" style="display:none; margin-top:10px;">
-          <p class="footer-note" style="text-align:left; padding:0; color:var(--full); font-weight:700;">Tem certeza? Isso apaga TODOS os agendamentos, cobranças e despesas, de forma permanente.</p>
-          <button class="btn btn-primary btn-block" style="background:var(--full); margin-top:8px;" id="btnResetConfirmar">Sim, apagar tudo</button>
-          <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="btnResetCancelar">Cancelar</button>
+        <p class="footer-note" style="margin:0 0 8px; text-align:left;">Toque num ícone pra abrir aquela configuração.</p>
+        <div class="iconGrid">
+          <button class="iconGridBtn" data-panel="fsPerfil">🏢<span>Perfil & Aparência</span></button>
+          <button class="iconGridBtn" data-panel="fsNotif">🔔<span>Notificações</span></button>
+          <button class="iconGridBtn" data-panel="fsMensagens">💬<span>Mensagens</span></button>
+          <button class="iconGridBtn" data-panel="fsServicos">✂️<span>Serviços</span></button>
+          <button class="iconGridBtn" data-panel="fsOperacao">📍<span>Operação</span></button>
+          <button class="iconGridBtn" data-panel="fsUsuarios">👥<span>Usuários</span></button>
+          <button class="iconGridBtn" data-panel="fsZonaRisco">⚠️<span>Zona de risco</span></button>
         </div>
       </div>
     </section>
+
+    <!-- FS: Perfil & Aparência -->
+    <div class="fsPanel" id="fsPerfil">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🏢 Perfil & Aparência</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <h3>Dados da empresa</h3>
+          <label>Logo</label>
+          <label for="logoUpload" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">🖼️ Escolher imagem</label>
+          <input type="file" accept="image/*" id="logoUpload" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
+          <img id="logoPreview" class="photopreview" style="display:none;">
+          <label>Nome da empresa</label>
+          <input id="perfilNomeEmpresa" placeholder="Meu Dengo">
+          <label>CNPJ</label>
+          <input id="perfilCnpj" placeholder="00.000.000/0000-00">
+          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="saveConfigBtn">Salvar logo</button>
+          <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
+        </div>
+        <div class="card">
+          <h3>🎨 Tema de cores</h3>
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Mesma paleta, aplicada de formas diferentes.</p>
+          <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico</span></button>
+          <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
+          <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave</span></button>
+          <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio</span></button>
+          <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Notificações -->
+    <div class="fsPanel" id="fsNotif">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🔔 Notificações</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Avisa no celular quando um agendamento é criado ou cancelado (com o app aberto em segundo plano).</p>
+          <div class="footer-note" id="notifStatus" style="text-align:left; padding:0; margin-bottom:8px; font-weight:700;"></div>
+          <button class="btn btn-primary btn-block" id="ativarNotifBtn">Ativar notificações</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Mensagens -->
+    <div class="fsPanel" id="fsMensagens">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>💬 Mensagens</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <h3>Modelos de mensagem (WhatsApp)</h3>
+          <p class="footer-note" style="margin:0 0 8px; text-align:left;">Use os campos {tutor}, {pet}, {servico} e {valor} — eles se preenchem sozinhos na hora de enviar.</p>
+          <div id="templatesArea"></div>
+          <div class="row" style="margin-top:8px;">
+            <input id="newTplName" placeholder="Nome do modelo">
+          </div>
+          <textarea id="newTplText" placeholder="Ex: Olá {tutor}! Lembrando do {servico} do(a) {pet}, valor R$ {valor}." style="margin-top:6px;"></textarea>
+          <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="addTplBtn">+ Adicionar modelo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Serviços -->
+    <div class="fsPanel" id="fsServicos">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>✂️ Serviços</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <h3>Serviços oferecidos</h3>
+          <p class="footer-note" style="margin:0 0 8px; text-align:left;">Defina cor, nome, valor e duração de cada serviço.</p>
+          <div id="servicesArea"></div>
+          <hr class="divider">
+          <label>Novo serviço</label>
+          <div class="row">
+            <div style="flex:0 0 auto;"><label style="margin-top:0;">Cor</label><input type="color" id="newServiceColor" value="#AA426C"></div>
+            <div style="flex:2;"><label style="margin-top:0;">Nome do serviço</label><input id="newServiceName" placeholder="Ex: Hidratação"></div>
+          </div>
+          <div class="row">
+            <div><label>Valor (R$0000,00)</label><input type="text" inputmode="numeric" id="newServicePrice" placeholder="R$0,00"></div>
+            <div><label>Duração (minutos)</label><input type="number" id="newServiceDuration" placeholder="Ex: 60" min="10" step="5"></div>
+          </div>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addServiceBtn">+ Adicionar serviço</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Operação -->
+    <div class="fsPanel" id="fsOperacao">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📍 Operação</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <h3>Zonas por dia (Pet Móvel)</h3>
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Liste os bairros atendidos, separados por vírgula.</p>
+          <div class="daySwitcher" id="zonaDaySwitcher"></div>
+          <div id="zonesArea"></div>
+        </div>
+        <div class="card">
+          <h3>Capacidade máxima por dia</h3>
+          <div class="row">
+            <div><label>Pet Fixo</label><input type="number" id="capFixo" min="1"></div>
+            <div><label>Pet Móvel</label><input type="number" id="capMovel" min="1"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Horário de trabalho</h3>
+          <div class="row">
+            <div><label>Início</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="08:00" id="workStart"></div>
+            <div><label>Fim</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="18:00" id="workEnd"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>📦 Pacotes recorrentes (banho)</h3>
+          <p class="footer-note" style="margin:0 0 8px; text-align:left;">Dia do mês em que a cobrança mensal do pacote vence.</p>
+          <label>Dia de vencimento</label>
+          <input type="number" id="pacoteDia" min="1" max="28">
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Usuários -->
+    <div class="fsPanel" id="fsUsuarios">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>👥 Usuários</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div id="usersArea"></div>
+          <hr class="divider">
+          <label>Novo usuário</label>
+          <div class="row">
+            <div><label style="margin-top:0;">Nome</label><input id="newUserNome"></div>
+            <div><label style="margin-top:0;">Senha</label><input id="newUserSenha" type="text"></div>
+          </div>
+          <label>Tipo</label>
+          <select id="newUserRole">
+            <option value="equipe">Equipe (acesso restrito)</option>
+            <option value="admin">Admin (acesso total)</option>
+          </select>
+          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addUserBtn">+ Adicionar usuário</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Zona de risco -->
+    <div class="fsPanel" id="fsZonaRisco">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>⚠️ Zona de risco</h3></div>
+      <div class="fsPanelBody">
+        <div class="card" style="border:1.5px solid var(--full);">
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Apaga toda a agenda, cobranças e despesas — pra você testar e depois começar do zero. Tutores, pets, serviços e usuários NÃO são afetados.</p>
+          <button class="btn btn-ghost btn-block" style="color:var(--full);" id="btnResetAgendaFin">🗑️ Resetar agendamento e financeiro</button>
+          <div id="resetConfirmBox" style="display:none; margin-top:10px;">
+            <p class="footer-note" style="text-align:left; padding:0; color:var(--full); font-weight:700;">Tem certeza? Isso apaga TODOS os agendamentos, cobranças e despesas, de forma permanente.</p>
+            <button class="btn btn-primary btn-block" style="background:var(--full); margin-top:8px;" id="btnResetConfirmar">Sim, apagar tudo</button>
+            <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="btnResetCancelar">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ESTOQUE -->
     <section id="tab-estoque">
@@ -638,37 +752,59 @@
       </div>
 
       <div class="card">
-        <h3>🚚 Fornecedores</h3>
-        <div id="fornecedoresArea"></div>
-        <hr class="divider">
-        <label>Novo fornecedor</label>
-        <input id="fNome" placeholder="Nome do fornecedor">
-        <label>Tipo de produtos</label>
-        <input id="fTipoProdutos" placeholder="Ex: Shampoos, acessórios...">
-        <label>Telefone</label>
-        <input id="fTelefone" placeholder="(opcional)">
-        <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addFornecedorBtn">+ Adicionar fornecedor</button>
-      </div>
-
-      <div class="card">
-        <h3>🧾 Registrar compra</h3>
-        <label>Fornecedor</label>
-        <select id="compraFornecedor"></select>
-        <label>Item do estoque</label>
-        <select id="compraItem"></select>
-        <div class="row">
-          <div><label>Quantidade comprada</label><input type="number" id="compraQuantidade" min="0" step="0.1"></div>
-          <div><label>Valor unitário (R$0000,00)</label><input type="text" inputmode="numeric" id="compraValorUnitario"></div>
+        <div class="iconGrid">
+          <button class="iconGridBtn" data-panel="fsFornecedores">🚚<span>Fornecedores</span></button>
+          <button class="iconGridBtn" data-panel="fsRegistrarCompra">🧾<span>Registrar compra</span></button>
         </div>
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="registrarCompraBtn">Registrar compra (soma no estoque)</button>
       </div>
 
       <div class="card">
-        <h3>🔍 Histórico de compras</h3>
-        <input id="buscaHistCompra" placeholder="Buscar por fornecedor ou item...">
-        <div id="histCompraResultado" style="margin-top:10px;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0;">Histórico de compras</h3>
+          <button id="btnBuscaCompra" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">🔍</button>
+        </div>
+        <div id="buscaHistCompraWrap" style="display:none; margin-top:10px;">
+          <input id="buscaHistCompra" placeholder="Buscar por fornecedor ou item...">
+          <div id="histCompraResultado" style="margin-top:10px;"></div>
+        </div>
       </div>
     </section>
+
+    <!-- FS: Fornecedores -->
+    <div class="fsPanel" id="fsFornecedores">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🚚 Fornecedores</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div id="fornecedoresArea"></div>
+          <hr class="divider">
+          <label>Novo fornecedor</label>
+          <input id="fNome" placeholder="Nome do fornecedor">
+          <label>Tipo de produtos</label>
+          <input id="fTipoProdutos" placeholder="Ex: Shampoos, acessórios...">
+          <label>Telefone</label>
+          <input id="fTelefone" placeholder="(opcional)">
+          <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addFornecedorBtn">+ Adicionar fornecedor</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FS: Registrar compra -->
+    <div class="fsPanel" id="fsRegistrarCompra">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🧾 Registrar compra</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <label>Fornecedor</label>
+          <select id="compraFornecedor"></select>
+          <label>Item do estoque</label>
+          <select id="compraItem"></select>
+          <div class="row">
+            <div><label>Quantidade comprada</label><input type="number" id="compraQuantidade" min="0" step="0.1"></div>
+            <div><label>Valor unitário (R$0000,00)</label><input type="text" inputmode="numeric" id="compraValorUnitario"></div>
+          </div>
+          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="registrarCompraBtn">Registrar compra (soma no estoque)</button>
+        </div>
+      </div>
+    </div>
 
     <!-- RELATÓRIOS -->
     <section id="tab-relatorios">
@@ -1457,6 +1593,13 @@ function attachTimeMask(id){
 
 // ---------- DRAWER / TABS ----------
 const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Clientes/Pet', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque', relatorios:'Relatórios'};
+function openFsPanel(id){ document.getElementById(id).classList.add('show'); }
+function closeFsPanel(id){ document.getElementById(id).classList.remove('show'); }
+document.addEventListener('click',(e)=>{
+  if(e.target.classList.contains('fsCloseBtn')){ e.target.closest('.fsPanel').classList.remove('show'); }
+  const iconBtn = e.target.closest('.iconGridBtn');
+  if(iconBtn && iconBtn.dataset.panel){ openFsPanel(iconBtn.dataset.panel); }
+});
 function switchToTab(tab){
   document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
@@ -2062,12 +2205,22 @@ function showTutoresList(){
   document.getElementById('tutorProfileView').style.display='none';
   renderTutorList();
 }
+let tutorOrdenarAZ = false;
 function renderTutorList(){
   const el = document.getElementById('tutorList');
   const isAdmin = currentUser && currentUser.role==='admin';
-  if(STATE.tutors.length===0){ el.innerHTML='<div class="empty"><span class="emoji">📋</span>Nenhum tutor cadastrado ainda.</div>'; return; }
+  const termo = document.getElementById('buscaTutorInput').value.trim().toLowerCase();
+  let lista = STATE.tutors.slice();
+  if(termo){
+    lista = lista.filter(t=>{
+      if(t.name.toLowerCase().includes(termo)) return true;
+      return STATE.pets.some(p=>p.tutorId===t.id && p.name.toLowerCase().includes(termo));
+    });
+  }
+  if(tutorOrdenarAZ) lista.sort((a,b)=>a.name.localeCompare(b.name));
+  if(lista.length===0){ el.innerHTML='<div class="empty"><span class="emoji">📋</span>'+(termo?'Nenhum resultado.':'Nenhum tutor cadastrado ainda.')+'</div>'; return; }
   el.innerHTML='';
-  STATE.tutors.forEach(t=>{
+  lista.forEach(t=>{
     const petCount = STATE.pets.filter(p=>p.tutorId===t.id).length;
     const row=document.createElement('div');
     row.className='listrow';
@@ -2086,6 +2239,29 @@ function renderTutorList(){
     el.appendChild(row);
   });
 }
+document.getElementById('btnMostrarTutores').addEventListener('click',()=>{
+  const list = document.getElementById('tutorList');
+  const showing = list.style.display==='block';
+  list.style.display = showing ? 'none' : 'block';
+  document.getElementById('btnMostrarTutores').textContent = showing ? 'Mostrar tutores' : 'Ocultar tutores';
+  if(!showing) renderTutorList();
+});
+document.getElementById('btnBuscaTutor').addEventListener('click',()=>{
+  const wrap = document.getElementById('buscaTutorWrap');
+  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
+});
+document.getElementById('buscaTutorInput').addEventListener('input',()=>{
+  document.getElementById('tutorList').style.display='block';
+  document.getElementById('btnMostrarTutores').textContent='Ocultar tutores';
+  renderTutorList();
+});
+document.getElementById('btnOrdenarTutor').addEventListener('click',()=>{
+  tutorOrdenarAZ = !tutorOrdenarAZ;
+  document.getElementById('btnOrdenarTutor').style.color = tutorOrdenarAZ ? 'var(--rosa)' : 'var(--roxo)';
+  document.getElementById('tutorList').style.display='block';
+  document.getElementById('btnMostrarTutores').textContent='Ocultar tutores';
+  renderTutorList();
+});
 document.getElementById('saveTutorBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('tEditId').value;
   const tutor = {
@@ -2554,6 +2730,10 @@ function renderHistCompraSearch(){
   }).join('');
 }
 document.getElementById('buscaHistCompra').addEventListener('input', renderHistCompraSearch);
+document.getElementById('btnBuscaCompra').addEventListener('click',()=>{
+  const wrap = document.getElementById('buscaHistCompraWrap');
+  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
+});
 
 // ---------- RELATÓRIOS EM PDF ----------
 function gerarPdfAgendaMes(){
@@ -2723,26 +2903,37 @@ document.getElementById('ativarNotifBtn').addEventListener('click', async ()=>{
   if(perm==='granted') toast('Notificações ativadas!');
   else toast('Permissão não concedida.');
 });
+let zonaDiaAtual = 'Segunda';
+function renderZonaDia(){
+  const switcher = document.getElementById('zonaDaySwitcher');
+  switcher.innerHTML='';
+  DIAS_UTEIS.forEach(dia=>{
+    const btn = document.createElement('button');
+    btn.textContent = dia.slice(0,3);
+    btn.className = dia===zonaDiaAtual ? 'active' : '';
+    btn.addEventListener('click',()=>{ zonaDiaAtual = dia; renderZonaDia(); });
+    switcher.appendChild(btn);
+  });
+  const zonesArea = document.getElementById('zonesArea');
+  zonesArea.innerHTML='';
+  const box = document.createElement('div');
+  box.className='zonebox';
+  box.innerHTML = '<div class="dayname">'+zonaDiaAtual+'</div><input data-dia="'+zonaDiaAtual+'" placeholder="Ex: Centro, Vila Nova">';
+  const inp = box.querySelector('input');
+  inp.value = (STATE.config.zones[zonaDiaAtual]||[]).join(', ');
+  inp.addEventListener('change', async ()=>{
+    STATE.config.zones[zonaDiaAtual] = inp.value.split(',').map(s=>s.trim()).filter(Boolean);
+    await saveConfig();
+    toast('Zona salva!');
+  });
+  zonesArea.appendChild(box);
+}
 function renderConfigForm(){
   renderServicesArea();
   renderTemplatesArea();
   renderUsersArea();
   renderNotifStatus();
-  const zonesArea = document.getElementById('zonesArea');
-  zonesArea.innerHTML='';
-  DIAS_UTEIS.forEach(dia=>{
-    const box = document.createElement('div');
-    box.className='zonebox';
-    box.innerHTML = '<div class="dayname">'+dia+'</div><input data-dia="'+dia+'" placeholder="Ex: Centro, Vila Nova">';
-    const inp = box.querySelector('input');
-    inp.value = (STATE.config.zones[dia]||[]).join(', ');
-    inp.addEventListener('change', async ()=>{
-      STATE.config.zones[dia] = inp.value.split(',').map(s=>s.trim()).filter(Boolean);
-      await saveConfig();
-      toast('Zona salva!');
-    });
-    zonesArea.appendChild(box);
-  });
+  renderZonaDia();
   const capFixoEl = document.getElementById('capFixo');
   const capMovelEl = document.getElementById('capMovel');
   const workStartEl = document.getElementById('workStart');
@@ -3216,7 +3407,7 @@ document.getElementById('eRecorrente').addEventListener('change',(e)=>{
   document.getElementById('eRecorrenteFields').style.display = e.target.checked?'block':'none';
 });
 document.getElementById('addDespesaBtn').addEventListener('click', async ()=>{
-  const descricao = document.getElementById('eDescricao').value.trim();
+  const descricao = document.getElementById('despDescricao').value.trim();
   const valor = parseFloat(document.getElementById('eValor').value)||0;
   const dataPagamento = document.getElementById('eData').value||null;
   const recorrente = document.getElementById('eRecorrente').checked;
@@ -3224,7 +3415,7 @@ document.getElementById('addDespesaBtn').addEventListener('click', async ()=>{
   if(!descricao || valor<=0){ toast('Preencha descrição e valor'); return; }
   STATE.despesas.push({ id:'e'+Date.now(), descricao, valor, dataPagamento, recorrente, intervaloDias, pago:false, formaPagamento:null, criadoEm: todayISO() });
   await saveDespesas();
-  document.getElementById('eDescricao').value='';
+  document.getElementById('despDescricao').value='';
   document.getElementById('eValor').value='';
   document.getElementById('eData').value='';
   document.getElementById('eRecorrente').checked=false;
