@@ -301,11 +301,11 @@
       <div class="dbrand">🐾 Meu Dengo</div>
       <div id="drawerReorderList">
         <button class="dtab active" data-tab="dashboard">🏠 Dashboard</button>
-        <button class="dtab" data-tab="sugestao">🧭 Sugestão</button>
-        <button class="dtab" data-tab="clientes">👤 Tutores</button>
+        <button class="dtab" data-tab="clientes">👤 Clientes/Pet</button>
         <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
         <button class="dtab" data-tab="config">⚙️ Config.</button>
         <button class="dtab" data-tab="estoque">📦 Estoque</button>
+        <button class="dtab" data-tab="relatorios">📄 Relatórios</button>
       </div>
       <button class="btn btn-primary btn-block" id="drawerReorderDoneBtn" style="display:none; margin-top:8px;">✓ Concluído</button>
       <hr class="divider">
@@ -350,6 +350,7 @@
         <button id="btnHojeAgenda" style="font-size:12px; font-weight:700; font-family:'Baloo 2',sans-serif; background:var(--card-soft); border-radius:20px; padding:6px 14px; color:var(--roxo-dark);">Hoje</button>
         <button id="btnAbrirCalendario" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">📆</button>
         <button id="btnAbrirBuscaAgenda" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">🔍</button>
+        <button id="btnAbrirSugestao" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">🧭</button>
         <button id="nextWeek">›</button>
       </div>
       <div id="buscaAgendaWrap" style="display:none; margin-bottom:10px;">
@@ -539,9 +540,9 @@
       <div class="card">
         <h3>🎨 Tema de cores</h3>
         <p class="footer-note" style="margin:0 0 10px; text-align:left;">Mesma paleta, aplicada de formas diferentes.</p>
-        <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico (rosa em destaque)</span></button>
+        <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico</span></button>
         <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
-        <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave (tons unificados)</span></button>
+        <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave</span></button>
         <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio</span></button>
         <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
       </div>
@@ -666,6 +667,19 @@
         <h3>🔍 Histórico de compras</h3>
         <input id="buscaHistCompra" placeholder="Buscar por fornecedor ou item...">
         <div id="histCompraResultado" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <!-- RELATÓRIOS -->
+    <section id="tab-relatorios">
+      <div class="card">
+        <h3>📄 Relatórios em PDF</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Escolha o mês e gere um PDF simples pra guardar ou compartilhar.</p>
+        <label>Mês de referência</label>
+        <input type="month" id="relatorioMes">
+        <button class="btn btn-primary btn-block" style="margin-top:12px;" id="btnRelatorioAgendaPdf">📅 Gerar PDF da Agenda do mês</button>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioPagamentosPdf">💰 Gerar PDF de Pagamentos do mês</button>
+        <p class="footer-note">Mais relatórios chegam aqui em breve.</p>
       </div>
     </section>
   </main>
@@ -928,6 +942,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getFirestore, doc, getDoc, getDocFromCache, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
@@ -1207,7 +1222,7 @@ document.getElementById('btnResetConfirmar').addEventListener('click', async ()=
 });
 function applyPermissions(){
   const isAdmin = currentUser && currentUser.role==='admin';
-  document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"], .dtab[data-tab="estoque"]').forEach(b=>{
+  document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"], .dtab[data-tab="estoque"], .dtab[data-tab="relatorios"]').forEach(b=>{
     b.style.display = isAdmin ? '' : 'none';
   });
   document.getElementById('drawerUserInfo').textContent = currentUser ? (currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')) : '';
@@ -1361,6 +1376,7 @@ document.getElementById('calPrevMonth').addEventListener('click',()=>{ calViewDa
 document.getElementById('calNextMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()+1); renderCalendarioMensal(); });
 
 // ---------- BUSCA GERAL DE AGENDAMENTOS ----------
+document.getElementById('btnAbrirSugestao').addEventListener('click',()=>switchToTab('sugestao'));
 document.getElementById('btnAbrirBuscaAgenda').addEventListener('click',()=>{
   const wrap = document.getElementById('buscaAgendaWrap');
   const showing = wrap.style.display==='block';
@@ -1440,7 +1456,7 @@ function attachTimeMask(id){
 ['workStart','workEnd','mInicio'].forEach(attachTimeMask);
 
 // ---------- DRAWER / TABS ----------
-const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Tutores', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque'};
+const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Clientes/Pet', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque', relatorios:'Relatórios'};
 function switchToTab(tab){
   document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
@@ -1457,6 +1473,10 @@ function switchToTab(tab){
   if(tab==='estoque') renderEstoqueList();
   if(tab==='sugestao'){ renderSugForm(); populateServiceSelects(); }
   if(tab==='financeiro') renderFinanceiro();
+  if(tab==='relatorios'){
+    const rm = document.getElementById('relatorioMes');
+    if(!rm.value){ const now=new Date(); rm.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); }
+  }
 }
 document.getElementById('openDrawer').addEventListener('click',()=>document.getElementById('drawerBg').classList.add('show'));
 document.getElementById('drawerBg').addEventListener('click',(e)=>{ if(e.target.id==='drawerBg') document.getElementById('drawerBg').classList.remove('show'); });
@@ -1599,7 +1619,11 @@ function updateDayStrip(){
     pill.classList.toggle('selected', iso===selectedDateISO);
   });
   const sel = document.querySelector('.daypill.selected');
-  if(sel) sel.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+  if(sel){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      sel.scrollIntoView({behavior:'auto', inline:'center', block:'nearest'});
+    }));
+  }
   const d = new Date(selectedDateISO+'T00:00:00');
   const label = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   document.getElementById('weekLabel').textContent = label.charAt(0).toUpperCase()+label.slice(1);
@@ -2530,6 +2554,67 @@ function renderHistCompraSearch(){
   }).join('');
 }
 document.getElementById('buscaHistCompra').addEventListener('input', renderHistCompraSearch);
+
+// ---------- RELATÓRIOS EM PDF ----------
+function gerarPdfAgendaMes(){
+  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
+  const ym = document.getElementById('relatorioMes').value;
+  if(!ym){ toast('Escolha o mês'); return; }
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+  let y = 18;
+  docPdf.setFontSize(16); docPdf.text('Relatório de Agenda — '+relMonthLabelFromYm(ym), 14, y); y+=10;
+  docPdf.setFontSize(10);
+  let items = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(!iso.startsWith(ym)) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') items.push({iso,op,inicio:s.inicio,nome:s.nome,servico:s.servico,status:s.statusAtendimento}); });
+    });
+  });
+  items.sort((a,b)=> (a.iso+a.inicio).localeCompare(b.iso+b.inicio));
+  if(items.length===0){ docPdf.text('Nenhum agendamento nesse mês.', 14, y); }
+  items.forEach(it=>{
+    if(y>280){ docPdf.addPage(); y=18; }
+    const linha = fmtDateFull(new Date(it.iso+'T00:00:00'))+' '+it.inicio+' • '+it.nome+' • '+it.servico+' • '+it.op+' • '+(STATUS_LABEL[it.status]||'Nenhum');
+    docPdf.text(linha, 14, y);
+    y+=6;
+  });
+  docPdf.save('agenda-'+ym+'.pdf');
+}
+function gerarPdfPagamentosMes(){
+  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
+  const ym = document.getElementById('relatorioMes').value;
+  if(!ym){ toast('Escolha o mês'); return; }
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+  let y = 18;
+  docPdf.setFontSize(16); docPdf.text('Relatório de Pagamentos — '+relMonthLabelFromYm(ym), 14, y); y+=10;
+  docPdf.setFontSize(10);
+  let items = []; let total = 0;
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(!iso.startsWith(ym)) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo==='cliente' && s.pago){ items.push({iso,nome:s.nome,servico:s.servico,valor:s.valor,forma:s.formaPagamento}); total+=(s.valor||0); }
+      });
+    });
+  });
+  items.sort((a,b)=>a.iso.localeCompare(b.iso));
+  if(items.length===0){ docPdf.text('Nenhum pagamento nesse mês.', 14, y); }
+  items.forEach(it=>{
+    if(y>280){ docPdf.addPage(); y=18; }
+    const linha = fmtDateFull(new Date(it.iso+'T00:00:00'))+' • '+it.nome+' • '+it.servico+' • '+formatBRL(it.valor)+' • '+(it.forma||'—');
+    docPdf.text(linha, 14, y);
+    y+=6;
+  });
+  y+=6; if(y>280){ docPdf.addPage(); y=18; }
+  docPdf.setFontSize(12);
+  docPdf.text('Total recebido: '+formatBRL(total), 14, y);
+  docPdf.save('pagamentos-'+ym+'.pdf');
+}
+document.getElementById('btnRelatorioAgendaPdf').addEventListener('click', gerarPdfAgendaMes);
+document.getElementById('btnRelatorioPagamentosPdf').addEventListener('click', gerarPdfPagamentosMes);
 
 function renderEstoqueList(){
   const area = document.getElementById('estoqueArea');
