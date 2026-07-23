@@ -30,7 +30,16 @@
   h1,h2,h3,.brand,.tabbtn{font-family:'Baloo 2',sans-serif;}
   #app{max-width:780px;margin:0 auto;padding-bottom:80px;}
 
-  header.top{background:linear-gradient(135deg,var(--roxo) 0%, var(--rosa) 100%); color:#fff; padding:18px 20px 16px; border-radius:0 0 24px 24px; position:relative; overflow:hidden; display:flex; align-items:center; gap:12px;}
+  header.top{background:linear-gradient(135deg,var(--roxo) 0%, var(--rosa) 100%); color:#fff; padding:18px 20px 16px; border-radius:0 0 24px 24px; position:relative; overflow:hidden; display:flex; align-items:center; gap:12px; transition:.2s;}
+  header.top.compact{padding:10px 14px; border-radius:0 0 14px 14px;}
+  header.top.compact #headerLogoImg, header.top.compact #headerLogoPh, header.top.compact #headerBrandBox{display:none!important;}
+  .calGrid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:10px;}
+  .calGrid .calDow{text-align:center; font-size:11px; font-weight:700; color:var(--muted); padding:4px 0;}
+  .calGrid .calDay{text-align:center; padding:10px 0; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; color:var(--text);}
+  .calGrid .calDay.empty{cursor:default;}
+  .calGrid .calDay.today{border:2px solid var(--roxo);}
+  .calGrid .calDay.selected{background:var(--rosa); color:#fff;}
+  .calGrid .calDay.hasagenda:not(.selected)::after{content:''; display:block; width:5px; height:5px; border-radius:50%; background:var(--rosa); margin:2px auto 0;}
   header.top::after{content:"🐾"; position:absolute; right:-10px; top:-10px; font-size:90px; opacity:0.12; transform:rotate(-15deg);}
   header.top .logoimg{width:44px; height:44px; border-radius:12px; object-fit:cover; background:rgba(255,255,255,0.15); flex-shrink:0;}
   header.top .logoph{width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;}
@@ -75,7 +84,7 @@
   .weeknav .weeklabel{font-weight:700; font-size:13px; color:var(--muted);}
 
   .daypills{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;}
-  .daypill{flex:0 0 auto; padding:8px 12px; border-radius:12px; background:var(--card); border:1.5px solid var(--line); font-size:12px; font-weight:700; text-align:center; cursor:pointer; color:var(--muted); min-width:52px; scroll-snap-align:center;}
+  .daypill{flex:0 0 auto; padding:9px 13px; border-radius:12px; background:var(--card); border:1.5px solid var(--line); font-size:13px; font-weight:700; text-align:center; cursor:pointer; color:var(--muted); min-width:54px; scroll-snap-align:center;}
   .daypill .num{display:block; font-size:15px;}
   .daypill.selected{background:var(--roxo); border-color:var(--roxo); color:#fff;}
   .daypill.full{box-shadow:inset 0 0 0 2px var(--full);}
@@ -91,8 +100,8 @@
   .captag.full{background:var(--full-bg); color:var(--full);}
   .gridbody{position:relative; border-radius:10px; background-image:repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 60px); background-color:#fff; box-shadow:0 1px 3px rgba(76,20,50,0.06); cursor:copy;}
   .block{position:absolute; left:3px; right:3px; border-radius:8px; padding:4px 6px; font-size:10.5px; overflow:hidden; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.18); cursor:pointer;}
-  .btime{font-size:9px; opacity:0.9; font-weight:700;}
-  .bname{font-weight:700; font-size:11px; line-height:1.15; margin-top:1px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;}
+  .btime{font-size:10.5px; opacity:0.9; font-weight:700;}
+  .bname{font-weight:700; font-size:12.5px; line-height:1.2; margin-top:1px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;}
   .bstatus{font-size:9px; opacity:0.9; font-style:italic; font-weight:600;}
   .block.almoco, .block.deslocamento{background:var(--muted)!important; opacity:0.88;}
   .bdel{position:absolute; top:2px; right:3px; background:rgba(255,255,255,0.35); border:none; color:#fff; font-size:9px; width:15px; height:15px; border-radius:50%; cursor:pointer; line-height:1; padding:0;}
@@ -270,11 +279,11 @@
 </div>
 <div id="app">
 
-  <header class="top">
+  <header class="top" id="mainHeader">
     <button class="menubtn" id="openDrawer">☰</button>
     <img id="headerLogoImg" class="logoimg" style="display:none;">
     <span id="headerLogoPh" class="logoph">🐾</span>
-    <div>
+    <div id="headerBrandBox">
       <p class="brand" id="headerBrandName">Meu Dengo</p>
       <p class="sub" id="headerSub">Dashboard</p>
     </div>
@@ -299,9 +308,12 @@
   <main>
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
-      <div class="dashgreetbox">
-        <div id="dashGreeting"></div>
-        <div id="dashGreetingSub">Tenha um dia abençoado</div>
+      <div class="dashgreetbox" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div id="dashGreeting"></div>
+          <div id="dashGreetingSub">Tenha um dia abençoado</div>
+        </div>
+        <button id="btnCombustivel" style="background:var(--card-soft); border:none; border-radius:14px; width:52px; height:52px; font-size:24px; flex-shrink:0;">⛽</button>
       </div>
       <div class="card carddash">
         <h3>🗓️ Hoje</h3>
@@ -326,6 +338,7 @@
         <button id="prevWeek">‹</button>
         <span class="weeklabel" id="weekLabel">semana</span>
         <button id="btnHojeAgenda" style="font-size:12px; font-weight:700; font-family:'Baloo 2',sans-serif; background:var(--card-soft); border-radius:20px; padding:6px 14px; color:var(--roxo-dark);">Hoje</button>
+        <button id="btnAbrirCalendario" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">📆</button>
         <button id="nextWeek">›</button>
       </div>
       <div class="daypills" id="dayPills"></div>
@@ -342,6 +355,11 @@
           <div class="gridbody" id="gridBodyMovel"></div>
           <button class="btn btn-ghost btn-block addcol" data-op="Móvel">+ Móvel</button>
         </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <label>🔍 Buscar agendamentos (passados e futuros)</label>
+        <input id="buscaAgendaGeral" placeholder="Nome do tutor ou pet...">
+        <div id="buscaAgendaResultado" style="margin-top:8px;"></div>
       </div>
     </section>
 
@@ -502,12 +520,19 @@
         <input id="perfilCnpj" placeholder="00.000.000/0000-00">
       </div>
       <div class="card">
+        <h3>🔔 Notificações</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Avisa no celular quando um agendamento é criado ou cancelado (com o app aberto em segundo plano).</p>
+        <div class="footer-note" id="notifStatus" style="text-align:left; padding:0; margin-bottom:8px; font-weight:700;"></div>
+        <button class="btn btn-primary btn-block" id="ativarNotifBtn">Ativar notificações</button>
+      </div>
+
+      <div class="card">
         <h3>🎨 Tema de cores</h3>
         <p class="footer-note" style="margin:0 0 10px; text-align:left;">Mesma paleta, aplicada de formas diferentes.</p>
         <button class="temaBtn" data-tema="1"><div class="temaSwatch"><div style="background:#AA426C;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Clássico (rosa em destaque)</span></button>
         <button class="temaBtn" data-tema="2"><div class="temaSwatch"><div style="background:#472F7D;"></div><div style="background:#AA426C;"></div></div><span class="temaLabel">Roxo em destaque</span></button>
         <button class="temaBtn" data-tema="3"><div class="temaSwatch"><div style="background:#6B4A8A;"></div><div style="background:#472F7D;"></div></div><span class="temaLabel">Suave (tons unificados)</span></button>
-        <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio (mais masculino)</span></button>
+        <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio</span></button>
         <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
       </div>
       <div class="card">
@@ -748,6 +773,35 @@
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dExcluirProximos">Este e os próximos</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px; color:var(--full);" id="dExcluirTodos">Todos (incluindo anteriores)</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Calendário mensal -->
+<div class="modal-bg" id="calendarioModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeCalendarioModal">×</button>
+    <div class="monthnav">
+      <button id="calPrevMonth">‹</button>
+      <span id="calMonthLabel" style="font-weight:700; color:var(--roxo-dark); font-size:16px; font-family:'Baloo 2',sans-serif;"></span>
+      <button id="calNextMonth">›</button>
+    </div>
+    <div class="calGrid" id="calGridDias"></div>
+  </div>
+</div>
+
+<!-- MODAL: Combustível -->
+<div class="modal-bg" id="combustivelModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeCombustivelModal">×</button>
+    <h3>⛽ Registrar combustível</h3>
+    <label>Veículo</label>
+    <select id="combustivelVeiculo">
+      <option value="Pet Móvel">Pet Móvel</option>
+      <option value="Táxi Dog">Táxi Dog</option>
+    </select>
+    <label>Valor abastecido (R$0000,00)</label>
+    <input type="text" inputmode="numeric" id="combustivelValor">
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" id="salvarCombustivelBtn">Salvar despesa</button>
   </div>
 </div>
 
@@ -1177,7 +1231,7 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
 });
 
 
-function toISO(d){ return d.toISOString().slice(0,10); }
+function toISO(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
 function startOfWeek(offset){
   const now = new Date();
   const day = now.getDay();
@@ -1187,6 +1241,75 @@ function startOfWeek(offset){
   monday.setHours(0,0,0,0);
   return monday;
 }
+// ---------- CALENDÁRIO MENSAL ----------
+let calViewDate = new Date();
+function renderCalendarioMensal(){
+  document.getElementById('calMonthLabel').textContent = calViewDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const grid = document.getElementById('calGridDias');
+  grid.innerHTML='';
+  ['D','S','T','Q','Q','S','S'].forEach(d=>{ const el=document.createElement('div'); el.className='calDow'; el.textContent=d; grid.appendChild(el); });
+  const year = calViewDate.getFullYear(), month = calViewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayStr = todayISO();
+  for(let i=0;i<startOffset;i++){ const el=document.createElement('div'); el.className='calDay empty'; grid.appendChild(el); }
+  for(let day=1; day<=daysInMonth; day++){
+    const d = new Date(year, month, day);
+    const iso = toISO(d);
+    const el = document.createElement('div');
+    el.className='calDay';
+    if(iso===todayStr) el.classList.add('today');
+    if(iso===selectedDateISO) el.classList.add('selected');
+    const hasAgenda = STATE.agenda[iso] && ((STATE.agenda[iso].Fixo||[]).length || (STATE.agenda[iso].Móvel||[]).length);
+    if(hasAgenda) el.classList.add('hasagenda');
+    el.textContent = day;
+    if(d.getDay()!==0){
+      el.addEventListener('click',()=>{
+        selectedDateISO = iso;
+        renderWeek();
+        document.getElementById('calendarioModalBg').classList.remove('show');
+      });
+    } else { el.style.opacity='0.4'; el.style.cursor='default'; }
+    grid.appendChild(el);
+  }
+}
+document.getElementById('btnAbrirCalendario').addEventListener('click',()=>{
+  calViewDate = selectedDateISO ? new Date(selectedDateISO+'T00:00:00') : new Date();
+  renderCalendarioMensal();
+  document.getElementById('calendarioModalBg').classList.add('show');
+});
+document.getElementById('closeCalendarioModal').addEventListener('click',()=>document.getElementById('calendarioModalBg').classList.remove('show'));
+document.getElementById('calPrevMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()-1); renderCalendarioMensal(); });
+document.getElementById('calNextMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()+1); renderCalendarioMensal(); });
+
+// ---------- BUSCA GERAL DE AGENDAMENTOS ----------
+document.getElementById('buscaAgendaGeral').addEventListener('input',()=>{
+  const term = document.getElementById('buscaAgendaGeral').value.trim().toLowerCase();
+  const resEl = document.getElementById('buscaAgendaResultado');
+  if(!term){ resEl.innerHTML=''; return; }
+  let results = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo==='cliente' && (s.nome||'').toLowerCase().includes(term)) results.push({iso,op,id:s.id,nome:s.nome,inicio:s.inicio,servico:s.servico});
+      });
+    });
+  });
+  results.sort((a,b)=>a.iso.localeCompare(b.iso));
+  if(results.length===0){ resEl.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum agendamento encontrado.</div>'; return; }
+  resEl.innerHTML = results.slice(0,30).map(r=>
+    '<div class="penditem" data-iso="'+r.iso+'" data-op="'+r.op+'" data-id="'+r.id+'" style="cursor:pointer;"><span>'+fmtDateFull(new Date(r.iso+'T00:00:00'))+' '+r.inicio+' • '+r.nome+'</span><span>'+r.servico+' • '+r.op+'</span></div>'
+  ).join('');
+  resEl.querySelectorAll('.penditem').forEach(elItem=>{
+    elItem.addEventListener('click',()=>{
+      selectedDateISO = elItem.dataset.iso;
+      renderWeek();
+      openDetailModal(elItem.dataset.iso, elItem.dataset.op, elItem.dataset.id);
+    });
+  });
+});
+
 function shiftSelectedDay(delta){
   if(!selectedDateISO) return;
   const d = new Date(selectedDateISO+'T00:00:00');
@@ -1245,6 +1368,7 @@ document.querySelectorAll('.dtab').forEach(b=>{
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
     document.getElementById('headerSub').textContent = TAB_LABELS[b.dataset.tab]||'';
     document.getElementById('drawerBg').classList.remove('show');
+    document.getElementById('mainHeader').classList.toggle('compact', b.dataset.tab==='agenda');
     if(b.dataset.tab==='dashboard'){ autoGeneratePackageCobrancas().then(renderDashboard); }
     if(b.dataset.tab==='clientes'){ showTutoresList(); }
     if(b.dataset.tab==='config') renderConfigForm();
@@ -1255,6 +1379,22 @@ document.querySelectorAll('.dtab').forEach(b=>{
 });
 
 // ---------- DASHBOARD ----------
+document.getElementById('btnCombustivel').addEventListener('click',()=>{
+  document.getElementById('combustivelVeiculo').value='Pet Móvel';
+  document.getElementById('combustivelValor').value='';
+  document.getElementById('combustivelModalBg').classList.add('show');
+});
+document.getElementById('closeCombustivelModal').addEventListener('click',()=>document.getElementById('combustivelModalBg').classList.remove('show'));
+attachCurrencyMask(document.getElementById('combustivelValor'));
+document.getElementById('salvarCombustivelBtn').addEventListener('click', async ()=>{
+  const veiculo = document.getElementById('combustivelVeiculo').value;
+  const valor = parseBRLMask(document.getElementById('combustivelValor').value);
+  if(valor<=0){ toast('Informe o valor abastecido'); return; }
+  STATE.despesas.push({ id:'e'+Date.now(), descricao:'Combustível — '+veiculo, valor, dataPagamento: todayISO(), recorrente:false, intervaloDias:30, pago:true, formaPagamento:'Dinheiro', criadoEm: todayISO() });
+  await saveDespesas();
+  document.getElementById('combustivelModalBg').classList.remove('show');
+  toast('Despesa de combustível registrada!');
+});
 function renderDashboard(){
   const isAdmin = currentUser && currentUser.role==='admin';
   document.getElementById('dashGreeting').textContent = currentUser ? ('Olá, '+currentUser.nome+'! 👋') : '';
@@ -2398,10 +2538,24 @@ document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
   toast('Item salvo!');
 });
 
+function renderNotifStatus(){
+  const el = document.getElementById('notifStatus');
+  if(!('Notification' in window)){ el.textContent = 'Seu navegador não suporta notificações.'; return; }
+  const map = {granted:'🟢 Ativadas', denied:'🔴 Bloqueadas (ative manualmente nas configurações do navegador)', default:'🟡 Ainda não ativadas'};
+  el.textContent = map[Notification.permission] || '';
+}
+document.getElementById('ativarNotifBtn').addEventListener('click', async ()=>{
+  if(!('Notification' in window)){ toast('Seu navegador não suporta notificações'); return; }
+  const perm = await Notification.requestPermission();
+  renderNotifStatus();
+  if(perm==='granted') toast('Notificações ativadas!');
+  else toast('Permissão não concedida.');
+});
 function renderConfigForm(){
   renderServicesArea();
   renderTemplatesArea();
   renderUsersArea();
+  renderNotifStatus();
   const zonesArea = document.getElementById('zonesArea');
   zonesArea.innerHTML='';
   DIAS_UTEIS.forEach(dia=>{
@@ -2957,9 +3111,6 @@ async function startApp(){
   await autoGeneratePackageCobrancas();
   renderDashboard();
   attachRealtimeListeners();
-  if('Notification' in window && Notification.permission==='default'){
-    Notification.requestPermission();
-  }
 }
 
 (async function init(){
