@@ -1,5 +1,5 @@
 // Service worker com cache real do app shell, pra funcionar offline
-const CACHE_NAME = 'meudengo-v2';
+const CACHE_NAME = 'meudengo-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -29,7 +29,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
     fetch(e.request).then(res => {
-      if (res && res.status === 200) {
+      // aceita respostas normais (200) E respostas "opacas" de outros sites (tipo o Firebase),
+      // que não deixam o navegador ver o status, mas ainda podem ser guardadas
+      if (res && (res.status === 200 || res.type === 'opaque')) {
         const resClone = res.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(e.request, resClone)).catch(()=>{});
       }

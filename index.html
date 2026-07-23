@@ -214,6 +214,9 @@
   .dashgreetbox{margin-bottom:14px;}
   .dashgreetbox #dashGreeting{font-family:'Baloo 2',sans-serif; font-size:21px; font-weight:700; color:var(--roxo-dark); line-height:1.25;}
   .dashgreetbox #dashGreetingSub{font-size:13.5px; color:var(--muted); margin-top:2px;}
+  .dashIconsRow{display:flex; gap:10px; margin-top:14px;}
+  .dashIconBtn{background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:10px 6px; font-size:22px; flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(76,20,50,0.06);}
+  .dashIconBtn span{font-size:10.5px; font-weight:700; color:var(--muted); font-family:'Nunito Sans',sans-serif;}
   .carddash h3{font-size:16.5px;}
   .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
   .dashitem:last-child{border-bottom:none;}
@@ -243,6 +246,10 @@
   .drawer .dbrand{font-family:'Baloo 2',sans-serif; font-weight:700; color:var(--roxo-dark); font-size:16px; padding:6px 10px 16px;}
   .drawer button.dtab{display:block; width:100%; text-align:left; background:none; border:none; padding:12px 10px; border-radius:10px; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; margin-bottom:2px;}
   .drawer button.dtab.active{background:var(--rosa); color:#fff;}
+  #drawerReorderList.editmode .dtab{display:flex; justify-content:space-between; align-items:center; pointer-events:none;}
+  #drawerReorderList.editmode .dtab .reorderArrows{display:flex; gap:4px; pointer-events:auto;}
+  .reorderArrows{display:none;}
+  .reorderArrows button{background:rgba(0,0,0,0.08); border:none; border-radius:6px; width:26px; height:26px; font-size:13px; color:var(--roxo-dark); cursor:pointer;}
 
   /* MODELOS DE MENSAGEM */
   .tplrow{background:var(--card-soft); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
@@ -292,13 +299,15 @@
   <div class="drawer-bg" id="drawerBg">
     <div class="drawer">
       <div class="dbrand">🐾 Meu Dengo</div>
-      <button class="dtab active" data-tab="dashboard">🏠 Dashboard</button>
-      <button class="dtab" data-tab="agenda">📅 Agenda</button>
-      <button class="dtab" data-tab="sugestao">🧭 Sugestão</button>
-      <button class="dtab" data-tab="clientes">👤 Tutores</button>
-      <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
-      <button class="dtab" data-tab="config">⚙️ Config.</button>
-      <button class="dtab" data-tab="estoque">📦 Estoque</button>
+      <div id="drawerReorderList">
+        <button class="dtab active" data-tab="dashboard">🏠 Dashboard</button>
+        <button class="dtab" data-tab="sugestao">🧭 Sugestão</button>
+        <button class="dtab" data-tab="clientes">👤 Tutores</button>
+        <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
+        <button class="dtab" data-tab="config">⚙️ Config.</button>
+        <button class="dtab" data-tab="estoque">📦 Estoque</button>
+      </div>
+      <button class="btn btn-primary btn-block" id="drawerReorderDoneBtn" style="display:none; margin-top:8px;">✓ Concluído</button>
       <hr class="divider">
       <div class="footer-note" id="drawerUserInfo" style="text-align:left; padding:0 10px;"></div>
       <button class="dtab" id="logoutBtn" style="color:var(--full);">🚪 Sair</button>
@@ -308,12 +317,13 @@
   <main>
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
-      <div class="dashgreetbox" style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-          <div id="dashGreeting"></div>
-          <div id="dashGreetingSub">Tenha um dia abençoado</div>
+      <div class="dashgreetbox">
+        <div id="dashGreeting"></div>
+        <div id="dashGreetingSub">Tenha um dia abençoado</div>
+        <div class="dashIconsRow">
+          <button id="btnAgendaDash" class="dashIconBtn">📅<span>Agenda</span></button>
+          <button id="btnCombustivel" class="dashIconBtn">⛽<span>Combustível</span></button>
         </div>
-        <button id="btnCombustivel" style="background:var(--card-soft); border:none; border-radius:14px; width:52px; height:52px; font-size:24px; flex-shrink:0;">⛽</button>
       </div>
       <div class="card carddash">
         <h3>🗓️ Hoje</h3>
@@ -339,7 +349,12 @@
         <span class="weeklabel" id="weekLabel">semana</span>
         <button id="btnHojeAgenda" style="font-size:12px; font-weight:700; font-family:'Baloo 2',sans-serif; background:var(--card-soft); border-radius:20px; padding:6px 14px; color:var(--roxo-dark);">Hoje</button>
         <button id="btnAbrirCalendario" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">📆</button>
+        <button id="btnAbrirBuscaAgenda" style="font-size:18px; background:none; border:none; color:var(--roxo); padding:4px 6px;">🔍</button>
         <button id="nextWeek">›</button>
+      </div>
+      <div id="buscaAgendaWrap" style="display:none; margin-bottom:10px;">
+        <input id="buscaAgendaGeral" placeholder="Buscar agendamentos (passados e futuros)...">
+        <div id="buscaAgendaResultado" style="margin-top:8px;"></div>
       </div>
       <div class="daypills" id="dayPills"></div>
       <div class="dayFullDate" id="dayFullDate"></div>
@@ -355,11 +370,6 @@
           <div class="gridbody" id="gridBodyMovel"></div>
           <button class="btn btn-ghost btn-block addcol" data-op="Móvel">+ Móvel</button>
         </div>
-      </div>
-      <div class="card" style="margin-top:14px;">
-        <label>🔍 Buscar agendamentos (passados e futuros)</label>
-        <input id="buscaAgendaGeral" placeholder="Nome do tutor ou pet...">
-        <div id="buscaAgendaResultado" style="margin-top:8px;"></div>
       </div>
     </section>
 
@@ -1202,6 +1212,60 @@ function applyPermissions(){
   });
   document.getElementById('drawerUserInfo').textContent = currentUser ? (currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')) : '';
 }
+// ---------- REORDENAR MENU LATERAL ----------
+let reorderPressTimer = null;
+function enterReorderMode(){
+  const list = document.getElementById('drawerReorderList');
+  list.classList.add('editmode');
+  list.querySelectorAll('.dtab').forEach(btn=>{
+    if(btn.querySelector('.reorderArrows')) return;
+    const arrows = document.createElement('span');
+    arrows.className='reorderArrows';
+    arrows.innerHTML = '<button data-dir="up">⬆️</button><button data-dir="down">⬇️</button>';
+    arrows.querySelector('[data-dir="up"]').addEventListener('click',(e)=>{ e.stopPropagation(); moveDrawerItem(btn,-1); });
+    arrows.querySelector('[data-dir="down"]').addEventListener('click',(e)=>{ e.stopPropagation(); moveDrawerItem(btn,1); });
+    btn.appendChild(arrows);
+  });
+  document.getElementById('drawerReorderDoneBtn').style.display='block';
+}
+function moveDrawerItem(btn, dir){
+  const list = document.getElementById('drawerReorderList');
+  const items = Array.from(list.children);
+  const idx = items.indexOf(btn);
+  const swapIdx = idx+dir;
+  if(swapIdx<0 || swapIdx>=items.length) return;
+  if(dir<0) list.insertBefore(btn, items[swapIdx]);
+  else list.insertBefore(items[swapIdx], btn);
+}
+document.getElementById('drawerReorderList').addEventListener('pointerdown',()=>{
+  reorderPressTimer = setTimeout(enterReorderMode, 3000);
+});
+['pointerup','pointerleave','pointercancel'].forEach(evt=>{
+  document.getElementById('drawerReorderList').addEventListener(evt,()=>{ clearTimeout(reorderPressTimer); });
+});
+document.getElementById('drawerReorderDoneBtn').addEventListener('click', async ()=>{
+  const list = document.getElementById('drawerReorderList');
+  list.classList.remove('editmode');
+  list.querySelectorAll('.reorderArrows').forEach(el=>el.remove());
+  document.getElementById('drawerReorderDoneBtn').style.display='none';
+  const order = Array.from(list.children).map(b=>b.dataset.tab);
+  if(currentUser && currentUser.key){
+    try{
+      const usuarios = (await fbGet('usuarios')) || {};
+      if(usuarios[currentUser.key]){ usuarios[currentUser.key].menuOrder = order; await fbSet('usuarios', usuarios); }
+    }catch(e){}
+  }
+  toast('Ordem do menu salva!');
+});
+function applyMenuOrder(order){
+  if(!order || !order.length) return;
+  const list = document.getElementById('drawerReorderList');
+  order.forEach(tab=>{
+    const btn = list.querySelector('.dtab[data-tab="'+tab+'"]');
+    if(btn) list.appendChild(btn);
+  });
+}
+
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
   localStorage.removeItem('md_currentUser');
   currentUser = null;
@@ -1230,6 +1294,7 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
     const [foundKey, found] = foundEntry;
     currentUser = {nome:found.nome, role:found.role, key:foundKey};
     agendaViewMode = found.agendaViewMode || 'ambos';
+    applyMenuOrder(found.menuOrder);
     localStorage.setItem('md_currentUser', JSON.stringify(currentUser));
     document.getElementById('loginScreen').classList.add('hide');
     applyPermissions();
@@ -1296,6 +1361,12 @@ document.getElementById('calPrevMonth').addEventListener('click',()=>{ calViewDa
 document.getElementById('calNextMonth').addEventListener('click',()=>{ calViewDate.setMonth(calViewDate.getMonth()+1); renderCalendarioMensal(); });
 
 // ---------- BUSCA GERAL DE AGENDAMENTOS ----------
+document.getElementById('btnAbrirBuscaAgenda').addEventListener('click',()=>{
+  const wrap = document.getElementById('buscaAgendaWrap');
+  const showing = wrap.style.display==='block';
+  wrap.style.display = showing ? 'none' : 'block';
+  if(!showing) document.getElementById('buscaAgendaGeral').focus();
+});
 document.getElementById('buscaAgendaGeral').addEventListener('input',()=>{
   const term = document.getElementById('buscaAgendaGeral').value.trim().toLowerCase();
   const resEl = document.getElementById('buscaAgendaResultado');
@@ -1369,28 +1440,32 @@ function attachTimeMask(id){
 ['workStart','workEnd','mInicio'].forEach(attachTimeMask);
 
 // ---------- DRAWER / TABS ----------
-const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Tutores', financeiro:'Financeiro', config:'Configurações'};
+const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Tutores', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque'};
+function switchToTab(tab){
+  document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
+  const btn = document.querySelector('.dtab[data-tab="'+tab+'"]');
+  if(btn) btn.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('headerSub').textContent = TAB_LABELS[tab]||'';
+  document.getElementById('drawerBg').classList.remove('show');
+  document.getElementById('mainHeader').classList.toggle('compact', tab==='agenda');
+  if(tab==='dashboard'){ autoGeneratePackageCobrancas().then(renderDashboard); }
+  if(tab==='agenda'){ selectedDateISO = todayISO(); renderWeek(); }
+  if(tab==='clientes'){ showTutoresList(); }
+  if(tab==='config') renderConfigForm();
+  if(tab==='estoque') renderEstoqueList();
+  if(tab==='sugestao'){ renderSugForm(); populateServiceSelects(); }
+  if(tab==='financeiro') renderFinanceiro();
+}
 document.getElementById('openDrawer').addEventListener('click',()=>document.getElementById('drawerBg').classList.add('show'));
 document.getElementById('drawerBg').addEventListener('click',(e)=>{ if(e.target.id==='drawerBg') document.getElementById('drawerBg').classList.remove('show'); });
 document.querySelectorAll('.dtab').forEach(b=>{
-  b.addEventListener('click',()=>{
-    document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-    document.getElementById('headerSub').textContent = TAB_LABELS[b.dataset.tab]||'';
-    document.getElementById('drawerBg').classList.remove('show');
-    document.getElementById('mainHeader').classList.toggle('compact', b.dataset.tab==='agenda');
-    if(b.dataset.tab==='dashboard'){ autoGeneratePackageCobrancas().then(renderDashboard); }
-    if(b.dataset.tab==='clientes'){ showTutoresList(); }
-    if(b.dataset.tab==='config') renderConfigForm();
-    if(b.dataset.tab==='estoque') renderEstoqueList();
-    if(b.dataset.tab==='sugestao'){ renderSugForm(); populateServiceSelects(); }
-    if(b.dataset.tab==='financeiro') renderFinanceiro();
-  });
+  b.addEventListener('click',()=>switchToTab(b.dataset.tab));
 });
 
 // ---------- DASHBOARD ----------
+document.getElementById('btnAgendaDash').addEventListener('click',()=>switchToTab('agenda'));
 document.getElementById('btnCombustivel').addEventListener('click',()=>{
   document.getElementById('combustivelVeiculo').value='Pet Móvel';
   document.getElementById('combustivelValor').value='';
@@ -2652,11 +2727,7 @@ document.getElementById('sugBtn').addEventListener('click',()=>{
       '<button class="btn btn-primary btn-block" style="margin-top:10px;" id="confirmSug">Adicionar na agenda</button></div>';
     document.getElementById('confirmSug').addEventListener('click',()=>{
       selectedDateISO = iso;
-      document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
-      document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
-      document.querySelector('[data-tab="agenda"]').classList.add('active');
-      document.getElementById('tab-agenda').classList.add('active');
-      document.getElementById('headerSub').textContent='Agenda';
+      switchToTab('agenda');
       renderWeek();
       openModal(start, op);
     });
@@ -3154,7 +3225,7 @@ async function startApp(){
           const foundEntry = Object.entries(usuarios).find(([k,u])=>u.nome.toLowerCase()===currentUser.nome.toLowerCase());
           if(foundEntry){ currentUser.key = foundEntry[0]; localStorage.setItem('md_currentUser', JSON.stringify(currentUser)); }
         }
-        if(currentUser.key && usuarios[currentUser.key]){ agendaViewMode = usuarios[currentUser.key].agendaViewMode || 'ambos'; }
+        if(currentUser.key && usuarios[currentUser.key]){ agendaViewMode = usuarios[currentUser.key].agendaViewMode || 'ambos'; applyMenuOrder(usuarios[currentUser.key].menuOrder); }
       }catch(e){}
       document.getElementById('loginScreen').classList.add('hide');
       applyPermissions();
