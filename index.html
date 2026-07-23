@@ -920,7 +920,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromCache, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -935,12 +935,24 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
-enableIndexedDbPersistence(db).catch(e=>console.log('Persistência offline não habilitada:', e && e.code));
+try{
+  await Promise.race([
+    enableIndexedDbPersistence(db),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')), 3000))
+  ]);
+}catch(e){ console.log('Persistência offline não habilitada:', e && e.code); }
 
 const COL = 'meudengo';
 async function fbGet(path){
-  const snap = await getDoc(doc(db, COL, path));
-  return snap.exists() ? snap.data().value : null;
+  try{
+    const snap = await getDoc(doc(db, COL, path));
+    return snap.exists() ? snap.data().value : null;
+  }catch(e){
+    try{
+      const snap = await getDocFromCache(doc(db, COL, path));
+      return snap.exists() ? snap.data().value : null;
+    }catch(e2){ return null; }
+  }
 }
 async function fbSet(path, value){
   await setDoc(doc(db, COL, path), { value });
