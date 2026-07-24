@@ -196,6 +196,11 @@
   .checklist{display:flex; flex-direction:column; gap:2px; margin-top:4px;}
   .checklist label{display:flex; align-items:center; gap:8px; padding:8px 4px; font-weight:600; font-size:13.5px; color:var(--text);}
   .checklist input[type="checkbox"]{width:18px; height:18px; accent-color:var(--rosa); flex-shrink:0;}
+  .addedServicesList{display:flex; flex-direction:column; gap:4px; margin:4px 0;}
+  .addedServiceRow{display:flex; align-items:center; justify-content:space-between; background:var(--card-soft); border-radius:10px; padding:8px 10px;}
+  .addedServiceRow .asName{font-weight:700; font-size:13px;}
+  .addedServiceRow .asPrice{font-size:12px; color:var(--muted); margin-left:6px;}
+  .addedServiceRow button{background:none; border:none; color:var(--full); font-size:15px; cursor:pointer;}
   .behaviorchip{padding:6px 10px; border-radius:20px; background:var(--card-soft); font-size:12px; font-weight:600; cursor:pointer; color:var(--roxo-dark); border:1.5px solid transparent;}
   .behaviorchip.sel{background:var(--rosa); color:#fff;}
 
@@ -844,6 +849,7 @@
       <div id="mPetExistingWrap">
         <label>Pet</label>
         <select id="mPetSelect"></select>
+        <img id="mPetFotoPreview" class="rphoto" style="display:none; width:56px; height:56px; margin-top:8px;">
       </div>
       <div id="mPetNewWrap" style="display:none;">
         <div class="row">
@@ -855,8 +861,12 @@
           <div><label>Nome do pet</label><input id="mNovoPetNome"></div>
         </div>
       </div>
-      <label>Serviços (pode escolher mais de um)</label>
-      <div id="mServicosList" class="checklist"></div>
+      <label>Serviços</label>
+      <div id="mServicosList" class="addedServicesList"></div>
+      <div class="row">
+        <select id="mServicoAdd" style="flex:2;"></select>
+        <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="mServicoAddBtn">+ Adicionar</button>
+      </div>
       <div class="row">
         <div><label>Valor total (R$)</label><input type="number" id="mValor" min="0" step="0.5"></div>
         <div><label><input type="checkbox" id="mPago"> Já foi pago</label></div>
@@ -909,8 +919,12 @@
           <div><label>Data</label><input type="date" id="dData"></div>
           <div><label>Horário</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="dInicioEdit"></div>
         </div>
-        <label>Serviços (pode escolher mais de um)</label>
-        <div id="dServicosList" class="checklist"></div>
+        <label>Serviços</label>
+        <div id="dServicosList" class="addedServicesList"></div>
+        <div class="row">
+          <select id="dServicoAdd" style="flex:2;"></select>
+          <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="dServicoAddBtn">+ Adicionar</button>
+        </div>
       </div>
       <label>Status do atendimento</label>
       <select id="dStatus">
@@ -2101,28 +2115,60 @@ function servicoLabel(s){
   if(s.servicos && s.servicos.length) return s.servicos.join(' + ');
   return s.servico||'';
 }
+let mSelectedServicos = [];
 function populateModalServiceSelect(){
-  const list = document.getElementById('mServicosList');
-  list.innerHTML='';
-  STATE.config.services.forEach((s,idx)=>{
-    const lab = document.createElement('label');
-    lab.innerHTML = '<input type="checkbox" value="'+s.name+'" '+(idx===0?'checked':'')+'> '+s.name+' ('+formatBRL(s.price)+')';
-    list.appendChild(lab);
-  });
-  updateMValorFromServicos();
-  list.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
-    cb.addEventListener('change', updateMValorFromServicos);
+  mSelectedServicos = STATE.config.services[0] ? [STATE.config.services[0].name] : [];
+  renderMServicoAddSelect();
+  renderMServicosList();
+}
+function renderMServicoAddSelect(){
+  const sel = document.getElementById('mServicoAdd');
+  sel.innerHTML='';
+  STATE.config.services.filter(s=>!mSelectedServicos.includes(s.name)).forEach(s=>{
+    const o=document.createElement('option'); o.value=s.name; o.textContent=s.name+' ('+formatBRL(s.price)+')'; sel.appendChild(o);
   });
 }
+function renderMServicosList(){
+  const list = document.getElementById('mServicosList');
+  list.innerHTML='';
+  mSelectedServicos.forEach(name=>{
+    const svc = getService(name);
+    const row = document.createElement('div');
+    row.className='addedServiceRow';
+    row.innerHTML = '<span><span class="asName">'+name+'</span><span class="asPrice">'+(svc?formatBRL(svc.price):'')+'</span></span><button data-name="'+name+'">✕</button>';
+    row.querySelector('button').addEventListener('click',()=>{
+      mSelectedServicos = mSelectedServicos.filter(n=>n!==name);
+      renderMServicoAddSelect();
+      renderMServicosList();
+    });
+    list.appendChild(row);
+  });
+  updateMValorFromServicos();
+}
+document.getElementById('mServicoAddBtn').addEventListener('click',()=>{
+  const val = document.getElementById('mServicoAdd').value;
+  if(val && !mSelectedServicos.includes(val)){
+    mSelectedServicos.push(val);
+    renderMServicoAddSelect();
+    renderMServicosList();
+  }
+});
 function updateMValorFromServicos(){
-  const checked = Array.from(document.querySelectorAll('#mServicosList input:checked')).map(c=>c.value);
   let totalValor=0, totalDur=0;
-  checked.forEach(name=>{ const svc=getService(name); if(svc){ totalValor+=svc.price; totalDur+=svc.duration; } });
+  mSelectedServicos.forEach(name=>{ const svc=getService(name); if(svc){ totalValor+=svc.price; totalDur+=svc.duration; } });
   document.getElementById('mValor').value = totalValor;
   document.getElementById('mDuracao').value = totalDur||60;
 }
 document.getElementById('mPetSelect').addEventListener('change',(e)=>{
-  // sem auto-preenchimento de serviço: o serviço é sempre escolhido manualmente
+  const p = getPet(e.target.value);
+  const preview = document.getElementById('mPetFotoPreview');
+  if(p && p.photo){
+    preview.src = p.photo;
+    preview.style.objectPosition = (p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%';
+    preview.style.display='block';
+  } else {
+    preview.style.display='none';
+  }
 });
 document.getElementById('mSalvar').addEventListener('click', async ()=>{
   const operacao = document.getElementById('mOperacao').value;
@@ -2156,7 +2202,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     const t=getTutor(p.tutorId);
     nome = p.name+' ('+(t?t.name:'?')+')'; petId=p.id;
   }
-  const servicos = Array.from(document.querySelectorAll('#mServicosList input:checked')).map(c=>c.value);
+  const servicos = mSelectedServicos.slice();
   if(servicos.length===0){ toast('Selecione ao menos um serviço'); return; }
   const servico = servicos.join(' + ');
   const valor = parseFloat(document.getElementById('mValor').value)||0;
@@ -2180,16 +2226,49 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
 
 // ---------- MODAL: detalhe ----------
 function valorDevido(s){ return Math.max(0, (s.valor||0)-(s.valorPago||0)); }
+let dSelectedServicos = [];
 function populateDetailServiceSelect(currentServicos){
-  const list = document.getElementById('dServicosList');
-  list.innerHTML='';
-  const checkedSet = new Set(currentServicos||[]);
-  STATE.config.services.forEach(s=>{
-    const lab = document.createElement('label');
-    lab.innerHTML = '<input type="checkbox" value="'+s.name+'" '+(checkedSet.has(s.name)?'checked':'')+'> '+s.name+' ('+formatBRL(s.price)+')';
-    list.appendChild(lab);
+  dSelectedServicos = (currentServicos||[]).slice();
+  renderDServicoAddSelect();
+  renderDServicosList();
+}
+function renderDServicoAddSelect(){
+  const sel = document.getElementById('dServicoAdd');
+  sel.innerHTML='';
+  STATE.config.services.filter(s=>!dSelectedServicos.includes(s.name)).forEach(s=>{
+    const o=document.createElement('option'); o.value=s.name; o.textContent=s.name+' ('+formatBRL(s.price)+')'; sel.appendChild(o);
   });
 }
+function renderDServicosList(){
+  const list = document.getElementById('dServicosList');
+  list.innerHTML='';
+  dSelectedServicos.forEach(name=>{
+    const svc = getService(name);
+    const row = document.createElement('div');
+    row.className='addedServiceRow';
+    row.innerHTML = '<span><span class="asName">'+name+'</span><span class="asPrice">'+(svc?formatBRL(svc.price):'')+'</span></span><button data-name="'+name+'">✕</button>';
+    row.querySelector('button').addEventListener('click',()=>{
+      dSelectedServicos = dSelectedServicos.filter(n=>n!==name);
+      renderDServicoAddSelect();
+      renderDServicosList();
+      salvarServicosDetalhe();
+    });
+    list.appendChild(row);
+  });
+}
+function salvarServicosDetalhe(){
+  const checked = dSelectedServicos.slice();
+  applyWithScope(slot=>{ slot.servicos = checked; slot.servico = checked.join(' + '); }, 'Serviço atualizado!');
+}
+document.getElementById('dServicoAddBtn').addEventListener('click',()=>{
+  const val = document.getElementById('dServicoAdd').value;
+  if(val && !dSelectedServicos.includes(val)){
+    dSelectedServicos.push(val);
+    renderDServicoAddSelect();
+    renderDServicosList();
+    salvarServicosDetalhe();
+  }
+});
 function openDetailModal(iso, op, id){
   const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
   if(!slot) return;
@@ -2323,10 +2402,6 @@ document.getElementById('dData').addEventListener('change', async ()=>{
 document.getElementById('dInicioEdit').addEventListener('change', ()=>{
   const novoInicio = document.getElementById('dInicioEdit').value;
   applyWithScope(slot=>{ slot.inicio = novoInicio; }, 'Horário atualizado!');
-});
-document.getElementById('dServicosList').addEventListener('change', ()=>{
-  const checked = Array.from(document.querySelectorAll('#dServicosList input:checked')).map(c=>c.value);
-  applyWithScope(slot=>{ slot.servicos = checked; slot.servico = checked.join(' + '); }, 'Serviço atualizado!');
 });
 document.getElementById('dValor').addEventListener('change', ()=>{
   const novoValor = parseBRLMask(document.getElementById('dValor').value);
