@@ -193,6 +193,9 @@
   .temaBtn .temaLabel{font-weight:700; font-size:13.5px; color:var(--text);}
 
   .behaviorgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
+  .checklist{display:flex; flex-direction:column; gap:2px; margin-top:4px;}
+  .checklist label{display:flex; align-items:center; gap:8px; padding:8px 4px; font-weight:600; font-size:13.5px; color:var(--text);}
+  .checklist input[type="checkbox"]{width:18px; height:18px; accent-color:var(--rosa); flex-shrink:0;}
   .behaviorchip{padding:6px 10px; border-radius:20px; background:var(--card-soft); font-size:12px; font-weight:600; cursor:pointer; color:var(--roxo-dark); border:1.5px solid transparent;}
   .behaviorchip.sel{background:var(--rosa); color:#fff;}
 
@@ -344,6 +347,10 @@
       <div class="card carddash" id="dashCobrancasCard">
         <h3>💰 Cobranças e pagamentos a fazer</h3>
         <div id="dashCobrancas"></div>
+      </div>
+      <div class="card carddash" id="dashEstoqueBaixoCard" style="display:none;">
+        <h3>⚠️ Estoque baixo</h3>
+        <div id="dashEstoqueBaixo"></div>
       </div>
     </section>
 
@@ -815,6 +822,7 @@
         <input type="month" id="relatorioMes">
         <button class="btn btn-primary btn-block" style="margin-top:12px;" id="btnRelatorioAgendaPdf">📅 Gerar PDF da Agenda do mês</button>
         <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioPagamentosPdf">💰 Gerar PDF de Pagamentos do mês</button>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioEstoquePdf">📦 Gerar PDF de Consumo de Estoque do mês</button>
         <p class="footer-note">Mais relatórios chegam aqui em breve.</p>
       </div>
     </section>
@@ -847,11 +855,12 @@
           <div><label>Nome do pet</label><input id="mNovoPetNome"></div>
         </div>
       </div>
+      <label>Serviços (pode escolher mais de um)</label>
+      <div id="mServicosList" class="checklist"></div>
       <div class="row">
-        <div><label>Serviço</label><select id="mServico"></select></div>
-        <div><label>Valor (R$)</label><input type="number" id="mValor" min="0" step="0.5"></div>
+        <div><label>Valor total (R$)</label><input type="number" id="mValor" min="0" step="0.5"></div>
+        <div><label><input type="checkbox" id="mPago"> Já foi pago</label></div>
       </div>
-      <label><input type="checkbox" id="mPago"> Já foi pago</label>
     </div>
     <div class="row">
       <div><label>Início</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="mInicio"></div>
@@ -900,8 +909,8 @@
           <div><label>Data</label><input type="date" id="dData"></div>
           <div><label>Horário</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="dInicioEdit"></div>
         </div>
-        <label>Serviço</label>
-        <select id="dServico"></select>
+        <label>Serviços (pode escolher mais de um)</label>
+        <div id="dServicosList" class="checklist"></div>
       </div>
       <label>Status do atendimento</label>
       <select id="dStatus">
@@ -932,6 +941,8 @@
         </div>
       </div>
       <hr class="divider">
+      <button class="btn btn-ghost btn-block" id="dAlterarRecorrenciaBtn" style="display:none;">🔁 Alterar recorrência</button>
+      <hr class="divider">
       <button class="btn btn-ghost btn-block" style="color:var(--full);" id="dExcluir">Excluir agendamento</button>
       <div id="dExcluirChoice" style="display:none; margin-top:10px;">
         <p class="footer-note" style="text-align:left; padding:0;">Esse agendamento faz parte de uma recorrência. O que deseja excluir?</p>
@@ -946,6 +957,49 @@
       <button class="btn btn-ghost btn-block" id="dWhatsAbrir">Só abrir o chat</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dWhatsModelo">Enviar mensagem pré-escrita</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Escolha de escopo (somente este / próximos) -->
+<div class="modal-bg" id="scopeChoiceModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeScopeChoiceModal">×</button>
+    <h3>🔄 Aplicar mudança</h3>
+    <p class="footer-note" style="text-align:left; padding:0;">Esse agendamento faz parte de uma recorrência. Onde aplicar essa alteração?</p>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" id="scopeSomenteEste">Somente este</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="scopeProximos">Este e os próximos</button>
+  </div>
+</div>
+
+<!-- MODAL: Alterar recorrência -->
+<div class="modal-bg" id="recorrenciaModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeRecorrenciaModal">×</button>
+    <h3>🔁 Alterar recorrência</h3>
+    <p class="footer-note" style="text-align:left; padding:0;">Os agendamentos passados (e este) ficam como estão. Os futuros serão recriados no novo intervalo.</p>
+    <label>Nova frequência</label>
+    <select id="recFrequencia">
+      <option value="7">Semanal (a cada 7 dias)</option>
+      <option value="14">Quinzenal (a cada 14 dias)</option>
+      <option value="custom">Personalizado</option>
+    </select>
+    <div id="recIntervaloCustomWrap" style="display:none;">
+      <label>Repetir a cada (dias)</label>
+      <input type="number" id="recIntervalo" min="1" value="7">
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:12px;" id="confirmarRecorrenciaBtn">Aplicar nova recorrência</button>
+  </div>
+</div>
+
+<!-- MODAL: Enfeites (itens de estoque usados no atendimento) -->
+<div class="modal-bg" id="enfeitesModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeEnfeitesModal">×</button>
+    <h3>🎀 Itens usados nesse atendimento</h3>
+    <p class="footer-note" style="text-align:left; padding:0;">Marque os itens usados e a quantidade — o estoque é descontado automaticamente.</p>
+    <div id="enfeitesLista" style="margin-top:10px;"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" id="confirmarEnfeitesBtn">Confirmar e concluir</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="pularEnfeitesBtn">Concluir sem usar itens</button>
   </div>
 </div>
 
@@ -1020,8 +1074,27 @@
       <div><label>Valor de custo (R$0000,00)</label><input type="text" inputmode="numeric" id="eValorCusto"></div>
       <div><label>Nível mínimo</label><input type="number" id="eNivelMinimo" min="0" step="0.1"></div>
     </div>
-    <label>Consumo por atendimento (opcional — uso futuro)</label>
-    <input type="number" id="eConsumoAtendimento" min="0" step="0.1" placeholder="Deixe 0 por enquanto">
+    <label>Consumo por atendimento (usado no desconto automático)</label>
+    <input type="number" id="eConsumoAtendimento" min="0" step="0.1" placeholder="Ex: 10">
+    <hr class="divider">
+    <label><input type="checkbox" id="eUsarEnfeites"> Disponível pra selecionar ao concluir atendimento ("Enfeites")</label>
+    <div id="eModoDescontoWrap" style="display:none;">
+      <label>Como descontar do estoque</label>
+      <select id="eModoDesconto">
+        <option value="manual">Manual (pergunta ao concluir)</option>
+        <option value="automatico">Automático (desconta sozinho em todo atendimento)</option>
+      </select>
+    </div>
+    <hr class="divider">
+    <label><input type="checkbox" id="eRastrearConsumo"> Calcular consumo médio automaticamente</label>
+    <div id="eRastrearWrap" style="display:none;">
+      <div class="row">
+        <div><label>Data de entrada</label><input type="date" id="eDataEntrada"></div>
+        <div><label>Data de fim (acabou)</label><input type="date" id="eDataFim"></div>
+      </div>
+      <div id="eConsumoCalculado" class="footer-note" style="text-align:left; padding:0; font-weight:700;"></div>
+      <button class="btn btn-ghost btn-block" id="eAplicarSugestaoBtn" style="display:none; margin-top:8px;">Aplicar sugestão no consumo por atendimento</button>
+    </div>
     <button class="btn btn-primary btn-block" style="margin-top:14px;" id="saveEstoqueBtn">Salvar item</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px; color:var(--full); display:none;" id="deleteEstoqueBtn">Excluir item</button>
   </div>
@@ -1165,6 +1238,7 @@ let STATE = {
   estoque: [],
   fornecedores: [],
   compras: [],
+  consumoEstoque: [],
   config: {
     logo: DEFAULT_LOGO,
     templates: [
@@ -1211,6 +1285,7 @@ async function loadAll(){
   try{ STATE.estoque = (await fbGet('estoque')) || []; }catch(e){ STATE.estoque=[]; }
   try{ STATE.fornecedores = (await fbGet('fornecedores')) || []; }catch(e){ STATE.fornecedores=[]; }
   try{ STATE.compras = (await fbGet('compras')) || []; }catch(e){ STATE.compras=[]; }
+  try{ STATE.consumoEstoque = (await fbGet('consumoEstoque')) || []; }catch(e){ STATE.consumoEstoque=[]; }
   try{
     const parsed = await fbGet('config');
     if(parsed){
@@ -1255,6 +1330,7 @@ async function saveDespesas(){ try{ await fbSet('despesas', STATE.despesas); }ca
 async function saveEstoque(){ try{ await fbSet('estoque', STATE.estoque); }catch(e){ toast('Erro ao salvar estoque'); } }
 async function saveFornecedores(){ try{ await fbSet('fornecedores', STATE.fornecedores); }catch(e){ toast('Erro ao salvar fornecedores'); } }
 async function saveCompras(){ try{ await fbSet('compras', STATE.compras); }catch(e){ toast('Erro ao salvar compras'); } }
+async function saveConsumoEstoque(){ try{ await fbSet('consumoEstoque', STATE.consumoEstoque); }catch(e){ toast('Erro ao salvar consumo de estoque'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
 let lastLocalAgendaSave = 0;
 async function saveAgenda(){ try{ lastLocalAgendaSave = Date.now(); await fbSet('agenda', STATE.agenda); }catch(e){ toast('Erro ao salvar agenda'); } }
@@ -1551,7 +1627,7 @@ document.getElementById('buscaAgendaGeral').addEventListener('input',()=>{
   Object.keys(STATE.agenda).forEach(iso=>{
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && (s.nome||'').toLowerCase().includes(term)) results.push({iso,op,id:s.id,nome:s.nome,inicio:s.inicio,servico:s.servico});
+        if(s.tipo==='cliente' && (s.nome||'').toLowerCase().includes(term)) results.push({iso,op,id:s.id,nome:s.nome,inicio:s.inicio,servico:servicoLabel(s)});
       });
     });
   });
@@ -1673,6 +1749,16 @@ function renderDashboard(){
   const isAdmin = currentUser && currentUser.role==='admin';
   document.getElementById('dashGreeting').textContent = currentUser ? ('Olá, '+currentUser.nome+'! 👋') : '';
   document.getElementById('dashCobrancasCard').style.display = isAdmin ? 'block' : 'none';
+  const baixos = STATE.estoque.filter(it=>(it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo);
+  const estoqueBaixoCard = document.getElementById('dashEstoqueBaixoCard');
+  if(isAdmin && baixos.length>0){
+    estoqueBaixoCard.style.display='block';
+    document.getElementById('dashEstoqueBaixo').innerHTML = baixos.map(it=>
+      '<div class="penditem"><span>'+it.nome+'</span><span>'+(it.quantidade||0)+' '+(it.unidade||'')+'</span></div>'
+    ).join('');
+  } else {
+    estoqueBaixoCard.style.display='none';
+  }
   const iso = todayISO();
   const el = document.getElementById('dashHoje');
   let all = [];
@@ -1902,7 +1988,7 @@ function renderMaisIndicator(extras, body, workStartMin, colIdx, colCount, op){
   block.innerHTML = '<div class="bname">+'+extras.length+' mais</div>';
   block.addEventListener('click',()=>{
     document.getElementById('maisHorarioLista').innerHTML = extras.map(s=>
-      '<div class="listrow" data-id="'+s.id+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+s.inicio+' — '+s.nome+'</div><div class="rmeta">'+s.servico+'</div></div></div>'
+      '<div class="listrow" data-id="'+s.id+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+s.inicio+' — '+s.nome+'</div><div class="rmeta">'+servicoLabel(s)+'</div></div></div>'
     ).join('');
     document.getElementById('maisHorarioLista').querySelectorAll('.listrow').forEach(row=>{
       row.addEventListener('click',()=>{
@@ -2011,16 +2097,30 @@ function populatePetSelect(){
     const o=document.createElement('option'); o.value=p.id; o.textContent=p.name+' ('+(t?t.name:'?')+')'; sel.appendChild(o);
   });
 }
-function populateModalServiceSelect(){
-  const sel = document.getElementById('mServico');
-  sel.innerHTML='';
-  STATE.config.services.forEach(s=>{ const o=document.createElement('option'); o.textContent=s.name; sel.appendChild(o); });
-  if(STATE.config.services[0]){ document.getElementById('mValor').value = STATE.config.services[0].price; document.getElementById('mDuracao').value = STATE.config.services[0].duration; }
+function servicoLabel(s){
+  if(s.servicos && s.servicos.length) return s.servicos.join(' + ');
+  return s.servico||'';
 }
-document.getElementById('mServico').addEventListener('change',(e)=>{
-  const svc = getService(e.target.value);
-  if(svc){ document.getElementById('mValor').value = svc.price; document.getElementById('mDuracao').value = svc.duration; }
-});
+function populateModalServiceSelect(){
+  const list = document.getElementById('mServicosList');
+  list.innerHTML='';
+  STATE.config.services.forEach((s,idx)=>{
+    const lab = document.createElement('label');
+    lab.innerHTML = '<input type="checkbox" value="'+s.name+'" '+(idx===0?'checked':'')+'> '+s.name+' ('+formatBRL(s.price)+')';
+    list.appendChild(lab);
+  });
+  updateMValorFromServicos();
+  list.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', updateMValorFromServicos);
+  });
+}
+function updateMValorFromServicos(){
+  const checked = Array.from(document.querySelectorAll('#mServicosList input:checked')).map(c=>c.value);
+  let totalValor=0, totalDur=0;
+  checked.forEach(name=>{ const svc=getService(name); if(svc){ totalValor+=svc.price; totalDur+=svc.duration; } });
+  document.getElementById('mValor').value = totalValor;
+  document.getElementById('mDuracao').value = totalDur||60;
+}
 document.getElementById('mPetSelect').addEventListener('change',(e)=>{
   // sem auto-preenchimento de serviço: o serviço é sempre escolhido manualmente
 });
@@ -2056,7 +2156,9 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     const t=getTutor(p.tutorId);
     nome = p.name+' ('+(t?t.name:'?')+')'; petId=p.id;
   }
-  const servico = document.getElementById('mServico').value;
+  const servicos = Array.from(document.querySelectorAll('#mServicosList input:checked')).map(c=>c.value);
+  if(servicos.length===0){ toast('Selecione ao menos um serviço'); return; }
+  const servico = servicos.join(' + ');
   const valor = parseFloat(document.getElementById('mValor').value)||0;
   const pago = document.getElementById('mPago').checked;
 
@@ -2067,7 +2169,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     const iso = toISO(d);
     if(!STATE.agenda[iso]) STATE.agenda[iso] = {Fixo:[],Móvel:[]};
     if(!STATE.agenda[iso][operacao]) STATE.agenda[iso][operacao]=[];
-    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso });
+    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso });
   }
   await saveAgenda();
   document.getElementById('modalBg').classList.remove('show');
@@ -2078,11 +2180,15 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
 
 // ---------- MODAL: detalhe ----------
 function valorDevido(s){ return Math.max(0, (s.valor||0)-(s.valorPago||0)); }
-function populateDetailServiceSelect(current){
-  const sel = document.getElementById('dServico');
-  sel.innerHTML='';
-  STATE.config.services.forEach(s=>{ const o=document.createElement('option'); o.textContent=s.name; sel.appendChild(o); });
-  if(STATE.config.services.some(s=>s.name===current)) sel.value = current;
+function populateDetailServiceSelect(currentServicos){
+  const list = document.getElementById('dServicosList');
+  list.innerHTML='';
+  const checkedSet = new Set(currentServicos||[]);
+  STATE.config.services.forEach(s=>{
+    const lab = document.createElement('label');
+    lab.innerHTML = '<input type="checkbox" value="'+s.name+'" '+(checkedSet.has(s.name)?'checked':'')+'> '+s.name+' ('+formatBRL(s.price)+')';
+    list.appendChild(lab);
+  });
 }
 function openDetailModal(iso, op, id){
   const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
@@ -2112,7 +2218,7 @@ function openDetailModal(iso, op, id){
   if(isCliente){
     document.getElementById('dData').value = iso;
     document.getElementById('dInicioEdit').value = slot.inicio;
-    populateDetailServiceSelect(slot.servico);
+    populateDetailServiceSelect(slot.servicos && slot.servicos.length ? slot.servicos : (slot.servico?[slot.servico]:[]));
   }
   document.getElementById('dStatus').value = slot.statusAtendimento||'nenhum';
   document.getElementById('detailModalBg').classList.add('show');
@@ -2143,6 +2249,7 @@ document.getElementById('dEditIconBtn').addEventListener('click',()=>{
   if(!slot) return;
   document.getElementById('dValor').value = formatBRLMaskValue(slot.valor||0);
   document.getElementById('dDuracao').value = slot.duracao||60;
+  document.getElementById('dAlterarRecorrenciaBtn').style.display = slot.seriesId ? 'block' : 'none';
   refreshPagoInfo(slot);
   document.getElementById('dMainView').style.display='none';
   document.getElementById('dEditPanel').style.display='block';
@@ -2155,6 +2262,45 @@ document.getElementById('dVoltarMain').addEventListener('click',()=>document.get
 attachCurrencyMask(document.getElementById('dValor'));
 attachCurrencyMask(document.getElementById('dValorPagoInput'));
 attachTimeMask('dInicioEdit');
+
+let pendingScopeAction = null;
+function findFutureSeriesSlots(seriesId, fromIso, op){
+  let result = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(iso < fromIso) return;
+    (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.seriesId===seriesId) result.push(s); });
+  });
+  return result;
+}
+function applyWithScope(fieldSetter, successMsg){
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  if(!slot) return;
+  if(slot.seriesId){
+    pendingScopeAction = async (scope)=>{
+      if(scope==='only'){ fieldSetter(slot); }
+      else { findFutureSeriesSlots(slot.seriesId, detailRef.iso, detailRef.op).forEach(s=>fieldSetter(s)); }
+      await saveAgenda();
+      renderWeek();
+      toast(successMsg);
+    };
+    document.getElementById('scopeChoiceModalBg').classList.add('show');
+  } else {
+    fieldSetter(slot);
+    saveAgenda().then(()=>{ renderWeek(); toast(successMsg); });
+  }
+}
+document.getElementById('scopeSomenteEste').addEventListener('click', async ()=>{
+  document.getElementById('scopeChoiceModalBg').classList.remove('show');
+  if(pendingScopeAction) await pendingScopeAction('only');
+  pendingScopeAction = null;
+});
+document.getElementById('scopeProximos').addEventListener('click', async ()=>{
+  document.getElementById('scopeChoiceModalBg').classList.remove('show');
+  if(pendingScopeAction) await pendingScopeAction('future');
+  pendingScopeAction = null;
+});
+document.getElementById('closeScopeChoiceModal').addEventListener('click',()=>{ document.getElementById('scopeChoiceModalBg').classList.remove('show'); pendingScopeAction=null; });
 
 document.getElementById('dData').addEventListener('change', async ()=>{
   if(!detailRef) return;
@@ -2174,30 +2320,135 @@ document.getElementById('dData').addEventListener('change', async ()=>{
     toast('Data atualizada!');
   }
 });
-document.getElementById('dInicioEdit').addEventListener('change', async ()=>{
+document.getElementById('dInicioEdit').addEventListener('change', ()=>{
+  const novoInicio = document.getElementById('dInicioEdit').value;
+  applyWithScope(slot=>{ slot.inicio = novoInicio; }, 'Horário atualizado!');
+});
+document.getElementById('dServicosList').addEventListener('change', ()=>{
+  const checked = Array.from(document.querySelectorAll('#dServicosList input:checked')).map(c=>c.value);
+  applyWithScope(slot=>{ slot.servicos = checked; slot.servico = checked.join(' + '); }, 'Serviço atualizado!');
+});
+document.getElementById('dValor').addEventListener('change', ()=>{
+  const novoValor = parseBRLMask(document.getElementById('dValor').value);
+  applyWithScope(slot=>{ slot.valor = novoValor; }, 'Valor atualizado!');
+});
+document.getElementById('dDuracao').addEventListener('change', ()=>{
+  const novaDuracao = parseInt(document.getElementById('dDuracao').value)||60;
+  applyWithScope(slot=>{ slot.duracao = novaDuracao; }, 'Duração atualizada!');
+});
+
+// ---------- ALTERAR RECORRÊNCIA ----------
+document.getElementById('recFrequencia').addEventListener('change',(e)=>{
+  document.getElementById('recIntervaloCustomWrap').style.display = e.target.value==='custom' ? 'block' : 'none';
+});
+document.getElementById('dAlterarRecorrenciaBtn').addEventListener('click',()=>{
+  document.getElementById('recFrequencia').value='7';
+  document.getElementById('recIntervaloCustomWrap').style.display='none';
+  document.getElementById('recorrenciaModalBg').classList.add('show');
+});
+document.getElementById('closeRecorrenciaModal').addEventListener('click',()=>document.getElementById('recorrenciaModalBg').classList.remove('show'));
+document.getElementById('confirmarRecorrenciaBtn').addEventListener('click', async ()=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.inicio = document.getElementById('dInicioEdit').value; await saveAgenda(); renderWeek(); toast('Horário atualizado!'); }
+  if(!slot || !slot.seriesId) return;
+  const freqVal = document.getElementById('recFrequencia').value;
+  const intervalo = freqVal==='custom' ? (parseInt(document.getElementById('recIntervalo').value)||7) : parseInt(freqVal);
+  const op = detailRef.op;
+  // remove futuros (depois da data atual) da mesma série
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(iso <= detailRef.iso) return;
+    STATE.agenda[iso][op] = (STATE.agenda[iso][op]||[]).filter(s=>s.seriesId!==slot.seriesId);
+  });
+  const vezes = Math.min(60, Math.ceil(370/intervalo));
+  const baseDate = new Date(detailRef.iso+'T00:00:00');
+  for(let i=1;i<=vezes;i++){
+    const d = new Date(baseDate); d.setDate(baseDate.getDate() + i*intervalo);
+    const iso = toISO(d);
+    if(!STATE.agenda[iso]) STATE.agenda[iso] = {Fixo:[],Móvel:[]};
+    if(!STATE.agenda[iso][op]) STATE.agenda[iso][op] = [];
+    STATE.agenda[iso][op].push({ id:'a'+Date.now()+'_r'+i, tipo:'cliente', nome:slot.nome, petId:slot.petId, seriesId:slot.seriesId, servico:slot.servico, servicos:slot.servicos, valor:slot.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:slot.inicio, duracao:slot.duracao, recorrenteAvulso:slot.recorrenteAvulso });
+  }
+  await saveAgenda();
+  document.getElementById('recorrenciaModalBg').classList.remove('show');
+  renderWeek();
+  toast('Recorrência atualizada a partir de agora!');
 });
-document.getElementById('dServico').addEventListener('change', async ()=>{
-  if(!detailRef) return;
-  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.servico = document.getElementById('dServico').value; await saveAgenda(); renderWeek(); toast('Serviço atualizado!'); }
+
+// ---------- ENFEITES (ITENS DE ESTOQUE NO ATENDIMENTO) ----------
+function abrirEnfeitesOuConcluir(slot){
+  const itensManual = STATE.estoque.filter(it=>it.usarEmEnfeites && it.modoDesconto==='manual');
+  if(itensManual.length===0){
+    aplicarDescontoAutomaticoEConcluir(slot);
+    return;
+  }
+  const lista = document.getElementById('enfeitesLista');
+  lista.innerHTML = itensManual.map(it=>
+    '<div class="row" style="align-items:center;">'+
+      '<label style="display:flex; align-items:center; gap:8px; flex:2;"><input type="checkbox" data-item="'+it.id+'" class="enfeiteCheck"> '+it.nome+'</label>'+
+      '<input type="number" min="0" step="0.1" value="'+(it.consumoPorAtendimento||1)+'" data-qtd="'+it.id+'" class="enfeiteQtd" style="flex:1;">'+
+    '</div>'
+  ).join('');
+  document.getElementById('enfeitesModalBg').dataset.slotIso = detailRef.iso;
+  document.getElementById('enfeitesModalBg').dataset.slotOp = detailRef.op;
+  document.getElementById('enfeitesModalBg').dataset.slotId = detailRef.id;
+  document.getElementById('enfeitesModalBg').classList.add('show');
+}
+async function aplicarDescontoAutomaticoEConcluir(slot){
+  const itensAuto = STATE.estoque.filter(it=>it.usarEmEnfeites && it.modoDesconto==='automatico');
+  itensAuto.forEach(it=>{
+    const qtd = it.consumoPorAtendimento||0;
+    if(qtd>0){
+      it.quantidade = Math.max(0, (it.quantidade||0)-qtd);
+      STATE.consumoEstoque.push({ id:'u'+Date.now()+Math.random().toString(36).slice(2,6), itemId:it.id, agendamentoId:slot.id, quantidade:qtd, data:todayISO(), tipo:'automatico' });
+    }
+  });
+  slot.statusAtendimento = 'concluido';
+  await Promise.all([saveAgenda(), saveEstoque(), saveConsumoEstoque()]);
+  renderWeek();
+}
+document.getElementById('confirmarEnfeitesBtn').addEventListener('click', async ()=>{
+  const iso = document.getElementById('enfeitesModalBg').dataset.slotIso;
+  const op = document.getElementById('enfeitesModalBg').dataset.slotOp;
+  const id = document.getElementById('enfeitesModalBg').dataset.slotId;
+  const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
+  if(slot){
+    document.querySelectorAll('.enfeiteCheck:checked').forEach(cb=>{
+      const itemId = cb.dataset.item;
+      const it = STATE.estoque.find(x=>x.id===itemId);
+      const qtdInput = document.querySelector('.enfeiteQtd[data-qtd="'+itemId+'"]');
+      const qtd = parseFloat(qtdInput.value)||0;
+      if(it && qtd>0){
+        it.quantidade = Math.max(0, (it.quantidade||0)-qtd);
+        STATE.consumoEstoque.push({ id:'u'+Date.now()+Math.random().toString(36).slice(2,6), itemId:it.id, agendamentoId:slot.id, quantidade:qtd, data:todayISO(), tipo:'manual' });
+      }
+    });
+    await aplicarDescontoAutomaticoEConcluir(slot);
+  }
+  document.getElementById('enfeitesModalBg').classList.remove('show');
+  toast('Atendimento concluído!');
 });
-document.getElementById('dValor').addEventListener('change', async ()=>{
-  if(!detailRef) return;
-  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.valor = parseBRLMask(document.getElementById('dValor').value); await saveAgenda(); renderWeek(); toast('Valor atualizado!'); }
+document.getElementById('pularEnfeitesBtn').addEventListener('click', async ()=>{
+  const iso = document.getElementById('enfeitesModalBg').dataset.slotIso;
+  const op = document.getElementById('enfeitesModalBg').dataset.slotOp;
+  const id = document.getElementById('enfeitesModalBg').dataset.slotId;
+  const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
+  if(slot) await aplicarDescontoAutomaticoEConcluir(slot);
+  document.getElementById('enfeitesModalBg').classList.remove('show');
+  toast('Atendimento concluído!');
 });
-document.getElementById('dDuracao').addEventListener('change', async ()=>{
-  if(!detailRef) return;
-  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.duracao = parseInt(document.getElementById('dDuracao').value)||60; await saveAgenda(); renderWeek(); toast('Duração atualizada!'); }
-});
+document.getElementById('closeEnfeitesModal').addEventListener('click',()=>document.getElementById('enfeitesModalBg').classList.remove('show'));
+
 document.getElementById('dStatus').addEventListener('change', async (e)=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(slot){ slot.statusAtendimento = e.target.value; await saveAgenda(); renderWeek(); }
+  if(!slot) return;
+  if(e.target.value==='concluido'){
+    abrirEnfeitesOuConcluir(slot);
+  } else {
+    slot.statusAtendimento = e.target.value;
+    await saveAgenda();
+    renderWeek();
+  }
 });
 function marcarPago(forma){
   if(!detailRef) return;
@@ -2701,7 +2952,7 @@ function renderHistorico(){
     const badgeTxt = status==='pago'?'🟢 Pago':(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente');
     return '<div class="histitem">'+(p&&p.photo?'<img src="'+p.photo+'">':'<img>')+
       '<div class="hinfo"><div class="hname">'+fmtDateFull(new Date(s.iso+'T00:00:00'))+' • '+(p?p.name:'?')+'</div>'+
-      '<div>'+s.servico+' • '+formatBRL(s.valor||0)+(s.pago&&s.formaPagamento?' • '+s.formaPagamento:'')+'</div></div>'+
+      '<div>'+servicoLabel(s)+' • '+formatBRL(s.valor||0)+(s.pago&&s.formaPagamento?' • '+s.formaPagamento:'')+'</div></div>'+
       '<span class="badge '+status+'">'+badgeTxt+'</span></div>';
   }).join('');
 }
@@ -2893,7 +3144,7 @@ function gerarPdfAgendaMes(){
   Object.keys(STATE.agenda).forEach(iso=>{
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') items.push({iso,op,inicio:s.inicio,nome:s.nome,servico:s.servico,status:s.statusAtendimento}); });
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') items.push({iso,op,inicio:s.inicio,nome:s.nome,servico:servicoLabel(s),status:s.statusAtendimento}); });
     });
   });
   items.sort((a,b)=> (a.iso+a.inicio).localeCompare(b.iso+b.inicio));
@@ -2920,7 +3171,7 @@ function gerarPdfPagamentosMes(){
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && s.pago){ items.push({iso,nome:s.nome,servico:s.servico,valor:s.valor,forma:s.formaPagamento}); total+=(s.valor||0); }
+        if(s.tipo==='cliente' && s.pago){ items.push({iso,nome:s.nome,servico:servicoLabel(s),valor:s.valor,forma:s.formaPagamento}); total+=(s.valor||0); }
       });
     });
   });
@@ -2939,6 +3190,27 @@ function gerarPdfPagamentosMes(){
 }
 document.getElementById('btnRelatorioAgendaPdf').addEventListener('click', gerarPdfAgendaMes);
 document.getElementById('btnRelatorioPagamentosPdf').addEventListener('click', gerarPdfPagamentosMes);
+function gerarPdfEstoqueMes(){
+  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
+  const ym = document.getElementById('relatorioMes').value;
+  if(!ym){ toast('Escolha o mês'); return; }
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+  let y = 18;
+  docPdf.setFontSize(16); docPdf.text('Consumo de Estoque — '+relMonthLabelFromYm(ym), 14, y); y+=10;
+  docPdf.setFontSize(10);
+  const usos = STATE.consumoEstoque.filter(u=>u.data.startsWith(ym)).sort((a,b)=>a.data.localeCompare(b.data));
+  if(usos.length===0){ docPdf.text('Nenhum consumo registrado nesse mês.', 14, y); }
+  usos.forEach(u=>{
+    if(y>280){ docPdf.addPage(); y=18; }
+    const it = STATE.estoque.find(x=>x.id===u.itemId);
+    const linha = fmtDateFull(new Date(u.data+'T00:00:00'))+' • '+(it?it.nome:'?')+' • '+u.quantidade+' '+(it?it.unidade:'')+' • '+(u.tipo==='automatico'?'Automático':'Manual');
+    docPdf.text(linha, 14, y);
+    y+=6;
+  });
+  docPdf.save('consumo-estoque-'+ym+'.pdf');
+}
+document.getElementById('btnRelatorioEstoquePdf').addEventListener('click', gerarPdfEstoqueMes);
 
 function renderEstoqueList(){
   const area = document.getElementById('estoqueArea');
@@ -2971,12 +3243,59 @@ function openEstoqueModal(id){
   document.getElementById('eValorCusto').value = formatBRLMaskValue(it?(it.valorCusto||0):0);
   document.getElementById('eNivelMinimo').value = it?(it.nivelMinimo||0):0;
   document.getElementById('eConsumoAtendimento').value = it?(it.consumoPorAtendimento||0):0;
+  document.getElementById('eUsarEnfeites').checked = it?!!it.usarEmEnfeites:false;
+  document.getElementById('eModoDesconto').value = it?(it.modoDesconto||'manual'):'manual';
+  document.getElementById('eModoDescontoWrap').style.display = (it&&it.usarEmEnfeites) ? 'block':'none';
+  document.getElementById('eRastrearConsumo').checked = it?!!it.rastrearConsumo:false;
+  document.getElementById('eDataEntrada').value = it?(it.dataEntrada||''):'';
+  document.getElementById('eDataFim').value = it?(it.dataFim||''):'';
+  document.getElementById('eRastrearWrap').style.display = (it&&it.rastrearConsumo) ? 'block':'none';
+  document.getElementById('eConsumoCalculado').textContent='';
+  document.getElementById('eAplicarSugestaoBtn').style.display='none';
+  if(it && it.rastrearConsumo && it.dataEntrada && it.dataFim) calcularConsumoMedio(it);
   document.getElementById('eFoto').value=''; document.getElementById('eFoto').dataset.value = it?(it.foto||''):'';
   if(it && it.foto){ document.getElementById('eFotoPreview').src=it.foto; document.getElementById('eFotoPreview').style.display='block'; }
   else{ document.getElementById('eFotoPreview').style.display='none'; }
   document.getElementById('deleteEstoqueBtn').style.display = id ? 'block' : 'none';
   document.getElementById('estoqueModalBg').classList.add('show');
 }
+document.getElementById('eUsarEnfeites').addEventListener('change',(e)=>{
+  document.getElementById('eModoDescontoWrap').style.display = e.target.checked ? 'block' : 'none';
+});
+document.getElementById('eRastrearConsumo').addEventListener('change',(e)=>{
+  document.getElementById('eRastrearWrap').style.display = e.target.checked ? 'block' : 'none';
+});
+function calcularConsumoMedio(it){
+  const dataEntrada = document.getElementById('eDataEntrada').value;
+  const dataFim = document.getElementById('eDataFim').value;
+  if(!dataEntrada || !dataFim){ document.getElementById('eConsumoCalculado').textContent=''; document.getElementById('eAplicarSugestaoBtn').style.display='none'; return; }
+  const usos = STATE.consumoEstoque.filter(u=>u.itemId===it.id && u.data>=dataEntrada && u.data<=dataFim);
+  const totalUsado = usos.reduce((a,u)=>a+u.quantidade,0);
+  const atendimentosUnicos = new Set(usos.map(u=>u.agendamentoId)).size;
+  if(atendimentosUnicos===0){
+    document.getElementById('eConsumoCalculado').textContent = 'Nenhum uso registrado nesse período ainda.';
+    document.getElementById('eAplicarSugestaoBtn').style.display='none';
+    return;
+  }
+  const media = totalUsado/atendimentosUnicos;
+  document.getElementById('eConsumoCalculado').textContent = atendimentosUnicos+' atendimento(s) • total usado: '+totalUsado+' • média: '+media.toFixed(2)+' por atendimento';
+  document.getElementById('eAplicarSugestaoBtn').dataset.valor = media.toFixed(2);
+  document.getElementById('eAplicarSugestaoBtn').style.display='block';
+}
+document.getElementById('eDataEntrada').addEventListener('change',()=>{
+  const id = document.getElementById('eEditId').value;
+  const it = id ? STATE.estoque.find(x=>x.id===id) : {id:'temp'};
+  calcularConsumoMedio(it);
+});
+document.getElementById('eDataFim').addEventListener('change',()=>{
+  const id = document.getElementById('eEditId').value;
+  const it = id ? STATE.estoque.find(x=>x.id===id) : {id:'temp'};
+  calcularConsumoMedio(it);
+});
+document.getElementById('eAplicarSugestaoBtn').addEventListener('click',()=>{
+  document.getElementById('eConsumoAtendimento').value = document.getElementById('eAplicarSugestaoBtn').dataset.valor;
+  toast('Sugestão aplicada!');
+});
 document.getElementById('deleteEstoqueBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('eEditId').value;
   if(!id) return;
@@ -3023,6 +3342,11 @@ document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
     valorCusto: parseBRLMask(document.getElementById('eValorCusto').value),
     nivelMinimo: parseFloat(document.getElementById('eNivelMinimo').value)||0,
     consumoPorAtendimento: parseFloat(document.getElementById('eConsumoAtendimento').value)||0,
+    usarEmEnfeites: document.getElementById('eUsarEnfeites').checked,
+    modoDesconto: document.getElementById('eModoDesconto').value,
+    rastrearConsumo: document.getElementById('eRastrearConsumo').checked,
+    dataEntrada: document.getElementById('eDataEntrada').value||null,
+    dataFim: document.getElementById('eDataFim').value||null,
     foto: document.getElementById('eFoto').dataset.value || null
   };
   if(!item.nome){ toast('Informe o nome do item'); return; }
@@ -3223,7 +3547,7 @@ function collectPendencias(){
           const tutorId = p ? p.tutorId : null;
           const key = tutorId || ('avulso:'+s.nome);
           if(!groups[key]) groups[key]={name: tutorId?getTutor(tutorId).name:s.nome, tutorId, items:[]};
-          groups[key].items.push({iso, op, id:s.id, servico:s.servico, valor:valorDevido(s)});
+          groups[key].items.push({iso, op, id:s.id, servico:servicoLabel(s), valor:valorDevido(s)});
         }
       });
     });
@@ -3367,7 +3691,7 @@ function searchPaidItems(term, wantPacote){
         const isPacoteItem = !!(s.seriesId && !s.recorrenteAvulso);
         if(isPacoteItem !== wantPacote) return;
         if(!(s.nome||'').toLowerCase().includes(term)) return;
-        results.push({iso, op, servico:s.servico, valor:s.valor, formaPagamento:s.formaPagamento, nome:s.nome});
+        results.push({iso, op, servico:servicoLabel(s), valor:s.valor, formaPagamento:s.formaPagamento, nome:s.nome});
       });
     });
   });
@@ -3431,7 +3755,7 @@ async function renderFinanceiro(){
     let items=[];
     Object.keys(STATE.agenda).forEach(iso=>{
       ['Fixo','Móvel'].forEach(op=>{
-        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,servico:s.servico,valor:valorDevido(s),petId:s.petId,seriesId:s.seriesId}); });
+        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,servico:servicoLabel(s),valor:valorDevido(s),petId:s.petId,seriesId:s.seriesId}); });
       });
     });
     const total = items.reduce((a,i)=>a+i.valor,0);
