@@ -4293,16 +4293,24 @@ async function renderFinanceiro(){
       '<div class="pendtotal"><span>Total</span><span>'+formatBRL(total)+'</span></div>'+
       '<label style="margin-top:8px;">Vencimento (editável)</label>'+
       '<input type="date" class="dVencimentoInput" value="'+(cb.dataPagamento||'')+'">'+
+      '<div class="footer-note dVencimentoLabel" style="text-align:left; padding:0; margin-top:2px;">'+(cb.dataPagamento?('Vence em '+fmtDateFull(new Date(cb.dataPagamento+'T00:00:00'))):'')+'</div>'+
       (isPacote?'<button class="btn btn-ghost btn-block btn-small" style="margin-top:8px;" data-act="incluirMes">+ Incluir mês seguinte (pagar adiantado)</button>':'')+
       '<div class="row" style="margin-top:10px;">'+
         '<button class="btn btn-ghost btn-small" data-act="payD">✓ Pago (Dinheiro)</button>'+
         '<button class="btn btn-ghost btn-small" data-act="payP">✓ Pago (Pix)</button>'+
       '</div>'+
       '<button class="btn btn-primary btn-block btn-small" style="margin-top:6px;" data-act="cobrar">Gerar cobrança</button>'+
-      '<div class="copybox"><textarea rows="6" readonly></textarea><button class="btn btn-ghost btn-small btn-block" style="margin-top:6px;" data-act="copy">Copiar texto</button></div>';
+      '<div class="copybox">'+
+        '<label style="margin-top:8px;">Usar modelo pré-escrito (opcional)</label>'+
+        '<select class="cbTemplateSelect"><option value="">— texto padrão / editar livremente —</option>'+
+        STATE.config.templates.map(tpl=>'<option value="'+tpl.id+'">'+tpl.name+'</option>').join('')+
+        '</select>'+
+        '<textarea rows="6"></textarea><button class="btn btn-ghost btn-small btn-block" style="margin-top:6px;" data-act="copy">Copiar texto</button>'+
+      '</div>';
 
     card.querySelector('.dVencimentoInput').addEventListener('change', async (e)=>{
       cb.dataPagamento = e.target.value;
+      card.querySelector('.dVencimentoLabel').textContent = e.target.value ? ('Vence em '+fmtDateFull(new Date(e.target.value+'T00:00:00'))) : '';
       await saveCobrancas();
       renderFinanceiro();
       toast('Vencimento atualizado!');
@@ -4317,19 +4325,36 @@ async function renderFinanceiro(){
     if(isPacote){
       card.querySelector('[data-act="incluirMes"]').addEventListener('click',()=>incluirMesSeguinte(cb.id));
     }
-    card.querySelector('[data-act="cobrar"]').addEventListener('click',()=>{
+    function textoPadraoCobranca(){
       const linhasTxt = Object.keys(pacotePorPet).map(petId=>{
         const p = getPet(petId); const g = pacotePorPet[petId];
         return '- 📦 Pacote de '+g.count+'× '+g.servico+' — '+(p?p.name:'?')+' • '+formatBRL(g.total);
       }).concat(extraItems.map(i=>'- '+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' • '+formatBRL(i.valor)));
-      const txt = 'Olá '+(t?t.name:'')+'! Passando pra lembrar dos atendimentos em aberto:\n'+
+      return 'Olá '+(t?t.name:'')+'! Passando pra lembrar dos atendimentos em aberto:\n'+
         linhasTxt.join('\n')+
         '\nTotal: '+formatBRL(total)+
         (cb.dataPagamento?'\nVencimento: '+fmtDateFull(new Date(cb.dataPagamento+'T00:00:00')):'')+
         '\n\nQualquer dúvida, só chamar! 🐾';
+    }
+    card.querySelector('[data-act="cobrar"]').addEventListener('click',()=>{
       const box = card.querySelector('.copybox');
       box.style.display='block';
-      box.querySelector('textarea').value = txt;
+      box.querySelector('textarea').value = textoPadraoCobranca();
+    });
+    card.querySelector('.cbTemplateSelect').addEventListener('change',(e)=>{
+      const box = card.querySelector('.copybox');
+      box.style.display='block';
+      const ta = box.querySelector('textarea');
+      if(!e.target.value){ ta.value = textoPadraoCobranca(); return; }
+      const tpl = STATE.config.templates.find(x=>x.id===e.target.value);
+      if(!tpl) return;
+      let texto = tpl.text.replaceAll('{tutor}', t?t.name:'')
+                           .replaceAll('{valor_pacote}', formatBRL(total))
+                           .replaceAll('{pacote}', pacoteStatusTutor(cb.tutorId))
+                           .replaceAll('{valor}', formatBRL(total).replace('R$',''))
+                           .replaceAll('{pet}', Object.keys(pacotePorPet).map(pid=>{const p=getPet(pid); return p?p.name:'';}).join(', '))
+                           .replaceAll('{servico}', Object.values(pacotePorPet).map(g=>g.servico).join(', '));
+      ta.value = texto;
     });
     card.querySelector('[data-act="copy"]').addEventListener('click',()=>{
       const ta = card.querySelector('textarea'); ta.select();
