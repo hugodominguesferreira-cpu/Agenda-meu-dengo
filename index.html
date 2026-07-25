@@ -238,6 +238,9 @@
   .dashIconsRow{display:flex; gap:10px; margin-top:14px;}
   .dashIconBtn{background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:10px 6px; font-size:22px; flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(76,20,50,0.06);}
   .dashIconBtn span{font-size:10.5px; font-weight:700; color:var(--muted); font-family:'Nunito Sans',sans-serif;}
+  .dashRow2{display:flex; gap:10px;}
+  .dashRow2 .dashHalf{flex:1; min-width:0;}
+  .dashRow2 .dashHalf h3{font-size:14px;}
   .carddash h3{font-size:16.5px;}
   .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
   .dashitem:last-child{border-bottom:none;}
@@ -352,21 +355,23 @@
           <button id="btnRotaDash" class="dashIconBtn" style="display:none;" data-panel="fsRotaDia">🗺️<span>Rota do dia</span></button>
         </div>
       </div>
+      <div class="dashRow2">
+        <div class="card carddash dashHalf" id="dashCobrancasCard">
+          <h3>💰 Cobranças a fazer</h3>
+          <div id="dashCobrancas"></div>
+        </div>
+        <div class="card carddash dashHalf" id="dashEstoqueHojeCard" style="display:none;">
+          <h3>⚠️ Pode faltar hoje</h3>
+          <div id="dashEstoqueHoje"></div>
+        </div>
+      </div>
       <div class="card carddash">
         <h3>🗓️ Hoje</h3>
         <div id="dashHoje"></div>
       </div>
-      <div class="card carddash" id="dashCobrancasCard">
-        <h3>💰 Cobranças e pagamentos a fazer</h3>
-        <div id="dashCobrancas"></div>
-      </div>
       <div class="card carddash" id="dashEstoqueBaixoCard" style="display:none;">
         <h3>⚠️ Estoque baixo</h3>
         <div id="dashEstoqueBaixo"></div>
-      </div>
-      <div class="card carddash" id="dashEstoqueHojeCard" style="display:none;">
-        <h3>⚠️ Pode faltar hoje</h3>
-        <div id="dashEstoqueHoje"></div>
       </div>
       <div class="card carddash" id="dashAniversarioCard" style="display:none;">
         <h3>🎂 Aniversário hoje</h3>
@@ -1195,14 +1200,12 @@
     <label>Consumo por atendimento (usado no desconto automático)</label>
     <input type="number" id="eConsumoAtendimento" min="0" step="0.1" placeholder="Ex: 10">
     <hr class="divider">
-    <label><input type="checkbox" id="eUsarEnfeites"> Disponível pra selecionar ao concluir atendimento ("Enfeites")</label>
-    <div id="eModoDescontoWrap" style="display:none;">
-      <label>Como descontar do estoque</label>
-      <select id="eModoDesconto">
-        <option value="manual">Manual (pergunta ao concluir)</option>
-        <option value="automatico">Automático (desconta sozinho em todo atendimento)</option>
-      </select>
-    </div>
+    <label>Como esse item participa da conclusão de atendimentos?</label>
+    <select id="eModoDesconto">
+      <option value="nenhum">Não participa (só controle manual do estoque)</option>
+      <option value="manual">Manual (pergunta ao concluir, você escolhe quantidade)</option>
+      <option value="automatico">Automático (desconta sozinho em TODO atendimento concluído)</option>
+    </select>
     <hr class="divider">
     <label><input type="checkbox" id="eRastrearConsumo"> Calcular consumo médio automaticamente</label>
     <div id="eRastrearWrap" style="display:none;">
@@ -1934,7 +1937,7 @@ function renderDashboard(){
     const isoHoje = todayISO();
     let hojeCount = 0;
     ['Fixo','Móvel'].forEach(op=>{ getDaySlots(isoHoje,op).forEach(s=>{ if(s.tipo==='cliente' && s.statusAtendimento!=='cancelado') hojeCount++; }); });
-    const itensAuto = STATE.estoque.filter(it=>it.usarEmEnfeites && it.modoDesconto==='automatico' && (it.consumoPorAtendimento||0)>0);
+    const itensAuto = STATE.estoque.filter(it=>it.modoDesconto==='automatico' && (it.consumoPorAtendimento||0)>0);
     const faltando = itensAuto.map(it=>{
       const necessario = hojeCount*it.consumoPorAtendimento;
       const falta = necessario - (it.quantidade||0);
@@ -2722,7 +2725,7 @@ document.getElementById('confirmarTipoCobrancaBtn').addEventListener('click', as
 
 // ---------- ENFEITES (ITENS DE ESTOQUE NO ATENDIMENTO) ----------
 function abrirEnfeitesOuConcluir(slot){
-  const itensManual = STATE.estoque.filter(it=>it.usarEmEnfeites && it.modoDesconto==='manual');
+  const itensManual = STATE.estoque.filter(it=>it.modoDesconto==='manual');
   if(itensManual.length===0){
     aplicarDescontoAutomaticoEConcluir(slot);
     return;
@@ -2740,7 +2743,7 @@ function abrirEnfeitesOuConcluir(slot){
   document.getElementById('enfeitesModalBg').classList.add('show');
 }
 async function aplicarDescontoAutomaticoEConcluir(slot){
-  const itensAuto = STATE.estoque.filter(it=>it.usarEmEnfeites && it.modoDesconto==='automatico');
+  const itensAuto = STATE.estoque.filter(it=>it.modoDesconto==='automatico');
   itensAuto.forEach(it=>{
     const qtd = it.consumoPorAtendimento||0;
     if(qtd>0){
@@ -2784,13 +2787,28 @@ document.getElementById('pularEnfeitesBtn').addEventListener('click', async ()=>
 });
 document.getElementById('closeEnfeitesModal').addEventListener('click',()=>document.getElementById('enfeitesModalBg').classList.remove('show'));
 
+async function reverterConsumoAtendimento(slot){
+  const usos = STATE.consumoEstoque.filter(u=>u.agendamentoId===slot.id);
+  if(usos.length===0) return;
+  usos.forEach(u=>{
+    const it = STATE.estoque.find(x=>x.id===u.itemId);
+    if(it){ it.quantidade = (it.quantidade||0)+u.quantidade; }
+  });
+  STATE.consumoEstoque = STATE.consumoEstoque.filter(u=>u.agendamentoId!==slot.id);
+  await Promise.all([saveEstoque(), saveConsumoEstoque()]);
+}
 document.getElementById('dStatus').addEventListener('change', async (e)=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
   if(!slot) return;
+  const statusAnterior = slot.statusAtendimento;
   if(e.target.value==='concluido'){
     abrirEnfeitesOuConcluir(slot);
   } else {
+    if(statusAnterior==='concluido'){
+      await reverterConsumoAtendimento(slot);
+      toast('Estoque devolvido, pois saiu de Concluído.');
+    }
     slot.statusAtendimento = e.target.value;
     await saveAgenda();
     renderWeek();
@@ -3714,9 +3732,7 @@ function openEstoqueModal(id){
   document.getElementById('eValorCusto').value = formatBRLMaskValue(it?(it.valorCusto||0):0);
   document.getElementById('eNivelMinimo').value = it?(it.nivelMinimo||0):0;
   document.getElementById('eConsumoAtendimento').value = it?(it.consumoPorAtendimento||0):0;
-  document.getElementById('eUsarEnfeites').checked = it?!!it.usarEmEnfeites:false;
-  document.getElementById('eModoDesconto').value = it?(it.modoDesconto||'manual'):'manual';
-  document.getElementById('eModoDescontoWrap').style.display = (it&&it.usarEmEnfeites) ? 'block':'none';
+  document.getElementById('eModoDesconto').value = it?(it.modoDesconto||'nenhum'):'nenhum';
   document.getElementById('eRastrearConsumo').checked = it?!!it.rastrearConsumo:false;
   document.getElementById('eDataEntrada').value = it?(it.dataEntrada||''):'';
   document.getElementById('eDataFim').value = it?(it.dataFim||''):'';
@@ -3730,9 +3746,7 @@ function openEstoqueModal(id){
   document.getElementById('deleteEstoqueBtn').style.display = id ? 'block' : 'none';
   document.getElementById('estoqueModalBg').classList.add('show');
 }
-document.getElementById('eUsarEnfeites').addEventListener('change',(e)=>{
-  document.getElementById('eModoDescontoWrap').style.display = e.target.checked ? 'block' : 'none';
-});
+
 document.getElementById('eRastrearConsumo').addEventListener('change',(e)=>{
   document.getElementById('eRastrearWrap').style.display = e.target.checked ? 'block' : 'none';
 });
@@ -3813,7 +3827,6 @@ document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
     valorCusto: parseBRLMask(document.getElementById('eValorCusto').value),
     nivelMinimo: parseFloat(document.getElementById('eNivelMinimo').value)||0,
     consumoPorAtendimento: parseFloat(document.getElementById('eConsumoAtendimento').value)||0,
-    usarEmEnfeites: document.getElementById('eUsarEnfeites').checked,
     modoDesconto: document.getElementById('eModoDesconto').value,
     rastrearConsumo: document.getElementById('eRastrearConsumo').checked,
     dataEntrada: document.getElementById('eDataEntrada').value||null,
