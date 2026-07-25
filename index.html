@@ -349,6 +349,7 @@
         <div class="dashIconsRow">
           <button id="btnAgendaDash" class="dashIconBtn">📅<span>Agenda</span></button>
           <button id="btnCombustivel" class="dashIconBtn">⛽<span>Combustível</span></button>
+          <button id="btnRotaDash" class="dashIconBtn" style="display:none;" data-panel="fsRotaDia">🗺️<span>Rota do dia</span></button>
         </div>
       </div>
       <div class="card carddash">
@@ -371,16 +372,18 @@
         <h3>🎂 Aniversário hoje</h3>
         <div id="dashAniversario"></div>
       </div>
-      <div class="card carddash" id="dashRotaCard" style="display:none;">
-        <h3>🗺️ Rota do dia (Pet Móvel)</h3>
-        <div id="dashRota"></div>
-        <button class="btn btn-primary btn-block" style="margin-top:8px;" id="btnAbrirRotaMaps">Abrir no Google Maps</button>
-      </div>
-      <div class="card carddash" id="dashConfirmarCard" style="display:none;">
-        <h3>✅ Confirmar amanhã</h3>
-        <div id="dashConfirmar"></div>
-      </div>
     </section>
+
+    <!-- FS: Rota do dia -->
+    <div class="fsPanel" id="fsRotaDia">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🗺️ Rota do dia (Pet Móvel)</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div id="dashRota"></div>
+          <button class="btn btn-primary btn-block" style="margin-top:8px;" id="btnAbrirRotaMaps">Abrir no Google Maps</button>
+        </div>
+      </div>
+    </div>
 
     <!-- AGENDA -->
     <section id="tab-agenda">
@@ -674,7 +677,7 @@
       <div class="fsPanelBody">
         <div class="card">
           <h3>Modelos de mensagem (WhatsApp)</h3>
-          <p class="footer-note" style="margin:0 0 8px; text-align:left;">Use os campos {tutor}, {pet}, {servico}, {valor} e {valor_pacote} — eles se preenchem sozinhos na hora de enviar.</p>
+          <p class="footer-note" style="margin:0 0 8px; text-align:left;">Use os campos {tutor}, {pet}, {servico}, {valor}, {valor_pacote} e {pacote} — eles se preenchem sozinhos na hora de enviar.</p>
           <div id="templatesArea"></div>
           <div class="row" style="margin-top:8px;">
             <input id="newTplName" placeholder="Nome do modelo">
@@ -696,7 +699,7 @@
           <hr class="divider">
           <label>Novo serviço</label>
           <div class="row">
-            <div style="flex:0 0 auto;"><label style="margin-top:0;">Cor</label><input type="color" id="newServiceColor" value="#AA426C"></div>
+            <div style="flex:0 0 auto;"><label style="margin-top:0;">Cor</label><div class="colorcircle"><input type="color" id="newServiceColor" value="#AA426C"></div></div>
             <div style="flex:2;"><label style="margin-top:0;">Nome do serviço</label><input id="newServiceName" placeholder="Ex: Hidratação"></div>
           </div>
           <div class="row">
@@ -862,16 +865,49 @@
     <!-- RELATÓRIOS -->
     <section id="tab-relatorios">
       <div class="card">
-        <h3>📄 Relatórios em PDF</h3>
-        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Escolha o mês e gere um PDF simples pra guardar ou compartilhar.</p>
+        <h3>📊 Relatórios</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Escolha o mês e gere uma planilha, ou veja os gráficos.</p>
         <label>Mês de referência</label>
         <input type="month" id="relatorioMes">
-        <button class="btn btn-primary btn-block" style="margin-top:12px;" id="btnRelatorioAgendaPdf">📅 Gerar PDF da Agenda do mês</button>
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioPagamentosPdf">💰 Gerar PDF de Pagamentos do mês</button>
-        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioEstoquePdf">📦 Gerar PDF de Consumo de Estoque do mês</button>
-        <p class="footer-note">Mais relatórios chegam aqui em breve.</p>
+        <button class="btn btn-primary btn-block" style="margin-top:12px;" id="btnRelatorioAgendaPdf">📅 Gerar planilha da Agenda do mês</button>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioPagamentosPdf">💰 Gerar planilha de Pagamentos do mês</button>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="btnRelatorioEstoquePdf">📦 Gerar planilha de Consumo de Estoque do mês</button>
+        <hr class="divider">
+        <div class="iconGrid">
+          <button class="iconGridBtn" data-panel="fsGraficos">📈<span>Gráficos</span></button>
+        </div>
       </div>
     </section>
+
+    <!-- FS: Gráficos -->
+    <div class="fsPanel" id="fsGraficos">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📈 Gráficos</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div class="daySwitcher" id="graficoPeriodoSwitcher">
+            <button data-periodo="semana">Semana</button>
+            <button data-periodo="mes" class="active">Mês</button>
+            <button data-periodo="ano">Ano</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Receita por serviço</h3>
+          <canvas id="chartPizza" height="220"></canvas>
+        </div>
+        <div class="card">
+          <h3>Atendimentos por dia</h3>
+          <canvas id="chartAtendimentos" height="220"></canvas>
+        </div>
+        <div class="card">
+          <h3>Atendimentos por dia da semana</h3>
+          <canvas id="chartBarra" height="220"></canvas>
+        </div>
+        <div class="card">
+          <h3>Receita ao longo do período</h3>
+          <canvas id="chartLinha" height="220"></canvas>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1003,6 +1039,7 @@
       </div>
       <hr class="divider">
       <button class="btn btn-ghost btn-block" id="dAlterarRecorrenciaBtn" style="display:none;">🔁 Alterar recorrência</button>
+      <button class="btn btn-ghost btn-block" id="dAlterarTipoCobrancaBtn" style="display:none; margin-top:8px;">💳 Alterar tipo de cobrança</button>
       <hr class="divider">
       <button class="btn btn-ghost btn-block" style="color:var(--full);" id="dExcluir">Excluir agendamento</button>
       <div id="dExcluirChoice" style="display:none; margin-top:10px;">
@@ -1049,6 +1086,26 @@
       <input type="number" id="recIntervalo" min="1" value="7">
     </div>
     <button class="btn btn-primary btn-block" style="margin-top:12px;" id="confirmarRecorrenciaBtn">Aplicar nova recorrência</button>
+  </div>
+</div>
+
+<!-- MODAL: Alterar tipo de cobrança -->
+<div class="modal-bg" id="tipoCobrancaModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeTipoCobrancaModal">×</button>
+    <h3>💳 Alterar tipo de cobrança</h3>
+    <p class="footer-note" style="text-align:left; padding:0;">Vale a partir de agora — o que já foi cobrado no passado não muda.</p>
+    <label>Como cobrar esse recorrente?</label>
+    <select id="tcTipo">
+      <option value="pacote">📦 Pacote mensal</option>
+      <option value="quantidade">🔢 Pacote por quantidade</option>
+      <option value="avulso">💵 Por atendimento</option>
+    </select>
+    <div id="tcQtdWrap" style="display:none;">
+      <label>Cobrar a cada quantos banhos concluídos?</label>
+      <input type="number" id="tcQtd" min="2" value="4">
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:12px;" id="confirmarTipoCobrancaBtn">Aplicar novo tipo de cobrança</button>
   </div>
 </div>
 
@@ -1236,6 +1293,8 @@
 <div class="toast" id="toast"></div>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getFirestore, doc, getDoc, getDocFromCache, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
@@ -1803,8 +1862,11 @@ function openFsPanel(id){ document.getElementById(id).classList.add('show'); }
 function closeFsPanel(id){ document.getElementById(id).classList.remove('show'); }
 document.addEventListener('click',(e)=>{
   if(e.target.classList.contains('fsCloseBtn')){ e.target.closest('.fsPanel').classList.remove('show'); }
-  const iconBtn = e.target.closest('.iconGridBtn');
-  if(iconBtn && iconBtn.dataset.panel){ openFsPanel(iconBtn.dataset.panel); }
+  const iconBtn = e.target.closest('.iconGridBtn, .dashIconBtn[data-panel]');
+  if(iconBtn && iconBtn.dataset.panel){
+    openFsPanel(iconBtn.dataset.panel);
+    if(iconBtn.dataset.panel==='fsGraficos') renderGraficos();
+  }
 });
 function switchToTab(tab){
   document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
@@ -1904,10 +1966,10 @@ function renderDashboard(){
   } else { aniversarioCard.style.display='none'; }
 
   // ---------- ROTA DO DIA (PET MÓVEL) ----------
-  const rotaCard = document.getElementById('dashRotaCard');
+  const rotaBtn = document.getElementById('btnRotaDash');
   const rotaSlots = getDaySlots(todayISO(),'Móvel').filter(s=>s.tipo==='cliente' && s.statusAtendimento!=='cancelado').sort((a,b)=>timeToMinutes(a.inicio)-timeToMinutes(b.inicio));
   if(rotaSlots.length>0){
-    rotaCard.style.display='block';
+    rotaBtn.style.display='flex';
     const enderecos = [];
     document.getElementById('dashRota').innerHTML = rotaSlots.map(s=>{
       const p = getPet(s.petId); const t = p?getTutor(p.tutorId):null;
@@ -1920,31 +1982,7 @@ function renderDashboard(){
       const url = 'https://www.google.com/maps/dir/'+enderecos.map(e=>encodeURIComponent(e)).join('/');
       window.open(url,'_blank');
     };
-  } else { rotaCard.style.display='none'; }
-
-  // ---------- CONFIRMAR AMANHÃ ----------
-  const confirmarCard = document.getElementById('dashConfirmarCard');
-  const amanha = new Date(); amanha.setDate(amanha.getDate()+1);
-  const isoAmanha = toISO(amanha);
-  let slotsAmanha = [];
-  ['Fixo','Móvel'].forEach(op=>{ getDaySlots(isoAmanha,op).forEach(s=>{ if(s.tipo==='cliente' && s.statusAtendimento!=='cancelado') slotsAmanha.push(s); }); });
-  slotsAmanha.sort((a,b)=>timeToMinutes(a.inicio)-timeToMinutes(b.inicio));
-  if(slotsAmanha.length>0){
-    confirmarCard.style.display='block';
-    document.getElementById('dashConfirmar').innerHTML = slotsAmanha.map(s=>
-      '<div class="penditem" data-id="'+s.id+'"><span>'+s.inicio+' — '+s.nome+'</span><span style="cursor:pointer;" class="confirmWhats" data-id="'+s.id+'">📲</span></div>'
-    ).join('');
-    document.getElementById('dashConfirmar').querySelectorAll('.confirmWhats').forEach(el=>{
-      el.addEventListener('click',()=>{
-        const slot = slotsAmanha.find(s=>s.id===el.dataset.id);
-        const p = slot && getPet(slot.petId);
-        const t = p && getTutor(p.tutorId);
-        if(!t || !t.phone){ toast('Sem telefone cadastrado'); return; }
-        const texto = encodeURIComponent('Olá '+t.name+'! Passando pra confirmar o '+servicoLabel(slot)+' de amanhã às '+slot.inicio+' pro(a) '+(p?p.name:'')+'. Tudo certo? 🐾');
-        window.open('https://wa.me/55'+t.phone.replace(/\D/g,'')+'?text='+texto, '_blank');
-      });
-    });
-  } else { confirmarCard.style.display='none'; }
+  } else { rotaBtn.style.display='none'; }
 
   const iso = todayISO();
   const el = document.getElementById('dashHoje');
@@ -2536,6 +2574,7 @@ document.getElementById('dEditIconBtn').addEventListener('click',()=>{
   document.getElementById('dValor').value = formatBRLMaskValue(slot.valor||0);
   document.getElementById('dDuracao').value = slot.duracao||60;
   document.getElementById('dAlterarRecorrenciaBtn').style.display = slot.seriesId ? 'block' : 'none';
+  document.getElementById('dAlterarTipoCobrancaBtn').style.display = slot.seriesId ? 'block' : 'none';
   refreshPagoInfo(slot);
   document.getElementById('dMainView').style.display='none';
   document.getElementById('dEditPanel').style.display='block';
@@ -2648,12 +2687,37 @@ document.getElementById('confirmarRecorrenciaBtn').addEventListener('click', asy
     const iso = toISO(d);
     if(!STATE.agenda[iso]) STATE.agenda[iso] = {Fixo:[],Móvel:[]};
     if(!STATE.agenda[iso][op]) STATE.agenda[iso][op] = [];
-    STATE.agenda[iso][op].push({ id:'a'+Date.now()+'_r'+i, tipo:'cliente', nome:slot.nome, petId:slot.petId, seriesId:slot.seriesId, servico:slot.servico, servicos:slot.servicos, valor:slot.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:slot.inicio, duracao:slot.duracao, recorrenteAvulso:slot.recorrenteAvulso });
+    STATE.agenda[iso][op].push({ id:'a'+Date.now()+'_r'+i, tipo:'cliente', nome:slot.nome, petId:slot.petId, seriesId:slot.seriesId, servico:slot.servico, servicos:slot.servicos, valor:slot.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:slot.inicio, duracao:slot.duracao, recorrenteAvulso:slot.recorrenteAvulso, pacoteQtd:slot.pacoteQtd });
   }
   await saveAgenda();
   document.getElementById('recorrenciaModalBg').classList.remove('show');
   renderWeek();
   toast('Recorrência atualizada a partir de agora!');
+});
+
+// ---------- ALTERAR TIPO DE COBRANÇA ----------
+document.getElementById('dAlterarTipoCobrancaBtn').addEventListener('click',()=>{
+  document.getElementById('tcTipo').value='pacote';
+  document.getElementById('tcQtdWrap').style.display='none';
+  document.getElementById('tipoCobrancaModalBg').classList.add('show');
+});
+document.getElementById('closeTipoCobrancaModal').addEventListener('click',()=>document.getElementById('tipoCobrancaModalBg').classList.remove('show'));
+document.getElementById('tcTipo').addEventListener('change',(e)=>{
+  document.getElementById('tcQtdWrap').style.display = e.target.value==='quantidade' ? 'block':'none';
+});
+document.getElementById('confirmarTipoCobrancaBtn').addEventListener('click', async ()=>{
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  if(!slot || !slot.seriesId) return;
+  const tipo = document.getElementById('tcTipo').value;
+  const recorrenteAvulso = (tipo==='avulso' || tipo==='quantidade');
+  const pacoteQtd = tipo==='quantidade' ? (parseInt(document.getElementById('tcQtd').value)||4) : null;
+  const op = detailRef.op;
+  findFutureSeriesSlots(slot.seriesId, detailRef.iso, op).forEach(s=>{ s.recorrenteAvulso = recorrenteAvulso; s.pacoteQtd = pacoteQtd; });
+  await saveAgenda();
+  document.getElementById('tipoCobrancaModalBg').classList.remove('show');
+  renderWeek();
+  toast('Tipo de cobrança atualizado a partir de agora!');
 });
 
 // ---------- ENFEITES (ITENS DE ESTOQUE NO ATENDIMENTO) ----------
@@ -3125,6 +3189,44 @@ function valorPacotePendenteTutor(tutorId){
   },0);
   return total;
 }
+function pacoteStatusTutor(tutorId){
+  // procura séries de pacote (quantidade ou mensal) desse tutor com atendimento recente
+  let melhorSerie = null, melhorData='';
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || !s.seriesId || s.recorrenteAvulso===undefined) return;
+        const p = getPet(s.petId);
+        if(!p || p.tutorId!==tutorId) return;
+        if(s.recorrenteAvulso && s.pacoteQtd){
+          if(iso>melhorData){ melhorData=iso; melhorSerie={tipo:'quantidade', seriesId:s.seriesId, pacoteQtd:s.pacoteQtd}; }
+        } else if(!s.recorrenteAvulso){
+          if(iso>melhorData){ melhorData=iso; melhorSerie={tipo:'mensal', seriesId:s.seriesId}; }
+        }
+      });
+    });
+  });
+  if(!melhorSerie) return '';
+  if(melhorSerie.tipo==='quantidade'){
+    let count=0;
+    Object.keys(STATE.agenda).forEach(iso=>{
+      ['Fixo','Móvel'].forEach(op=>{
+        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.seriesId===melhorSerie.seriesId && s.statusAtendimento==='concluido' && !s.cobrancaId) count++; });
+      });
+    });
+    return count+' de '+melhorSerie.pacoteQtd+' atendimentos';
+  } else {
+    const ym = todayISO().slice(0,7);
+    let count=0;
+    Object.keys(STATE.agenda).forEach(iso=>{
+      if(!iso.startsWith(ym)) return;
+      ['Fixo','Móvel'].forEach(op=>{
+        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.seriesId===melhorSerie.seriesId && s.statusAtendimento!=='cancelado') count++; });
+      });
+    });
+    return count+' banho'+(count===1?'':'s')+' esse mês';
+  }
+}
 function fillMsgPreview(){
   const tplId = document.getElementById('msgTemplate').value;
   const tpl = STATE.config.templates.find(t=>t.id===tplId);
@@ -3139,6 +3241,7 @@ function fillMsgPreview(){
              .replaceAll('{pet}', p?p.name:'')
              .replaceAll('{servico}', servico||'')
              .replaceAll('{valor_pacote}', formatBRL(valorPacote))
+             .replaceAll('{pacote}', t?pacoteStatusTutor(t.id):'')
              .replaceAll('{valor}', valor?parseFloat(valor).toFixed(2).replace('.', ','):'0,00');
   document.getElementById('msgPreview').value = text;
 }
@@ -3287,7 +3390,7 @@ function renderServicesArea(){
     row.innerHTML =
       '<div class="stop">'+
         '<div class="colorcircle"><input type="color" value="'+s.color+'" data-field="color"></div>'+
-        '<span class="sname2">'+s.name+'</span>'+
+        '<input class="sname2" style="border:none; background:none; flex:1; padding:4px; font-weight:700; font-size:15px; color:var(--roxo-dark); font-family:\'Baloo 2\',sans-serif;" value="'+s.name+'" data-field="name">'+
         '<button class="sdel" data-act="del">🗑️</button>'+
       '</div>'+
       '<div class="sfields">'+
@@ -3299,6 +3402,14 @@ function renderServicesArea(){
     priceEl.addEventListener('change', async e=>{ STATE.config.services[idx].price = parseBRLMask(e.target.value); await saveConfig(); toast('Salvo!'); });
     row.querySelector('[data-field="color"]').addEventListener('change', async e=>{ STATE.config.services[idx].color=e.target.value; await saveConfig(); renderWeek(); toast('Salvo!'); });
     row.querySelector('[data-field="duration"]').addEventListener('change', async e=>{ STATE.config.services[idx].duration=parseInt(e.target.value)||60; await saveConfig(); toast('Salvo!'); });
+    row.querySelector('[data-field="name"]').addEventListener('change', async e=>{
+      const novoNome = e.target.value.trim();
+      if(!novoNome){ toast('O nome não pode ficar vazio'); e.target.value=STATE.config.services[idx].name; return; }
+      STATE.config.services[idx].name = novoNome;
+      await saveConfig();
+      populateServiceSelects();
+      toast('Salvo!');
+    });
     row.querySelector('[data-act="del"]').addEventListener('click', async ()=>{ STATE.config.services.splice(idx,1); await saveConfig(); renderServicesArea(); toast('Serviço removido!'); });
     area.appendChild(row);
   });
@@ -3427,84 +3538,148 @@ document.getElementById('btnBuscaCompra').addEventListener('click',()=>{
 });
 
 // ---------- RELATÓRIOS EM PDF ----------
+function baixarXLSX(nomeArquivo, sheetName, dados){
+  if(!window.XLSX){ toast('Biblioteca de planilha ainda carregando, tenta de novo em instantes'); return; }
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, nomeArquivo);
+}
 function gerarPdfAgendaMes(){
-  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
   const ym = document.getElementById('relatorioMes').value;
   if(!ym){ toast('Escolha o mês'); return; }
-  const { jsPDF } = window.jspdf;
-  const docPdf = new jsPDF();
-  let y = 18;
-  docPdf.setFontSize(16); docPdf.text('Relatório de Agenda — '+relMonthLabelFromYm(ym), 14, y); y+=10;
-  docPdf.setFontSize(10);
   let items = [];
   Object.keys(STATE.agenda).forEach(iso=>{
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') items.push({iso,op,inicio:s.inicio,nome:s.nome,servico:servicoLabel(s),status:s.statusAtendimento}); });
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') items.push({
+        'Data': fmtDateFull(new Date(iso+'T00:00:00')), 'Horário': s.inicio, 'Cliente': s.nome,
+        'Serviço': servicoLabel(s), 'Operação': op, 'Status': STATUS_LABEL[s.statusAtendimento]||'Nenhum', 'Valor': s.valor||0
+      }); });
     });
   });
-  items.sort((a,b)=> (a.iso+a.inicio).localeCompare(b.iso+b.inicio));
-  if(items.length===0){ docPdf.text('Nenhum agendamento nesse mês.', 14, y); }
-  items.forEach(it=>{
-    if(y>280){ docPdf.addPage(); y=18; }
-    const linha = fmtDateFull(new Date(it.iso+'T00:00:00'))+' '+it.inicio+' • '+it.nome+' • '+it.servico+' • '+it.op+' • '+(STATUS_LABEL[it.status]||'Nenhum');
-    docPdf.text(linha, 14, y);
-    y+=6;
-  });
-  docPdf.save('agenda-'+ym+'.pdf');
+  items.sort((a,b)=>(a['Data']+a['Horário']).localeCompare(b['Data']+b['Horário']));
+  if(items.length===0){ toast('Nenhum agendamento nesse mês'); return; }
+  baixarXLSX('agenda-'+ym+'.xlsx', 'Agenda', items);
 }
 function gerarPdfPagamentosMes(){
-  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
   const ym = document.getElementById('relatorioMes').value;
   if(!ym){ toast('Escolha o mês'); return; }
-  const { jsPDF } = window.jspdf;
-  const docPdf = new jsPDF();
-  let y = 18;
-  docPdf.setFontSize(16); docPdf.text('Relatório de Pagamentos — '+relMonthLabelFromYm(ym), 14, y); y+=10;
-  docPdf.setFontSize(10);
-  let items = []; let total = 0;
+  let items = [];
   Object.keys(STATE.agenda).forEach(iso=>{
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && s.pago){ items.push({iso,nome:s.nome,servico:servicoLabel(s),valor:s.valor,forma:s.formaPagamento}); total+=(s.valor||0); }
+        if(s.tipo==='cliente' && s.pago){ items.push({ 'Data': fmtDateFull(new Date(iso+'T00:00:00')), 'Cliente': s.nome, 'Serviço': servicoLabel(s), 'Valor': s.valor||0, 'Forma de pagamento': s.formaPagamento||'—' }); }
       });
     });
   });
-  items.sort((a,b)=>a.iso.localeCompare(b.iso));
-  if(items.length===0){ docPdf.text('Nenhum pagamento nesse mês.', 14, y); }
-  items.forEach(it=>{
-    if(y>280){ docPdf.addPage(); y=18; }
-    const linha = fmtDateFull(new Date(it.iso+'T00:00:00'))+' • '+it.nome+' • '+it.servico+' • '+formatBRL(it.valor)+' • '+(it.forma||'—');
-    docPdf.text(linha, 14, y);
-    y+=6;
-  });
-  y+=6; if(y>280){ docPdf.addPage(); y=18; }
-  docPdf.setFontSize(12);
-  docPdf.text('Total recebido: '+formatBRL(total), 14, y);
-  docPdf.save('pagamentos-'+ym+'.pdf');
+  items.sort((a,b)=>a['Data'].localeCompare(b['Data']));
+  if(items.length===0){ toast('Nenhum pagamento nesse mês'); return; }
+  const total = items.reduce((a,i)=>a+i['Valor'],0);
+  items.push({'Data':'', 'Cliente':'', 'Serviço':'', 'Valor':total, 'Forma de pagamento':'TOTAL'});
+  baixarXLSX('pagamentos-'+ym+'.xlsx', 'Pagamentos', items);
 }
+// ---------- GRÁFICOS ----------
+let chartInstances = {};
+let graficoPeriodo = 'mes';
+function getGraficoRange(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  let start, end;
+  if(graficoPeriodo==='semana'){
+    start = new Date(hoje); start.setDate(start.getDate()-start.getDay());
+    end = new Date(start); end.setDate(end.getDate()+6);
+  } else if(graficoPeriodo==='ano'){
+    start = new Date(hoje.getFullYear(),0,1);
+    end = new Date(hoje.getFullYear(),11,31);
+  } else {
+    start = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    end = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+  }
+  return {start, end};
+}
+function renderGraficos(){
+  if(!window.Chart){ setTimeout(renderGraficos, 400); return; }
+  const {start,end} = getGraficoRange();
+  const startIso = toISO(start), endIso = toISO(end);
+
+  let receitaPorServico = {};
+  let atendimentosPorDia = {};
+  let atendimentosPorDiaSemana = [0,0,0,0,0,0,0];
+  let receitaPorDia = {};
+
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(iso<startIso || iso>endIso) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente') return;
+        if(s.statusAtendimento==='concluido'){
+          atendimentosPorDia[iso] = (atendimentosPorDia[iso]||0)+1;
+          const d = new Date(iso+'T00:00:00');
+          atendimentosPorDiaSemana[d.getDay()]++;
+        }
+        if(s.pago){
+          const label = servicoLabel(s)||'Outro';
+          receitaPorServico[label] = (receitaPorServico[label]||0)+(s.valor||0);
+          receitaPorDia[iso] = (receitaPorDia[iso]||0)+(s.valor||0);
+        }
+      });
+    });
+  });
+
+  const pizzaLabels = Object.keys(receitaPorServico);
+  const pizzaData = pizzaLabels.map(l=>receitaPorServico[l]);
+  const diasOrdenados = Object.keys(atendimentosPorDia).sort();
+  const atendLabels = diasOrdenados.map(d=>fmtDatePt(new Date(d+'T00:00:00')));
+  const atendData = diasOrdenados.map(d=>atendimentosPorDia[d]);
+  const diaSemanaLabels = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const receitaDiasOrdenados = Object.keys(receitaPorDia).sort();
+  const receitaLabels = receitaDiasOrdenados.map(d=>fmtDatePt(new Date(d+'T00:00:00')));
+  const receitaData = receitaDiasOrdenados.map(d=>receitaPorDia[d]);
+  const cores = ['#AA426C','#472F7D','#4C8C6B','#C99A2E','#C6603A','#2E6FA3','#8A63C4','#3E4A6B'];
+
+  ['chartPizza','chartAtendimentos','chartBarra','chartLinha'].forEach(id=>{
+    if(chartInstances[id]){ chartInstances[id].destroy(); }
+  });
+  chartInstances.chartPizza = new Chart(document.getElementById('chartPizza'), {
+    type:'pie',
+    data:{ labels: pizzaLabels.length?pizzaLabels:['Sem dados'], datasets:[{ data: pizzaData.length?pizzaData:[1], backgroundColor: cores }] },
+    options:{ plugins:{ legend:{ position:'bottom' } } }
+  });
+  chartInstances.chartAtendimentos = new Chart(document.getElementById('chartAtendimentos'), {
+    type:'line',
+    data:{ labels: atendLabels.length?atendLabels:['Sem dados'], datasets:[{ label:'Atendimentos', data: atendData.length?atendData:[0], borderColor:'#AA426C', backgroundColor:'rgba(170,66,108,0.2)', fill:true, tension:0.3 }] }
+  });
+  chartInstances.chartBarra = new Chart(document.getElementById('chartBarra'), {
+    type:'bar',
+    data:{ labels: diaSemanaLabels, datasets:[{ label:'Atendimentos', data: atendimentosPorDiaSemana, backgroundColor:'#472F7D' }] }
+  });
+  chartInstances.chartLinha = new Chart(document.getElementById('chartLinha'), {
+    type:'line',
+    data:{ labels: receitaLabels.length?receitaLabels:['Sem dados'], datasets:[{ label:'Receita (R$)', data: receitaData.length?receitaData:[0], borderColor:'#4C8C6B', backgroundColor:'rgba(76,140,107,0.2)', fill:true, tension:0.3 }] }
+  });
+}
+document.querySelectorAll('#graficoPeriodoSwitcher button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#graficoPeriodoSwitcher button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    graficoPeriodo = btn.dataset.periodo;
+    renderGraficos();
+  });
+});
+
 document.getElementById('btnRelatorioAgendaPdf').addEventListener('click', gerarPdfAgendaMes);
 document.getElementById('btnRelatorioPagamentosPdf').addEventListener('click', gerarPdfPagamentosMes);
 function gerarPdfEstoqueMes(){
-  if(!window.jspdf){ toast('Biblioteca de PDF ainda carregando, tenta de novo em instantes'); return; }
   const ym = document.getElementById('relatorioMes').value;
   if(!ym){ toast('Escolha o mês'); return; }
-  const { jsPDF } = window.jspdf;
-  const docPdf = new jsPDF();
-  let y = 18;
-  docPdf.setFontSize(16); docPdf.text('Consumo de Estoque — '+relMonthLabelFromYm(ym), 14, y); y+=10;
-  docPdf.setFontSize(10);
   const usos = STATE.consumoEstoque.filter(u=>u.data.startsWith(ym)).sort((a,b)=>a.data.localeCompare(b.data));
-  if(usos.length===0){ docPdf.text('Nenhum consumo registrado nesse mês.', 14, y); }
-  usos.forEach(u=>{
-    if(y>280){ docPdf.addPage(); y=18; }
+  if(usos.length===0){ toast('Nenhum consumo registrado nesse mês'); return; }
+  const items = usos.map(u=>{
     const it = STATE.estoque.find(x=>x.id===u.itemId);
-    const linha = fmtDateFull(new Date(u.data+'T00:00:00'))+' • '+(it?it.nome:'?')+' • '+u.quantidade+' '+(it?it.unidade:'')+' • '+(u.tipo==='automatico'?'Automático':'Manual');
-    docPdf.text(linha, 14, y);
-    y+=6;
+    return { 'Data': fmtDateFull(new Date(u.data+'T00:00:00')), 'Item': it?it.nome:'?', 'Quantidade': u.quantidade, 'Unidade': it?it.unidade:'', 'Tipo': u.tipo==='automatico'?'Automático':'Manual' };
   });
-  docPdf.save('consumo-estoque-'+ym+'.pdf');
+  baixarXLSX('consumo-estoque-'+ym+'.xlsx', 'Consumo', items);
 }
 document.getElementById('btnRelatorioEstoquePdf').addEventListener('click', gerarPdfEstoqueMes);
 
