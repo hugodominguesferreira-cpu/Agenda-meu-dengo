@@ -241,6 +241,8 @@
   .dashRow2{display:flex; gap:10px;}
   .dashRow2 .dashHalf{flex:1; min-width:0;}
   .dashRow2 .dashHalf h3{font-size:14px;}
+  #dashEstoqueHojeCard.alerta{background:var(--full-bg); border:1.5px solid var(--full);}
+  #dashEstoqueHojeCard.alerta h3{color:var(--full);}
   .carddash h3{font-size:16.5px;}
   .dashitem{display:flex; gap:12px; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
   .dashitem:last-child{border-bottom:none;}
@@ -329,7 +331,7 @@
     <div class="drawer">
       <div class="dbrand">🐾 Meu Dengo</div>
       <div id="drawerReorderList">
-        <button class="dtab active" data-tab="dashboard">🏠 Dashboard</button>
+        <button class="dtab active" data-tab="dashboard">🏠 Home</button>
         <button class="dtab" data-tab="clientes">👤 Clientes/Pet</button>
         <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
         <button class="dtab" data-tab="config">⚙️ Config.</button>
@@ -360,8 +362,8 @@
           <h3>💰 Cobranças a fazer</h3>
           <div id="dashCobrancas"></div>
         </div>
-        <div class="card carddash dashHalf" id="dashEstoqueHojeCard" style="display:none;">
-          <h3>⚠️ Pode faltar hoje</h3>
+        <div class="card carddash dashHalf" id="dashEstoqueHojeCard">
+          <h3 id="dashEstoqueHojeTitulo">📦 Estoque do dia</h3>
           <div id="dashEstoqueHoje"></div>
         </div>
       </div>
@@ -527,6 +529,7 @@
       <div class="card">
         <div class="iconGrid">
           <button class="iconGridBtn" data-panel="fsRelatorioMensal">📊<span>Relatório mensal</span></button>
+          <button class="iconGridBtn" data-panel="fsComparativo">📈<span>Comparativo</span></button>
           <button class="iconGridBtn" data-panel="fsAvulsos">🗂️<span>Avulsos</span></button>
           <button class="iconGridBtn" data-panel="fsPacotesFin">📦<span>Pacotes</span></button>
           <button class="iconGridBtn" data-panel="fsCobrancas">🧾<span>Cobranças agrupadas</span></button>
@@ -534,6 +537,21 @@
         </div>
       </div>
     </section>
+
+    <!-- FS: Comparativo mês a mês -->
+    <div class="fsPanel" id="fsComparativo">
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📈 Comparativo</h3></div>
+      <div class="fsPanelBody">
+        <div class="card">
+          <div class="monthnav">
+            <button id="compPrevMonth">‹</button>
+            <span id="compMonthLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
+            <button id="compNextMonth">›</button>
+          </div>
+          <div id="comparativoArea" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- FS: Relatório mensal -->
     <div class="fsPanel" id="fsRelatorioMensal">
@@ -1860,7 +1878,7 @@ function attachTimeMask(id){
 ['workStart','workEnd','mInicio'].forEach(attachTimeMask);
 
 // ---------- DRAWER / TABS ----------
-const TAB_LABELS = {dashboard:'Dashboard', agenda:'Agenda', sugestao:'Sugestão', clientes:'Clientes/Pet', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque', relatorios:'Relatórios'};
+const TAB_LABELS = {dashboard:'Home', agenda:'Agenda', sugestao:'Sugestão', clientes:'Clientes/Pet', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque', relatorios:'Relatórios'};
 function openFsPanel(id){ document.getElementById(id).classList.add('show'); }
 function closeFsPanel(id){ document.getElementById(id).classList.remove('show'); }
 document.addEventListener('click',(e)=>{
@@ -1869,6 +1887,7 @@ document.addEventListener('click',(e)=>{
   if(iconBtn && iconBtn.dataset.panel){
     openFsPanel(iconBtn.dataset.panel);
     if(iconBtn.dataset.panel==='fsGraficos') renderGraficos();
+    if(iconBtn.dataset.panel==='fsComparativo') renderComparativo();
   }
 });
 function switchToTab(tab){
@@ -1931,24 +1950,31 @@ function renderDashboard(){
     estoqueBaixoCard.style.display='none';
   }
 
-  // ---------- ESTOQUE INSUFICIENTE HOJE ----------
+  // ---------- ESTOQUE DO DIA (sempre visível, com modo alerta) ----------
   const estoqueHojeCard = document.getElementById('dashEstoqueHojeCard');
   if(isAdmin){
+    estoqueHojeCard.style.display='block';
     const isoHoje = todayISO();
     let restantesHoje = 0;
     ['Fixo','Móvel'].forEach(op=>{ getDaySlots(isoHoje,op).forEach(s=>{ if(s.tipo==='cliente' && s.statusAtendimento!=='cancelado' && s.statusAtendimento!=='concluido') restantesHoje++; }); });
     const itensAuto = STATE.estoque.filter(it=>it.modoDesconto==='automatico' && (it.consumoPorAtendimento||0)>0);
-    const faltando = itensAuto.map(it=>{
-      const necessario = restantesHoje*it.consumoPorAtendimento;
-      const falta = necessario - (it.quantidade||0);
-      return {it, falta};
-    }).filter(x=>x.falta>0);
-    if(faltando.length>0){
-      estoqueHojeCard.style.display='block';
-      document.getElementById('dashEstoqueHoje').innerHTML = faltando.map(x=>
-        '<div class="penditem"><span>'+x.it.nome+'</span><span>faltam '+(x.falta%1===0?x.falta:x.falta.toFixed(1))+' '+(x.it.unidade||'')+'</span></div>'
-      ).join('');
-    } else { estoqueHojeCard.style.display='none'; }
+    let temAlerta = false;
+    if(itensAuto.length===0){
+      document.getElementById('dashEstoqueHoje').innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum item com desconto automático configurado.</div>';
+    } else {
+      document.getElementById('dashEstoqueHoje').innerHTML = itensAuto.map(it=>{
+        const necessario = restantesHoje*it.consumoPorAtendimento;
+        const falta = necessario - (it.quantidade||0);
+        if(falta>0){
+          temAlerta = true;
+          const faltaFmt = falta%1===0?falta:falta.toFixed(1);
+          return '<div class="penditem" style="color:var(--full); font-weight:700;"><span>⚠️ '+it.nome+'</span><span>Vai faltar '+faltaFmt+' pra concluir hoje</span></div>';
+        }
+        return '<div class="penditem"><span>'+it.nome+'</span><span>'+(it.quantidade||0)+' '+(it.unidade||'')+'</span></div>';
+      }).join('');
+    }
+    document.getElementById('dashEstoqueHojeTitulo').textContent = temAlerta ? '⚠️ Vai faltar hoje' : '📦 Estoque do dia';
+    estoqueHojeCard.classList.toggle('alerta', temAlerta);
   } else { estoqueHojeCard.style.display='none'; }
 
   // ---------- ANIVERSÁRIO DO PET ----------
@@ -4057,6 +4083,57 @@ function renderFechamento(){
 document.getElementById('fechamentoData').addEventListener('change', renderFechamento);
 document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
 document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
+
+// ---------- COMPARATIVO MÊS A MÊS ----------
+let compMonthDate = new Date();
+function getMonthStats(ym){
+  let entradas=0, atendimentos=0, despesasTotal=0;
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(!iso.startsWith(ym)) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente') return;
+        if(s.statusAtendimento==='concluido') atendimentos++;
+        if(s.pago===true) entradas += (s.valor||0);
+      });
+    });
+  });
+  STATE.despesas.forEach(d=>{
+    if(!d.pago) return;
+    const ref = d.dataPagamento || d.criadoEm;
+    if(ref && ref.startsWith(ym)) despesasTotal += (d.valor||0);
+  });
+  const ticketMedio = atendimentos>0 ? entradas/atendimentos : 0;
+  return {entradas, atendimentos, despesasTotal, ticketMedio, lucro: entradas-despesasTotal};
+}
+function variacaoHtml(atual, anterior){
+  if(anterior===0) return atual>0 ? '<span style="color:var(--free); font-weight:700;">▲ novo</span>' : '';
+  const pct = ((atual-anterior)/Math.abs(anterior))*100;
+  const seta = pct>0?'▲':(pct<0?'▼':'—');
+  const cor = pct>0?'var(--free)':(pct<0?'var(--full)':'var(--muted)');
+  return '<span style="color:'+cor+'; font-weight:700;">'+seta+' '+Math.abs(pct).toFixed(0)+'%</span>';
+}
+function renderComparativo(){
+  document.getElementById('compMonthLabel').textContent = compMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const ymAtual = compMonthDate.getFullYear()+'-'+String(compMonthDate.getMonth()+1).padStart(2,'0');
+  const anteriorDate = new Date(compMonthDate); anteriorDate.setMonth(anteriorDate.getMonth()-1);
+  const ymAnterior = anteriorDate.getFullYear()+'-'+String(anteriorDate.getMonth()+1).padStart(2,'0');
+  const atual = getMonthStats(ymAtual);
+  const anterior = getMonthStats(ymAnterior);
+  const anteriorLabel = anteriorDate.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+  document.getElementById('comparativoArea').innerHTML =
+    '<div class="penditem"><span>Faturamento</span><span>'+formatBRL(atual.entradas)+' '+variacaoHtml(atual.entradas, anterior.entradas)+'</span></div>'+
+    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.entradas)+' em '+anteriorLabel+'</div>'+
+    '<div class="penditem"><span>Atendimentos concluídos</span><span>'+atual.atendimentos+' '+variacaoHtml(atual.atendimentos, anterior.atendimentos)+'</span></div>'+
+    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+anterior.atendimentos+' em '+anteriorLabel+'</div>'+
+    '<div class="penditem"><span>Ticket médio</span><span>'+formatBRL(atual.ticketMedio)+'</span></div>'+
+    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.ticketMedio)+' em '+anteriorLabel+'</div>'+
+    '<div class="penditem"><span>Despesas</span><span>'+formatBRL(atual.despesasTotal)+' '+variacaoHtml(atual.despesasTotal, anterior.despesasTotal)+'</span></div>'+
+    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.despesasTotal)+' em '+anteriorLabel+'</div>'+
+    '<div class="pendtotal"><span>Lucro</span><span>'+formatBRL(atual.lucro)+'</span></div>';
+}
+document.getElementById('compPrevMonth').addEventListener('click',()=>{ compMonthDate.setMonth(compMonthDate.getMonth()-1); renderComparativo(); });
+document.getElementById('compNextMonth').addEventListener('click',()=>{ compMonthDate.setMonth(compMonthDate.getMonth()+1); renderComparativo(); });
 function renderRelatorioMensal(){
   document.getElementById('relMonthLabel').textContent = relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
