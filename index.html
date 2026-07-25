@@ -4268,6 +4268,8 @@ async function renderFinanceiro(){
     });
     const total = items.reduce((a,i)=>a+i.valor,0);
     const status = getCobrancaStatus(cb);
+    const descontoValor = cb.desconto ? (cb.desconto.tipo==='percentual' ? total*cb.desconto.valor/100 : cb.desconto.valor) : 0;
+    const totalFinal = Math.max(0, total-descontoValor);
 
     const pacoteItems = items.filter(i=>i.seriesId && i.petId);
     const extraItems = items.filter(i=>!(i.seriesId && i.petId));
@@ -4290,7 +4292,16 @@ async function renderFinanceiro(){
     card.innerHTML = '<div class="pname">'+(isPacote?'📦 ':'')+(t?t.name:'?')+' <span class="badge '+status+'" style="margin-left:6px;">'+(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente')+'</span></div>'+
       (mesesLabel?'<div class="footer-note" style="text-align:left; padding:0; margin-bottom:2px;">Referente a '+mesesLabel+'</div>':'')+
       linhasHtml+
-      '<div class="pendtotal"><span>Total</span><span>'+formatBRL(total)+'</span></div>'+
+      (descontoValor>0?
+        '<div class="penditem"><span>Subtotal</span><span>'+formatBRL(total)+'</span></div>'+
+        '<div class="penditem" style="color:var(--full);"><span>Desconto ('+(cb.desconto.tipo==='percentual'?cb.desconto.valor+'%':formatBRL(cb.desconto.valor))+')</span><span>-'+formatBRL(descontoValor)+'</span></div>'
+        :'')+
+      '<div class="pendtotal"><span>Total</span><span>'+formatBRL(totalFinal)+'</span></div>'+
+      '<div class="row" style="margin-top:8px;">'+
+        '<select class="cbDescontoTipo" style="flex:1;"><option value="fixo">R$</option><option value="percentual">%</option></select>'+
+        '<input type="number" class="cbDescontoValor" placeholder="0" min="0" step="0.5" style="flex:1;" value="'+(cb.desconto?cb.desconto.valor:'')+'">'+
+        '<button class="btn btn-ghost btn-small" data-act="aplicarDesconto" style="flex:0 0 auto;">Aplicar</button>'+
+      '</div>'+
       '<label style="margin-top:8px;">Vencimento (editável)</label>'+
       '<input type="date" class="dVencimentoInput" value="'+(cb.dataPagamento||'')+'">'+
       '<div class="footer-note dVencimentoLabel" style="text-align:left; padding:0; margin-top:2px;">'+(cb.dataPagamento?('Vence em '+fmtDateFull(new Date(cb.dataPagamento+'T00:00:00'))):'')+'</div>'+
@@ -4308,8 +4319,26 @@ async function renderFinanceiro(){
         '<textarea rows="6"></textarea>'+
         '<button class="btn btn-primary btn-block btn-small" style="margin-top:6px;" data-act="enviarWhats">📲 Enviar no WhatsApp</button>'+
         '<button class="btn btn-ghost btn-small btn-block" style="margin-top:6px;" data-act="copy">Copiar texto</button>'+
-      '</div>';
+      '</div>'+
+      '<button class="btn btn-ghost btn-block btn-small" style="margin-top:10px; color:var(--full);" data-act="apagarCobranca">🗑️ Apagar cobrança (desfaz o agrupamento)</button>';
 
+    if(cb.desconto) card.querySelector('.cbDescontoTipo').value = cb.desconto.tipo;
+    card.querySelector('[data-act="aplicarDesconto"]').addEventListener('click', async ()=>{
+      const tipo = card.querySelector('.cbDescontoTipo').value;
+      const valor = parseFloat(card.querySelector('.cbDescontoValor').value)||0;
+      cb.desconto = valor>0 ? {tipo, valor} : null;
+      await saveCobrancas();
+      renderFinanceiro();
+      toast(valor>0 ? 'Desconto aplicado!' : 'Desconto removido!');
+    });
+    card.querySelector('[data-act="apagarCobranca"]').addEventListener('click', async ()=>{
+      if(!confirm('Apagar essa cobrança? Os atendimentos voltam a ficar soltos (sem agrupamento), sem perder o histórico.')){ return; }
+      items.forEach(i=>{ const slot=(STATE.agenda[i.iso][i.op]||[]).find(x=>x.id===i.id); if(slot){ slot.cobrancaId=null; } });
+      STATE.cobrancas = STATE.cobrancas.filter(x=>x.id!==cb.id);
+      await Promise.all([saveAgenda(), saveCobrancas()]);
+      renderFinanceiro();
+      toast('Cobrança apagada, atendimentos voltaram a ficar soltos!');
+    });
     card.querySelector('.dVencimentoInput').addEventListener('change', async (e)=>{
       cb.dataPagamento = e.target.value;
       card.querySelector('.dVencimentoLabel').textContent = e.target.value ? ('Vence em '+fmtDateFull(new Date(e.target.value+'T00:00:00'))) : '';
@@ -4334,7 +4363,8 @@ async function renderFinanceiro(){
       }).concat(extraItems.map(i=>'- '+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' • '+formatBRL(i.valor)));
       return 'Olá '+(t?t.name:'')+'! Passando pra lembrar dos atendimentos em aberto:\n'+
         linhasTxt.join('\n')+
-        '\nTotal: '+formatBRL(total)+
+        (descontoValor>0 ? '\nSubtotal: '+formatBRL(total)+'\nDesconto: -'+formatBRL(descontoValor) : '')+
+        '\nTotal: '+formatBRL(totalFinal)+
         (cb.dataPagamento?'\nVencimento: '+fmtDateFull(new Date(cb.dataPagamento+'T00:00:00')):'')+
         '\n\nQualquer dúvida, só chamar! 🐾';
     }
@@ -4351,9 +4381,9 @@ async function renderFinanceiro(){
       const tpl = STATE.config.templates.find(x=>x.id===e.target.value);
       if(!tpl) return;
       let texto = tpl.text.replaceAll('{tutor}', t?t.name:'')
-                           .replaceAll('{valor_pacote}', formatBRL(total))
+                           .replaceAll('{valor_pacote}', formatBRL(totalFinal))
                            .replaceAll('{pacote}', pacoteStatusTutor(cb.tutorId))
-                           .replaceAll('{valor}', formatBRL(total).replace('R$',''))
+                           .replaceAll('{valor}', formatBRL(totalFinal).replace('R$',''))
                            .replaceAll('{pet}', Object.keys(pacotePorPet).map(pid=>{const p=getPet(pid); return p?p.name:'';}).join(', '))
                            .replaceAll('{servico}', Object.values(pacotePorPet).map(g=>g.servico).join(', '));
       ta.value = texto;
