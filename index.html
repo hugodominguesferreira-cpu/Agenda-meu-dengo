@@ -495,6 +495,7 @@
               <div style="font-size:18px; font-weight:800; font-family:'Baloo 2',sans-serif;" id="profNome"></div>
               <div class="footer-note" style="text-align:left; margin:2px 0 0; padding:0;" id="profTel"></div>
               <div class="footer-note" style="text-align:left; margin:0; padding:0;" id="profEndereco"></div>
+              <div class="footer-note" style="text-align:left; margin:2px 0 0; padding:0; display:none; font-weight:700; color:var(--free);" id="profSaldoCredito"></div>
             </div>
           </div>
           <div class="quickbtns">
@@ -2435,7 +2436,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     const tutorNome = document.getElementById('mNovoTutorNome').value.trim();
     const petNome = document.getElementById('mNovoPetNome').value.trim();
     if(!tutorNome || !petNome){ toast('Preencha nome do tutor e do pet'); return; }
-    const novoTutor = { id:'t'+Date.now(), name:tutorNome, phone:document.getElementById('mNovoTutorTel').value.trim(), street:'', bairro:document.getElementById('mNovoTutorBairro').value.trim(), city:'' };
+    const novoTutor = { id:'t'+Date.now(), name:tutorNome, phone:document.getElementById('mNovoTutorTel').value.trim(), street:'', bairro:document.getElementById('mNovoTutorBairro').value.trim(), city:'', saldoCredito:0 };
     STATE.tutors.push(novoTutor);
     const novoPet = { id:'p'+Date.now(), tutorId:novoTutor.id, name:petNome, breed:'', porte:'Médio', sexo:'Macho', castrado:false, nascimento:'', pelagem:'Curta', alergias:'', comportamento:[], obs:'', photo:null };
     STATE.pets.push(novoPet);
@@ -2468,6 +2469,8 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   document.getElementById('modalBg').classList.remove('show');
   renderWeek();
   if(vezes>1){ await autoGeneratePackageCobrancas(); await generateQuantityPackages(); }
+  const petCriado = getPet(petId);
+  if(petCriado) await aplicarCreditoTutor(petCriado.tutorId, null);
   toast(vezes>1 ? 'Pacote criado — '+vezes+' agendamentos gerados!' : 'Horário adicionado!');
 });
 
@@ -2840,6 +2843,40 @@ document.getElementById('dStatus').addEventListener('change', async (e)=>{
     renderWeek();
   }
 });
+function findNextUnpaidSlotForTutor(tutorId, excludeSlotId){
+  let candidatos = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.id===excludeSlotId) return;
+        if(s.tipo!=='cliente' || s.pago || s.statusAtendimento==='cancelado') return;
+        const p = getPet(s.petId);
+        if(!p || p.tutorId!==tutorId) return;
+        if((s.valor||0)<=0) return;
+        candidatos.push({iso, op, slot:s});
+      });
+    });
+  });
+  candidatos.sort((a,b)=>a.iso.localeCompare(b.iso));
+  return candidatos[0]||null;
+}
+async function aplicarCreditoTutor(tutorId, excludeSlotId){
+  const t = getTutor(tutorId);
+  if(!t || !(t.saldoCredito>0)) return;
+  let mudou = false;
+  let proximo = findNextUnpaidSlotForTutor(tutorId, excludeSlotId);
+  while(proximo && t.saldoCredito>0){
+    const devendo = valorDevido(proximo.slot);
+    const aplicar = Math.min(t.saldoCredito, devendo);
+    if(aplicar<=0) break;
+    proximo.slot.valorPago = (proximo.slot.valorPago||0)+aplicar;
+    t.saldoCredito -= aplicar;
+    if(proximo.slot.valorPago >= proximo.slot.valor){ proximo.slot.pago = true; proximo.slot.valorPago = proximo.slot.valor; }
+    mudou = true;
+    proximo = findNextUnpaidSlotForTutor(tutorId, excludeSlotId);
+  }
+  if(mudou){ await Promise.all([saveAgenda(), saveTutors()]); }
+}
 function marcarPago(forma){
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
@@ -2847,10 +2884,22 @@ function marcarPago(forma){
   const valorInformado = parseBRLMask(document.getElementById('dValorPagoInput').value);
   slot.valorPago = (slot.valorPago||0) + valorInformado;
   slot.formaPagamento = forma;
+  let excedente = 0;
+  if(slot.valorPago > slot.valor){ excedente = slot.valorPago - slot.valor; }
   if(slot.valorPago >= slot.valor){ slot.pago = true; slot.valorPago = slot.valor; }
-  saveAgenda().then(()=>{
+  const p = getPet(slot.petId);
+  const tutorId = p ? p.tutorId : null;
+  Promise.resolve().then(async ()=>{
+    if(excedente>0 && tutorId){
+      const t = getTutor(tutorId);
+      if(t){ t.saldoCredito = (t.saldoCredito||0)+excedente; await saveTutors(); await aplicarCreditoTutor(tutorId, slot.id); }
+    }
+    await saveAgenda();
     renderWeek();
-    if(slot.pago){ document.getElementById('detailModalBg').classList.remove('show'); toast('Pago integralmente!'); }
+    if(slot.pago){
+      document.getElementById('detailModalBg').classList.remove('show');
+      toast(excedente>0 ? ('Pago! R$'+excedente.toFixed(2).replace('.',',')+' de crédito aplicado no próximo atendimento.') : 'Pago integralmente!');
+    }
     else { refreshPagoInfo(slot); toast('Pagamento parcial registrado!'); }
   });
 }
@@ -3015,13 +3064,15 @@ document.getElementById('btnOrdenarTutor').addEventListener('click',()=>{
 });
 document.getElementById('saveTutorBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('tEditId').value;
+  const existing = id ? STATE.tutors.find(t=>t.id===id) : null;
   const tutor = {
     id: id || 't'+Date.now(),
     name: document.getElementById('tNome').value.trim(),
     phone: document.getElementById('tTel').value.trim(),
     street: document.getElementById('tRua').value.trim(),
     bairro: document.getElementById('tBairro').value.trim(),
-    city: document.getElementById('tCidade').value.trim()
+    city: document.getElementById('tCidade').value.trim(),
+    saldoCredito: existing ? (existing.saldoCredito||0) : 0
   };
   if(!tutor.name){ toast('Informe o nome do tutor'); return; }
   if(id){ STATE.tutors = STATE.tutors.map(t=>t.id===id?tutor:t); }
@@ -3048,6 +3099,9 @@ function openTutorProfile(id){
   document.getElementById('profNome').textContent = t.name;
   document.getElementById('profTel').textContent = '📞 '+(t.phone||'—');
   document.getElementById('profEndereco').textContent = '📍 '+[t.street,t.bairro,t.city].filter(Boolean).join(', ');
+  const saldoEl = document.getElementById('profSaldoCredito');
+  if(t.saldoCredito>0){ saldoEl.style.display='block'; saldoEl.textContent = '💰 Crédito disponível: '+formatBRL(t.saldoCredito)+' (será usado no próximo atendimento)'; }
+  else { saldoEl.style.display='none'; }
   renderPetList();
 }
 document.getElementById('btnWhats').addEventListener('click',()=>{
