@@ -1935,18 +1935,18 @@ function renderDashboard(){
   const estoqueHojeCard = document.getElementById('dashEstoqueHojeCard');
   if(isAdmin){
     const isoHoje = todayISO();
-    let hojeCount = 0;
-    ['Fixo','Móvel'].forEach(op=>{ getDaySlots(isoHoje,op).forEach(s=>{ if(s.tipo==='cliente' && s.statusAtendimento!=='cancelado') hojeCount++; }); });
+    let restantesHoje = 0;
+    ['Fixo','Móvel'].forEach(op=>{ getDaySlots(isoHoje,op).forEach(s=>{ if(s.tipo==='cliente' && s.statusAtendimento!=='cancelado' && s.statusAtendimento!=='concluido') restantesHoje++; }); });
     const itensAuto = STATE.estoque.filter(it=>it.modoDesconto==='automatico' && (it.consumoPorAtendimento||0)>0);
     const faltando = itensAuto.map(it=>{
-      const necessario = hojeCount*it.consumoPorAtendimento;
+      const necessario = restantesHoje*it.consumoPorAtendimento;
       const falta = necessario - (it.quantidade||0);
       return {it, falta};
     }).filter(x=>x.falta>0);
     if(faltando.length>0){
       estoqueHojeCard.style.display='block';
       document.getElementById('dashEstoqueHoje').innerHTML = faltando.map(x=>
-        '<div class="penditem"><span>'+x.it.nome+'</span><span>faltam '+x.falta.toFixed(1)+' '+(x.it.unidade||'')+'</span></div>'
+        '<div class="penditem"><span>'+x.it.nome+'</span><span>faltam '+(x.falta%1===0?x.falta:x.falta.toFixed(1))+' '+(x.it.unidade||'')+'</span></div>'
       ).join('');
     } else { estoqueHojeCard.style.display='none'; }
   } else { estoqueHojeCard.style.display='none'; }
