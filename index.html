@@ -4305,7 +4305,9 @@ async function renderFinanceiro(){
         '<select class="cbTemplateSelect"><option value="">— texto padrão / editar livremente —</option>'+
         STATE.config.templates.map(tpl=>'<option value="'+tpl.id+'">'+tpl.name+'</option>').join('')+
         '</select>'+
-        '<textarea rows="6"></textarea><button class="btn btn-ghost btn-small btn-block" style="margin-top:6px;" data-act="copy">Copiar texto</button>'+
+        '<textarea rows="6"></textarea>'+
+        '<button class="btn btn-primary btn-block btn-small" style="margin-top:6px;" data-act="enviarWhats">📲 Enviar no WhatsApp</button>'+
+        '<button class="btn btn-ghost btn-small btn-block" style="margin-top:6px;" data-act="copy">Copiar texto</button>'+
       '</div>';
 
     card.querySelector('.dVencimentoInput').addEventListener('change', async (e)=>{
@@ -4359,6 +4361,12 @@ async function renderFinanceiro(){
     card.querySelector('[data-act="copy"]').addEventListener('click',()=>{
       const ta = card.querySelector('textarea'); ta.select();
       try{ document.execCommand('copy'); toast('Texto copiado!'); }catch(e){ toast('Selecione e copie manualmente'); }
+    });
+    card.querySelector('[data-act="enviarWhats"]').addEventListener('click',()=>{
+      if(!t || !t.phone){ toast('Sem telefone cadastrado pra esse tutor'); return; }
+      const texto = card.querySelector('textarea').value;
+      if(!texto.trim()){ toast('Gere ou escreva a mensagem primeiro'); return; }
+      window.open('https://wa.me/55'+t.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(texto), '_blank');
     });
     container.appendChild(card);
   }
