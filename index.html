@@ -480,7 +480,7 @@
             </div>
           </div>
           <div id="buscaTutorWrap" style="display:none; margin-top:10px;">
-            <input id="buscaTutorInput" placeholder="Nome do tutor ou do pet...">
+            <input id="buscaTutorInput" placeholder="Nome do tutor, do pet ou raça...">
           </div>
           <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="btnMostrarTutores">Mostrar tutores</button>
           <div id="tutorList" style="display:none; margin-top:10px;"></div>
@@ -972,6 +972,10 @@
         <div><label>Valor total (R$)</label><input type="number" id="mValor" min="0" step="0.5"></div>
         <div><label><input type="checkbox" id="mPago"> Já foi pago</label></div>
       </div>
+      <hr class="divider">
+      <label>Outros pets no mesmo horário (opcional)</label>
+      <div id="mOutrosPetsList" class="addedServicesList"></div>
+      <button type="button" class="btn btn-ghost btn-block" id="mAddOutroPetBtn">+ Adicionar outro pet</button>
     </div>
     <div class="row">
       <div><label>Início</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="mInicio"></div>
@@ -1079,6 +1083,25 @@
       <button class="btn btn-ghost btn-block" id="dWhatsAbrir">Só abrir o chat</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dWhatsModelo">Enviar mensagem pré-escrita</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Adicionar outro pet -->
+<div class="modal-bg" id="outroPetModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closeOutroPetModal">×</button>
+    <h3>+ Adicionar outro pet</h3>
+    <label>Pet cadastrado</label>
+    <select id="outroPetSelect"></select>
+    <label>Serviços</label>
+    <div id="outroPetServicosList" class="addedServicesList"></div>
+    <div class="row">
+      <select id="outroPetServicoAdd" style="flex:2;"></select>
+      <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="outroPetServicoAddBtn">+ Adicionar</button>
+    </div>
+    <label>Valor (R$)</label>
+    <input type="number" id="outroPetValor" min="0" step="0.5">
+    <button class="btn btn-primary btn-block" style="margin-top:12px;" id="confirmarOutroPetBtn">Adicionar à lista</button>
   </div>
 </div>
 
@@ -2220,15 +2243,28 @@ function renderBlock(s, body, workStartMin, colIdx, colCount){
   }
   let label = s.tipo==='cliente'? s.nome : (s.tipo==='almoco'?'Almoço':'Deslocamento');
   const statusLbl = s.tipo==='cliente' ? (STATUS_LABEL[status]||'') : '';
-  block.innerHTML = '<div class="btime">'+s.inicio+(s.seriesId?' 🔄':'')+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
+  block.innerHTML = '<div class="btime">'+s.inicio+(s.seriesId?' 🔄':'')+(s.__isGrupo?' 👥':'')+'</div><div class="bname">'+label+(status==='cancelado'?' (cancelado)':'')+'</div>'+
     (statusLbl && status!=='cancelado' ? '<div class="bstatus">'+statusLbl+'</div>' : '')+
     (s.tipo==='cliente' && s.pago===false ? '<span class="bpend">💸</span>':'')+
-    '<button class="bdel" data-id="'+s.id+'">✕</button>';
+    (s.__isGrupo ? '' : '<button class="bdel" data-id="'+s.id+'">✕</button>');
   block.addEventListener('click',(e)=>{
     if(e.target.classList.contains('bdel')) return;
+    if(s.__isGrupo){ abrirPickerGrupo(s.__grupoMembros, s.__op); return; }
     openDetailModal(selectedDateISO, s.__op, s.id);
   });
   body.appendChild(block);
+}
+function abrirPickerGrupo(membros, op){
+  document.getElementById('maisHorarioLista').innerHTML = membros.map(m=>
+    '<div class="listrow" data-id="'+m.id+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+m.inicio+' — '+m.nome+'</div><div class="rmeta">'+servicoLabel(m)+' • '+formatBRL(m.valor||0)+'</div></div></div>'
+  ).join('');
+  document.getElementById('maisHorarioLista').querySelectorAll('.listrow').forEach(row=>{
+    row.addEventListener('click',()=>{
+      document.getElementById('maisHorarioModalBg').classList.remove('show');
+      openDetailModal(selectedDateISO, op, row.dataset.id);
+    });
+  });
+  document.getElementById('maisHorarioModalBg').classList.add('show');
 }
 function renderMaisIndicator(extras, body, workStartMin, colIdx, colCount, op){
   const top = Math.max(Math.min(...extras.map(s=>timeToMinutes(s.inicio)))-workStartMin, 0);
@@ -2260,11 +2296,37 @@ function renderColumn(op, workStartMin, workEndMin){
   const body = document.getElementById('gridBody'+key);
   body.innerHTML='';
   body.style.height = (workEndMin-workStartMin)+'px';
-  const slots = getDaySlots(selectedDateISO, op).map(s=>Object.assign({}, s, {
+  const rawSlots = getDaySlots(selectedDateISO, op).map(s=>Object.assign({}, s, {
     __op: op,
     _start: timeToMinutes(s.inicio),
     _end: timeToMinutes(s.inicio)+s.duracao
   }));
+  const gruposMap = {};
+  const slots = [];
+  rawSlots.forEach(s=>{
+    if(s.grupoId){ if(!gruposMap[s.grupoId]) gruposMap[s.grupoId]=[]; gruposMap[s.grupoId].push(s); }
+    else slots.push(s);
+  });
+  Object.values(gruposMap).forEach(membros=>{
+    membros.sort((a,b)=>a._start-b._start);
+    const start = membros[0]._start;
+    const end = Math.max(...membros.map(m=>m._end));
+    slots.push({
+      __isGrupo: true,
+      __grupoMembros: membros,
+      __op: op,
+      tipo:'cliente',
+      id: membros.map(m=>m.id).join('_'),
+      inicio: membros[0].inicio,
+      _start: start, _end: end,
+      duracao: end-start,
+      nome: membros.map(m=>m.nome).join(' + '),
+      servico: membros.map(m=>servicoLabel(m)).join(' / '),
+      valor: membros.reduce((a,m)=>a+(m.valor||0),0),
+      pago: membros.every(m=>m.pago),
+      statusAtendimento: membros.every(m=>m.statusAtendimento==='concluido') ? 'concluido' : 'nenhum'
+    });
+  });
   const sorted = slots.slice().sort((a,b)=>a._start-b._start);
   let clusters=[], current=[], currentEnd=-Infinity;
   sorted.forEach(s=>{
@@ -2305,7 +2367,7 @@ function renderColumn(op, workStartMin, workEndMin){
     if(e.target!==body) return;
     const rect=body.getBoundingClientRect();
     const y = e.clientY-rect.top;
-    let startMin = workStartMin + Math.round(y/15)*15;
+    let startMin = workStartMin + Math.round(y/60)*60;
     openModal(startMin, op);
   });
 }
@@ -2331,6 +2393,8 @@ function openModal(startMin, op){
   document.getElementById('mNovoPetNome').value='';
   populatePetSelect();
   populateModalServiceSelect();
+  mOutrosPets = [];
+  renderMOutrosPetsList();
   document.getElementById('modalBg').classList.add('show');
 }
 document.getElementById('closeModal').addEventListener('click',()=>document.getElementById('modalBg').classList.remove('show'));
@@ -2416,6 +2480,84 @@ document.getElementById('mPetSelect').addEventListener('change',(e)=>{
     preview.style.display='none';
   }
 });
+// ---------- OUTROS PETS NO MESMO HORÁRIO ----------
+let mOutrosPets = [];
+let outroPetServicosSel = [];
+function renderMOutrosPetsList(){
+  const list = document.getElementById('mOutrosPetsList');
+  list.innerHTML='';
+  mOutrosPets.forEach((op,idx)=>{
+    const row = document.createElement('div');
+    row.className='addedServiceRow';
+    row.innerHTML = '<span><span class="asName">'+op.nome+'</span><span class="asPrice">'+op.servicos.join(' + ')+' • '+formatBRL(op.valor)+'</span></span><button data-idx="'+idx+'">✕</button>';
+    row.querySelector('button').addEventListener('click',()=>{ mOutrosPets.splice(idx,1); renderMOutrosPetsList(); });
+    list.appendChild(row);
+  });
+}
+function renderOutroPetServicoAddSelect(){
+  const sel = document.getElementById('outroPetServicoAdd');
+  sel.innerHTML='';
+  STATE.config.services.filter(s=>!outroPetServicosSel.includes(s.name)).forEach(s=>{
+    const o=document.createElement('option'); o.value=s.name; o.textContent=s.name+' ('+formatBRL(s.price)+')'; sel.appendChild(o);
+  });
+}
+function renderOutroPetServicosList(){
+  const list = document.getElementById('outroPetServicosList');
+  list.innerHTML='';
+  outroPetServicosSel.forEach(name=>{
+    const svc = getService(name);
+    const row = document.createElement('div');
+    row.className='addedServiceRow';
+    row.innerHTML = '<span><span class="asName">'+name+'</span><span class="asPrice">'+(svc?formatBRL(svc.price):'')+'</span></span><button data-name="'+name+'">✕</button>';
+    row.querySelector('button').addEventListener('click',()=>{
+      outroPetServicosSel = outroPetServicosSel.filter(n=>n!==name);
+      renderOutroPetServicoAddSelect();
+      renderOutroPetServicosList();
+      updateOutroPetValor();
+    });
+    list.appendChild(row);
+  });
+}
+function updateOutroPetValor(){
+  let total=0;
+  outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc) total+=svc.price; });
+  document.getElementById('outroPetValor').value = total;
+}
+document.getElementById('outroPetServicoAddBtn').addEventListener('click',()=>{
+  const val = document.getElementById('outroPetServicoAdd').value;
+  if(val && !outroPetServicosSel.includes(val)){
+    outroPetServicosSel.push(val);
+    renderOutroPetServicoAddSelect();
+    renderOutroPetServicosList();
+    updateOutroPetValor();
+  }
+});
+document.getElementById('mAddOutroPetBtn').addEventListener('click',()=>{
+  const sel = document.getElementById('outroPetSelect');
+  sel.innerHTML='';
+  STATE.pets.forEach(p=>{ const t=getTutor(p.tutorId); const o=document.createElement('option'); o.value=p.id; o.textContent=p.name+' ('+(t?t.name:'?')+')'; sel.appendChild(o); });
+  outroPetServicosSel = STATE.config.services[0] ? [STATE.config.services[0].name] : [];
+  renderOutroPetServicoAddSelect();
+  renderOutroPetServicosList();
+  updateOutroPetValor();
+  document.getElementById('outroPetModalBg').classList.add('show');
+});
+document.getElementById('closeOutroPetModal').addEventListener('click',()=>document.getElementById('outroPetModalBg').classList.remove('show'));
+document.getElementById('confirmarOutroPetBtn').addEventListener('click',()=>{
+  const petId = document.getElementById('outroPetSelect').value;
+  const p = getPet(petId);
+  if(!p){ toast('Selecione um pet'); return; }
+  if(outroPetServicosSel.length===0){ toast('Selecione ao menos um serviço'); return; }
+  const t = getTutor(p.tutorId);
+  const valor = parseFloat(document.getElementById('outroPetValor').value)||0;
+  let duracao=0;
+  outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc) duracao+=svc.duration; });
+  mOutrosPets.push({ petId, nome:p.name+' ('+(t?t.name:'?')+')', servicos:outroPetServicosSel.slice(), servico:outroPetServicosSel.join(' + '), valor, duracao:duracao||60 });
+  renderMOutrosPetsList();
+  document.getElementById('outroPetModalBg').classList.remove('show');
+  toast('Pet adicionado à lista!');
+});
+
 document.getElementById('mSalvar').addEventListener('click', async ()=>{
   const operacao = document.getElementById('mOperacao').value;
   const tipo = 'cliente';
@@ -2457,13 +2599,22 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   const pago = document.getElementById('mPago').checked;
 
   const seriesId = vezes>1 ? 's'+Date.now() : null;
+  const grupoId = mOutrosPets.length>0 ? 'g'+Date.now() : null;
   const baseDate = new Date(selectedDateISO+'T00:00:00');
   for(let i=0;i<vezes;i++){
     const d = new Date(baseDate); d.setDate(baseDate.getDate() + i*intervalo);
     const iso = toISO(d);
     if(!STATE.agenda[iso]) STATE.agenda[iso] = {Fixo:[],Móvel:[]};
     if(!STATE.agenda[iso][operacao]) STATE.agenda[iso][operacao]=[];
-    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso, pacoteQtd });
+    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso, pacoteQtd, grupoId: i===0?grupoId:null });
+  }
+  if(grupoId){
+    let cursorMin = timeToMinutes(inicio) + duracao;
+    mOutrosPets.forEach((op,idx)=>{
+      const inicioOutro = minutesToTime(cursorMin);
+      STATE.agenda[selectedDateISO][operacao].push({ id:'a'+Date.now()+'_g'+idx, tipo:'cliente', nome:op.nome, petId:op.petId, seriesId:null, servico:op.servico, servicos:op.servicos, valor:op.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:inicioOutro, duracao:op.duracao, recorrenteAvulso:false, pacoteQtd:null, grupoId });
+      cursorMin += op.duracao;
+    });
   }
   await saveAgenda();
   document.getElementById('modalBg').classList.remove('show');
@@ -2557,7 +2708,8 @@ function refreshPagoInfo(slot){
   const pagarArea = document.getElementById('dPagarArea');
   const reciboBtn = document.getElementById('dGerarReciboBtn');
   if(slot.pago){
-    pagoInfo.innerHTML = '<span class="badge pago">🟢 Pago via '+(slot.formaPagamento||'—')+'</span> <span style="font-weight:700;">'+formatBRL((slot.valor||0))+'</span>';
+    pagoInfo.innerHTML = '<span class="badge pago">🟢 Pago via '+(slot.formaPagamento||'—')+'</span> <span style="font-weight:700;">'+formatBRL((slot.valor||0))+'</span>'+
+      '<button class="btn btn-ghost btn-block btn-small" style="margin-top:8px;" id="dDesfazerPagoBtn">↩️ Desfazer pagamento</button>';
     pagarArea.style.display='none';
     reciboBtn.style.display='block';
   } else {
@@ -2567,13 +2719,24 @@ function refreshPagoInfo(slot){
     let status = 'pendente';
     if(slot.cobrancaId){ const g = STATE.cobrancas.find(c=>c.id===slot.cobrancaId); if(g) status = getCobrancaStatus(g); }
     if(valorPago>0){
-      pagoInfo.innerHTML = '<span class="badge parcial">🟠 Parcial</span> Pago: <b>'+formatBRL(valorPago)+'</b> • Devendo: <b>'+formatBRL(devendo)+'</b>';
+      pagoInfo.innerHTML = '<span class="badge parcial">🟠 Parcial</span> Pago: <b>'+formatBRL(valorPago)+'</b> • Devendo: <b>'+formatBRL(devendo)+'</b>'+
+        '<button class="btn btn-ghost btn-block btn-small" style="margin-top:8px;" id="dDesfazerPagoBtn">↩️ Desfazer pagamento</button>';
     } else {
       pagoInfo.innerHTML = '<span class="badge '+status+'">'+(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente')+'</span> <span style="font-weight:700;">'+formatBRL(devendo)+'</span>';
     }
     pagarArea.style.display='block';
     document.getElementById('dValorPagoInput').value = formatBRLMaskValue(devendo);
   }
+  const desfazerBtn = document.getElementById('dDesfazerPagoBtn');
+  if(desfazerBtn) desfazerBtn.addEventListener('click', async ()=>{
+    slot.pago = false;
+    slot.valorPago = 0;
+    slot.formaPagamento = null;
+    await saveAgenda();
+    renderWeek();
+    refreshPagoInfo(slot);
+    toast('Pagamento desfeito!');
+  });
 }
 document.getElementById('dGerarReciboBtn').addEventListener('click',()=>{
   if(!detailRef || !window.jspdf) { toast('Biblioteca de PDF ainda carregando'); return; }
@@ -3014,7 +3177,7 @@ function renderTutorList(){
   if(termo){
     lista = lista.filter(t=>{
       if(t.name.toLowerCase().includes(termo)) return true;
-      return STATE.pets.some(p=>p.tutorId===t.id && p.name.toLowerCase().includes(termo));
+      return STATE.pets.some(p=>p.tutorId===t.id && (p.name.toLowerCase().includes(termo) || (p.breed||'').toLowerCase().includes(termo)));
     });
   }
   if(tutorOrdenarAZ) lista.sort((a,b)=>a.name.localeCompare(b.name));
@@ -4106,7 +4269,7 @@ function collectPendencias(){
   Object.keys(STATE.agenda).forEach(iso=>{
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        const isPacoteItem = s.seriesId && !s.recorrenteAvulso;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
         if(s.tipo==='cliente' && !s.pago && !s.cobrancaId && (s.valor||0)>0 && !isPacoteItem && s.statusAtendimento==='concluido'){
           const p = getPet(s.petId);
           const tutorId = p ? p.tutorId : null;
@@ -4289,7 +4452,7 @@ async function autoGeneratePackageCobrancas(){
     if(ym > currentYm) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo==='cliente' && !s.cobrancaId && !s.pago && (s.valor||0)>0 && s.statusAtendimento==='concluido'){
+        if(s.tipo==='cliente' && !s.cobrancaId && !s.pago && (s.valor||0)>0 && s.statusAtendimento==='concluido' && !s.pacoteQtd){
           const p = getPet(s.petId);
           if(!p) return;
           const cobranca = STATE.cobrancas.find(c=>c.auto && !c.pago && c.tutorId===p.tutorId && c.meses.includes(ym));
@@ -4339,7 +4502,7 @@ function searchPaidItems(term, wantPacote){
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
         if(s.tipo!=='cliente' || !s.pago) return;
-        const isPacoteItem = !!(s.seriesId && !s.recorrenteAvulso);
+        const isPacoteItem = !!(s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd));
         if(isPacoteItem !== wantPacote) return;
         if(!(s.nome||'').toLowerCase().includes(term)) return;
         results.push({iso, op, servico:servicoLabel(s), valor:s.valor, formaPagamento:s.formaPagamento, nome:s.nome});
