@@ -1777,8 +1777,15 @@ setInterval(tickClock, 15000);
 
 // ---------- CLIMA (Open-Meteo, gratuito, sem chave) ----------
 const WEATHER_ICONS = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌦️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',96:'⛈️',99:'⛈️'};
+function mostrarClimaIndisponivel(msg){
+  const el = document.getElementById('weatherWidget');
+  el.style.display='flex';
+  el.style.cursor='pointer';
+  el.innerHTML = '<span>📍 '+msg+' (toque pra tentar de novo)</span>';
+  el.onclick = carregarClima;
+}
 function carregarClima(){
-  if(!navigator.geolocation) return;
+  if(!navigator.geolocation){ mostrarClimaIndisponivel('Sem suporte a localização'); return; }
   const cache = localStorage.getItem('md_weatherCache');
   if(cache){
     try{
@@ -1786,6 +1793,8 @@ function carregarClima(){
       if(Date.now()-data.ts < 30*60*1000){ mostrarClima(data.temp, data.code); return; }
     }catch(e){}
   }
+  document.getElementById('weatherWidget').style.display='flex';
+  document.getElementById('weatherWidget').innerHTML = '<span>📍 Buscando previsão...</span>';
   navigator.geolocation.getCurrentPosition(async (pos)=>{
     try{
       const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+pos.coords.latitude+'&longitude='+pos.coords.longitude+'&current_weather=true');
@@ -1795,13 +1804,18 @@ function carregarClima(){
         const code = json.current_weather.weathercode;
         localStorage.setItem('md_weatherCache', JSON.stringify({ts:Date.now(), temp, code}));
         mostrarClima(temp, code);
-      }
-    }catch(e){}
-  }, ()=>{}, {timeout:8000});
+      } else { mostrarClimaIndisponivel('Não consegui buscar o clima'); }
+    }catch(e){ mostrarClimaIndisponivel('Erro ao buscar o clima'); }
+  }, (err)=>{
+    if(err.code===1) mostrarClimaIndisponivel('Permita a localização pra ver o clima');
+    else mostrarClimaIndisponivel('Não consegui pegar sua localização');
+  }, {timeout:8000});
 }
 function mostrarClima(temp, code){
   const el = document.getElementById('weatherWidget');
   el.style.display='flex';
+  el.style.cursor='default';
+  el.onclick=null;
   el.innerHTML = '<span>'+(WEATHER_ICONS[code]||'🌡️')+'</span><span>'+temp+'°C agora</span>';
 }
 carregarClima();
