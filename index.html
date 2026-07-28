@@ -28,7 +28,13 @@
   *{box-sizing:border-box;}
   body{margin:0; background:var(--bg); color:var(--text); font-family:'Nunito Sans',sans-serif; -webkit-font-smoothing:antialiased;}
   h1,h2,h3,.brand,.tabbtn{font-family:'Baloo 2',sans-serif;}
-  #app{max-width:780px;margin:0 auto;padding-bottom:80px;}
+  #app{max-width:780px;margin:0 auto;padding-bottom:90px;}
+  .bottomNav{position:fixed; left:0; right:0; bottom:0; z-index:120; background:var(--card); display:flex; justify-content:space-around; align-items:stretch; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); box-shadow:0 -2px 10px rgba(0,0,0,0.08); max-width:780px; margin:0 auto;}
+  .navBtn{flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px; font-size:22px; color:var(--muted); border-radius:12px;}
+  .navBtn span{font-size:10.5px; font-weight:700;}
+  .navBtn.active{color:var(--rosa);}
+  .bottomNavEditBar{position:fixed; left:0; right:0; bottom:66px; z-index:121; background:var(--roxo-dark); color:#fff; display:flex; justify-content:space-between; align-items:center; padding:8px 14px; max-width:780px; margin:0 auto; font-size:12.5px;}
+  .bottomNavEditBar .btn{padding:6px 14px; font-size:12px;}
 
   header.top{background:linear-gradient(135deg,var(--roxo) 0%, var(--rosa) 100%); color:#fff; padding:18px 20px 16px; border-radius:0 0 24px 24px; position:relative; overflow:hidden; display:flex; align-items:center; gap:12px; transition:.2s;}
   header.top.compact{padding:10px 14px; border-radius:0 0 14px 14px;}
@@ -317,40 +323,24 @@
 </div>
 <div id="app">
 
-  <header class="top" id="mainHeader">
-    <button class="menubtn" id="openDrawer">☰</button>
-    <img id="headerLogoImg" class="logoimg" style="display:none;">
-    <span id="headerLogoPh" class="logoph">🐾</span>
-    <div id="headerBrandBox">
-      <p class="brand" id="headerBrandName">Meu Dengo</p>
-      <p class="sub" id="headerSub">Dashboard</p>
-    </div>
-  </header>
-
-  <div class="drawer-bg" id="drawerBg">
-    <div class="drawer">
-      <div class="dbrand">🐾 Meu Dengo</div>
-      <div id="drawerReorderList">
-        <button class="dtab active" data-tab="dashboard">🏠 Home</button>
-        <button class="dtab" data-tab="clientes">👤 Clientes/Pet</button>
-        <button class="dtab" data-tab="financeiro">💰 Financeiro</button>
-        <button class="dtab" data-tab="config">⚙️ Config.</button>
-        <button class="dtab" data-tab="estoque">📦 Estoque</button>
-        <button class="dtab" data-tab="relatorios">📄 Relatórios</button>
-      </div>
-      <button class="btn btn-primary btn-block" id="drawerReorderDoneBtn" style="display:none; margin-top:8px;">✓ Concluído</button>
-      <hr class="divider">
-      <div class="footer-note" id="drawerUserInfo" style="text-align:left; padding:0 10px;"></div>
-      <button class="dtab" id="logoutBtn" style="color:var(--full);">🚪 Sair</button>
-    </div>
+  <nav id="bottomNav" class="bottomNav"></nav>
+  <div class="bottomNavEditBar" id="bottomNavEditBar" style="display:none;">
+    <span>Toque num ícone pra trocar</span>
+    <button class="btn btn-primary" id="bottomNavDoneBtn">✓ Concluído</button>
   </div>
 
   <main>
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
       <div class="dashgreetbox">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <img id="headerLogoImg" class="logoimg" style="display:none; width:40px; height:40px; border-radius:10px;">
+          <span id="headerLogoPh" class="logoph" style="font-size:26px;">🐾</span>
+          <p class="brand" id="headerBrandName" style="margin:0; font-size:17px; color:var(--roxo-dark);">Meu Dengo</p>
+        </div>
         <div id="dashGreeting"></div>
         <div id="dashGreetingSub">Tenha um dia abençoado</div>
+        <div class="footer-note" id="drawerUserInfo" style="text-align:left; padding:0; margin-top:4px; display:flex; justify-content:space-between; align-items:center;"></div>
         <div class="dashIconsRow">
           <button id="btnAgendaDash" class="dashIconBtn">📅<span>Agenda</span></button>
           <button id="btnCombustivel" class="dashIconBtn">⛽<span>Combustível</span></button>
@@ -378,6 +368,10 @@
       <div class="card carddash" id="dashAniversarioCard" style="display:none;">
         <h3>🎂 Aniversário hoje</h3>
         <div id="dashAniversario"></div>
+      </div>
+      <div class="card carddash" id="dashTarefasCard" style="display:none;">
+        <h3>✅ Tarefas pendentes</h3>
+        <div id="dashTarefas"></div>
       </div>
     </section>
 
@@ -514,8 +508,24 @@
       </div>
     </section>
 
+    <!-- ADM -->
+    <section id="tab-adm">
+      <div class="card">
+        <h3>🗂️ ADM</h3>
+        <p class="footer-note" style="margin:0 0 10px; text-align:left;">Área administrativa — só visível pra admin.</p>
+        <div class="iconGrid">
+          <button class="iconGridBtn" data-admgo="financeiro">💰<span>Financeiro</span></button>
+          <button class="iconGridBtn" data-admgo="config">⚙️<span>Configurações</span></button>
+          <button class="iconGridBtn" data-admgo="estoque">📦<span>Estoque</span></button>
+          <button class="iconGridBtn" data-admgo="relatorios">📈<span>Relatórios</span></button>
+          <button class="iconGridBtn" data-admgo="tarefas">✅<span>Tarefas</span></button>
+        </div>
+      </div>
+    </section>
+
     <!-- FINANCEIRO -->
     <section id="tab-financeiro">
+      <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
       <div class="summarybar">
         <div class="summarybox pend"><div class="val" id="totalPendente">R$ 0</div><div class="lab">pendente</div></div>
         <div class="summarybox recb"><div class="val" id="totalRecebido">R$ 0</div><div class="lab">recebido no mês</div></div>
@@ -639,6 +649,7 @@
 
     <!-- CONFIG -->
     <section id="tab-config">
+      <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
       <div class="card">
         <p class="footer-note" style="margin:0 0 8px; text-align:left;">Toque num ícone pra abrir aquela configuração.</p>
         <div class="iconGrid">
@@ -825,6 +836,7 @@
 
     <!-- ESTOQUE -->
     <section id="tab-estoque">
+      <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
       <div class="card">
         <h3>📦 Itens em estoque</h3>
         <div id="estoqueArea"></div>
@@ -886,8 +898,48 @@
       </div>
     </div>
 
+    <!-- TAREFAS -->
+    <section id="tab-tarefas">
+      <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
+      <div class="card">
+        <h3>🏷️ Categorias</h3>
+        <div id="tarefaCategoriasArea" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+        <div class="row">
+          <input id="novaCategoriaInput" placeholder="Nova categoria (ex: Manutenção)">
+          <button class="btn btn-ghost" style="flex:0 0 auto;" id="addCategoriaBtn">+</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>➕ Nova tarefa</h3>
+        <label>Descrição</label>
+        <input id="novaTarefaDescricao" placeholder="Ex: Trocar óleo do carro">
+        <label>Categoria</label>
+        <select id="novaTarefaCategoria"></select>
+        <div class="row">
+          <div><label>Data prevista (opcional)</label><input type="date" id="novaTarefaData"></div>
+          <div><label>Valor (opcional, R$)</label><input type="number" id="novaTarefaValor" min="0" step="0.5"></div>
+        </div>
+        <label><input type="checkbox" id="novaTarefaRecorrente"> Tarefa recorrente</label>
+        <div id="novaTarefaRecorrenteWrap" style="display:none;">
+          <label>Repetir a cada quantos dias?</label>
+          <input type="number" id="novaTarefaIntervalo" min="1" value="90">
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addTarefaBtn">+ Adicionar tarefa</button>
+      </div>
+      <div class="card">
+        <h3>📋 Pendentes</h3>
+        <div id="tarefasPendentesArea"></div>
+      </div>
+      <div class="card">
+        <h3>🔍 Histórico</h3>
+        <input id="buscaHistTarefa" placeholder="Buscar tarefa concluída...">
+        <div id="tarefasHistoricoArea" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
     <!-- RELATÓRIOS -->
     <section id="tab-relatorios">
+      <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
       <div class="card">
         <h3>📊 Relatórios</h3>
         <p class="footer-note" style="margin:0 0 10px; text-align:left;">Escolha o mês e gere uma planilha, ou veja os gráficos.</p>
@@ -1417,6 +1469,8 @@ let STATE = {
   fornecedores: [],
   compras: [],
   consumoEstoque: [],
+  tarefas: [],
+  tarefaCategorias: ['Manutenção'],
   config: {
     logo: DEFAULT_LOGO,
     templates: [
@@ -1464,6 +1518,8 @@ async function loadAll(){
   try{ STATE.fornecedores = (await fbGet('fornecedores')) || []; }catch(e){ STATE.fornecedores=[]; }
   try{ STATE.compras = (await fbGet('compras')) || []; }catch(e){ STATE.compras=[]; }
   try{ STATE.consumoEstoque = (await fbGet('consumoEstoque')) || []; }catch(e){ STATE.consumoEstoque=[]; }
+  try{ STATE.tarefas = (await fbGet('tarefas')) || []; }catch(e){ STATE.tarefas=[]; }
+  try{ STATE.tarefaCategorias = (await fbGet('tarefaCategorias')) || ['Manutenção']; }catch(e){ STATE.tarefaCategorias=['Manutenção']; }
   try{
     const parsed = await fbGet('config');
     if(parsed){
@@ -1510,20 +1566,21 @@ async function saveEstoque(){ try{ await fbSet('estoque', STATE.estoque); }catch
 async function saveFornecedores(){ try{ await fbSet('fornecedores', STATE.fornecedores); }catch(e){ toast('Erro ao salvar fornecedores'); } }
 async function saveCompras(){ try{ await fbSet('compras', STATE.compras); }catch(e){ toast('Erro ao salvar compras'); } }
 async function saveConsumoEstoque(){ try{ await fbSet('consumoEstoque', STATE.consumoEstoque); }catch(e){ toast('Erro ao salvar consumo de estoque'); } }
+async function saveTarefas(){ try{ await fbSet('tarefas', STATE.tarefas); }catch(e){ toast('Erro ao salvar tarefas'); } }
+async function saveTarefaCategorias(){ try{ await fbSet('tarefaCategorias', STATE.tarefaCategorias); }catch(e){ toast('Erro ao salvar categorias'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
 let lastLocalAgendaSave = 0;
 async function saveAgenda(){ try{ lastLocalAgendaSave = Date.now(); await fbSet('agenda', STATE.agenda); }catch(e){ toast('Erro ao salvar agenda'); } }
 
 // ---------- SINCRONIZAÇÃO EM TEMPO REAL ----------
 function refreshVisibleTab(){
-  const activeTab = document.querySelector('.dtab.active');
-  if(!activeTab) return;
-  const tab = activeTab.dataset.tab;
+  const tab = currentTabKey;
   if(tab==='dashboard') renderDashboard();
   if(tab==='agenda') renderWeek();
   if(tab==='financeiro') renderFinanceiro();
   if(tab==='clientes'){ if(currentTutorId) openTutorProfile(currentTutorId); else renderTutorList(); }
   if(tab==='estoque') renderEstoqueList();
+  if(tab==='tarefas') renderTarefas();
 }
 function flattenAgenda(ag){
   let out=[];
@@ -1680,74 +1737,88 @@ document.getElementById('btnResetPeriodoConfirmar').addEventListener('click', as
 });
 function applyPermissions(){
   const isAdmin = currentUser && currentUser.role==='admin';
-  document.querySelectorAll('.dtab[data-tab="financeiro"], .dtab[data-tab="config"], .dtab[data-tab="estoque"], .dtab[data-tab="relatorios"]').forEach(b=>{
-    b.style.display = isAdmin ? '' : 'none';
+  document.getElementById('drawerUserInfo').innerHTML = currentUser ? ('<span>'+currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')+'</span><button id="logoutBtn" style="background:none; border:none; color:var(--full); font-weight:700; font-size:12.5px;">🚪 Sair</button>') : '';
+  const logoutBtn = document.getElementById('logoutBtn');
+  if(logoutBtn) logoutBtn.addEventListener('click', ()=>{
+    localStorage.removeItem('md_currentUser');
+    currentUser = null;
+    document.getElementById('loginNome').value='';
+    document.getElementById('loginSenha').value='';
+    document.getElementById('loginErro').style.display='none';
+    document.getElementById('loginScreen').classList.remove('hide');
   });
-  document.getElementById('drawerUserInfo').textContent = currentUser ? (currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')) : '';
+  renderBottomNav();
 }
-// ---------- REORDENAR MENU LATERAL ----------
-let reorderPressTimer = null;
-function enterReorderMode(){
-  const list = document.getElementById('drawerReorderList');
-  list.classList.add('editmode');
-  list.querySelectorAll('.dtab').forEach(btn=>{
-    if(btn.querySelector('.reorderArrows')) return;
-    const arrows = document.createElement('span');
-    arrows.className='reorderArrows';
-    arrows.innerHTML = '<button data-dir="up">⬆️</button><button data-dir="down">⬇️</button>';
-    arrows.querySelector('[data-dir="up"]').addEventListener('click',(e)=>{ e.stopPropagation(); moveDrawerItem(btn,-1); });
-    arrows.querySelector('[data-dir="down"]').addEventListener('click',(e)=>{ e.stopPropagation(); moveDrawerItem(btn,1); });
-    btn.appendChild(arrows);
+// ---------- BARRA INFERIOR DE NAVEGAÇÃO ----------
+const NAV_DESTINATIONS = {
+  dashboard: {icon:'🏠', label:'Home'},
+  agenda: {icon:'📅', label:'Agenda'},
+  clientes: {icon:'👤', label:'Clientes/Pet'},
+  adm: {icon:'🗂️', label:'ADM'}
+};
+const ADM_SUBTABS = ['financeiro','config','estoque','relatorios','tarefas'];
+let navItems = ['agenda','dashboard','adm'];
+let navEditMode = false;
+function defaultNavItems(){
+  const isAdmin = currentUser && currentUser.role==='admin';
+  return isAdmin ? ['agenda','dashboard','adm'] : ['agenda','dashboard'];
+}
+function renderBottomNav(){
+  const isAdmin = currentUser && currentUser.role==='admin';
+  let items = navItems.filter(k=> k!=='adm' || isAdmin);
+  if(items.length===0) items = defaultNavItems();
+  const nav = document.getElementById('bottomNav');
+  nav.innerHTML = items.map((key,idx)=>{
+    const d = NAV_DESTINATIONS[key];
+    const isActive = currentTabKey===key || (key==='adm' && ADM_SUBTABS.includes(currentTabKey));
+    return '<button class="navBtn'+(isActive?' active':'')+'" data-navkey="'+key+'" data-idx="'+idx+'">'+d.icon+'<span>'+d.label+'</span></button>';
+  }).join('');
+  nav.querySelectorAll('.navBtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(navEditMode){ abrirNavPicker(parseInt(btn.dataset.idx)); return; }
+      switchToTab(btn.dataset.navkey);
+    });
   });
-  document.getElementById('drawerReorderDoneBtn').style.display='block';
 }
-function moveDrawerItem(btn, dir){
-  const list = document.getElementById('drawerReorderList');
-  const items = Array.from(list.children);
-  const idx = items.indexOf(btn);
-  const swapIdx = idx+dir;
-  if(swapIdx<0 || swapIdx>=items.length) return;
-  if(dir<0) list.insertBefore(btn, items[swapIdx]);
-  else list.insertBefore(items[swapIdx], btn);
-}
-document.getElementById('drawerReorderList').addEventListener('pointerdown',()=>{
-  reorderPressTimer = setTimeout(enterReorderMode, 3000);
+let navPressTimer=null;
+document.getElementById('bottomNav').addEventListener('pointerdown',()=>{
+  navPressTimer = setTimeout(()=>{ navEditMode=true; document.getElementById('bottomNavEditBar').style.display='flex'; renderBottomNav(); }, 3000);
 });
 ['pointerup','pointerleave','pointercancel'].forEach(evt=>{
-  document.getElementById('drawerReorderList').addEventListener(evt,()=>{ clearTimeout(reorderPressTimer); });
+  document.getElementById('bottomNav').addEventListener(evt,()=>clearTimeout(navPressTimer));
 });
-document.getElementById('drawerReorderDoneBtn').addEventListener('click', async ()=>{
-  const list = document.getElementById('drawerReorderList');
-  list.classList.remove('editmode');
-  list.querySelectorAll('.reorderArrows').forEach(el=>el.remove());
-  document.getElementById('drawerReorderDoneBtn').style.display='none';
-  const order = Array.from(list.children).map(b=>b.dataset.tab);
+document.getElementById('bottomNavDoneBtn').addEventListener('click', async ()=>{
+  navEditMode=false;
+  document.getElementById('bottomNavEditBar').style.display='none';
+  renderBottomNav();
   if(currentUser && currentUser.key){
     try{
       const usuarios = (await fbGet('usuarios')) || {};
-      if(usuarios[currentUser.key]){ usuarios[currentUser.key].menuOrder = order; await fbSet('usuarios', usuarios); }
+      if(usuarios[currentUser.key]){ usuarios[currentUser.key].navItems = navItems; await fbSet('usuarios', usuarios); }
     }catch(e){}
   }
-  toast('Ordem do menu salva!');
+  toast('Atalhos salvos!');
 });
-function applyMenuOrder(order){
-  if(!order || !order.length) return;
-  const list = document.getElementById('drawerReorderList');
-  order.forEach(tab=>{
-    const btn = list.querySelector('.dtab[data-tab="'+tab+'"]');
-    if(btn) list.appendChild(btn);
+function abrirNavPicker(slotIdx){
+  const isAdmin = currentUser && currentUser.role==='admin';
+  const opcoes = Object.keys(NAV_DESTINATIONS).filter(k=> k!=='adm' || isAdmin);
+  document.getElementById('maisHorarioLista').innerHTML = opcoes.map(k=>{
+    const d = NAV_DESTINATIONS[k];
+    return '<div class="listrow" data-navkey="'+k+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+d.icon+' '+d.label+'</div></div></div>';
+  }).join('');
+  document.getElementById('maisHorarioLista').querySelectorAll('.listrow').forEach(row=>{
+    row.addEventListener('click',()=>{
+      navItems[slotIdx] = row.dataset.navkey;
+      document.getElementById('maisHorarioModalBg').classList.remove('show');
+      renderBottomNav();
+    });
   });
+  document.getElementById('maisHorarioModalBg').classList.add('show');
+}
+function applyMenuOrder(saved){
+  navItems = (saved && saved.length) ? saved.slice() : defaultNavItems();
 }
 
-document.getElementById('logoutBtn').addEventListener('click', ()=>{
-  localStorage.removeItem('md_currentUser');
-  currentUser = null;
-  document.getElementById('drawerBg').classList.remove('show');
-  document.getElementById('loginNome').value='';
-  document.getElementById('loginSenha').value='';
-  document.getElementById('loginErro').style.display='none';
-  document.getElementById('loginScreen').classList.remove('hide');
-});
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('loginBtn');
   const erroEl = document.getElementById('loginErro');
@@ -1767,7 +1838,7 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
     const [foundKey, found] = foundEntry;
     currentUser = {nome:found.nome, role:found.role, key:foundKey};
     agendaViewMode = found.agendaViewMode || 'ambos';
-    applyMenuOrder(found.menuOrder);
+    applyMenuOrder(found.navItems);
     localStorage.setItem('md_currentUser', JSON.stringify(currentUser));
     document.getElementById('loginScreen').classList.add('hide');
     applyPermissions();
@@ -1926,16 +1997,16 @@ document.addEventListener('click',(e)=>{
     if(iconBtn.dataset.panel==='fsGraficos') renderGraficos();
     if(iconBtn.dataset.panel==='fsComparativo') renderComparativo();
   }
+  const admBtn = e.target.closest('[data-admgo]');
+  if(admBtn){ switchToTab(admBtn.dataset.admgo); }
 });
+let currentTabKey = 'dashboard';
 function switchToTab(tab){
-  document.querySelectorAll('.dtab').forEach(x=>x.classList.remove('active'));
+  currentTabKey = tab;
   document.querySelectorAll('main section').forEach(x=>x.classList.remove('active'));
-  const btn = document.querySelector('.dtab[data-tab="'+tab+'"]');
-  if(btn) btn.classList.add('active');
-  document.getElementById('tab-'+tab).classList.add('active');
-  document.getElementById('headerSub').textContent = TAB_LABELS[tab]||'';
-  document.getElementById('drawerBg').classList.remove('show');
-  document.getElementById('mainHeader').classList.toggle('compact', tab==='agenda');
+  const realTab = tab==='adm' ? 'adm' : tab;
+  const el = document.getElementById('tab-'+realTab);
+  if(el) el.classList.add('active');
   if(tab==='dashboard'){ Promise.all([autoGeneratePackageCobrancas(), generateQuantityPackages()]).then(renderDashboard); }
   if(tab==='agenda'){ selectedDateISO = todayISO(); renderWeek(); }
   if(tab==='clientes'){ showTutoresList(); }
@@ -1943,16 +2014,13 @@ function switchToTab(tab){
   if(tab==='estoque') renderEstoqueList();
   if(tab==='sugestao'){ renderSugForm(); populateServiceSelects(); }
   if(tab==='financeiro') renderFinanceiro();
+  if(tab==='tarefas') renderTarefas();
   if(tab==='relatorios'){
     const rm = document.getElementById('relatorioMes');
     if(!rm.value){ const now=new Date(); rm.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); }
   }
+  renderBottomNav();
 }
-document.getElementById('openDrawer').addEventListener('click',()=>document.getElementById('drawerBg').classList.add('show'));
-document.getElementById('drawerBg').addEventListener('click',(e)=>{ if(e.target.id==='drawerBg') document.getElementById('drawerBg').classList.remove('show'); });
-document.querySelectorAll('.dtab').forEach(b=>{
-  b.addEventListener('click',()=>switchToTab(b.dataset.tab));
-});
 
 // ---------- DASHBOARD ----------
 document.getElementById('btnAgendaDash').addEventListener('click',()=>switchToTab('agenda'));
@@ -2030,6 +2098,22 @@ function renderDashboard(){
       return '<div class="penditem"><span>🐾 '+p.name+'</span><span>'+(t?t.name:'')+'</span></div>';
     }).join('');
   } else { aniversarioCard.style.display='none'; }
+
+  // ---------- TAREFAS PENDENTES (venceram ou vencem hoje) ----------
+  const tarefasCard = document.getElementById('dashTarefasCard');
+  if(isAdmin){
+    const hoje = todayISO();
+    const tarefasUrgentes = (STATE.tarefas||[]).filter(t=>t.status==='pendente' && t.dataPrevista && t.dataPrevista<=hoje)
+      .sort((a,b)=>a.dataPrevista.localeCompare(b.dataPrevista));
+    if(tarefasUrgentes.length>0){
+      tarefasCard.style.display='block';
+      document.getElementById('dashTarefas').innerHTML = tarefasUrgentes.map(t=>{
+        const atrasada = t.dataPrevista<hoje;
+        const dias = Math.round((new Date(hoje+'T00:00:00')-new Date(t.dataPrevista+'T00:00:00'))/86400000);
+        return '<div class="penditem" style="color:'+(atrasada?'var(--full)':'var(--amarelo)')+'; font-weight:700;"><span>⚠️ '+t.descricao+'</span><span>'+(atrasada?('venceu há '+dias+' dia'+(dias===1?'':'s')):'vence hoje')+'</span></div>';
+      }).join('');
+    } else { tarefasCard.style.display='none'; }
+  } else { tarefasCard.style.display='none'; }
 
   // ---------- ROTA DO DIA (PET MÓVEL) ----------
   const rotaBtn = document.getElementById('btnRotaDash');
@@ -4038,6 +4122,120 @@ function gerarPdfEstoqueMes(){
 }
 document.getElementById('btnRelatorioEstoquePdf').addEventListener('click', gerarPdfEstoqueMes);
 
+// ---------- TAREFAS (ADM) ----------
+function renderTarefaCategorias(){
+  const area = document.getElementById('tarefaCategoriasArea');
+  area.innerHTML = STATE.tarefaCategorias.map((c,idx)=>
+    '<span style="background:var(--card-soft); border-radius:20px; padding:6px 10px 6px 12px; font-size:12.5px; font-weight:700; display:flex; align-items:center; gap:6px;">'+c+'<button data-idx="'+idx+'" style="background:none; border:none; color:var(--full); font-size:13px; cursor:pointer;">✕</button></span>'
+  ).join('');
+  area.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      STATE.tarefaCategorias.splice(parseInt(btn.dataset.idx),1);
+      await saveTarefaCategorias();
+      renderTarefaCategorias();
+      populateTarefaCategoriaSelect();
+    });
+  });
+}
+function populateTarefaCategoriaSelect(){
+  const sel = document.getElementById('novaTarefaCategoria');
+  const atual = sel.value;
+  sel.innerHTML = STATE.tarefaCategorias.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  if(STATE.tarefaCategorias.includes(atual)) sel.value = atual;
+}
+document.getElementById('addCategoriaBtn').addEventListener('click', async ()=>{
+  const val = document.getElementById('novaCategoriaInput').value.trim();
+  if(!val){ toast('Digite o nome da categoria'); return; }
+  if(STATE.tarefaCategorias.includes(val)){ toast('Categoria já existe'); return; }
+  STATE.tarefaCategorias.push(val);
+  await saveTarefaCategorias();
+  document.getElementById('novaCategoriaInput').value='';
+  renderTarefaCategorias();
+  populateTarefaCategoriaSelect();
+});
+document.getElementById('novaTarefaRecorrente').addEventListener('change',(e)=>{
+  document.getElementById('novaTarefaRecorrenteWrap').style.display = e.target.checked ? 'block':'none';
+});
+document.getElementById('addTarefaBtn').addEventListener('click', async ()=>{
+  const descricao = document.getElementById('novaTarefaDescricao').value.trim();
+  if(!descricao){ toast('Descreva a tarefa'); return; }
+  const categoria = document.getElementById('novaTarefaCategoria').value;
+  const dataPrevista = document.getElementById('novaTarefaData').value || null;
+  const valor = parseFloat(document.getElementById('novaTarefaValor').value)||0;
+  const recorrente = document.getElementById('novaTarefaRecorrente').checked;
+  const intervaloDias = recorrente ? (parseInt(document.getElementById('novaTarefaIntervalo').value)||90) : null;
+  STATE.tarefas.push({ id:'tf'+Date.now(), descricao, categoria, dataPrevista, valor: valor||null, recorrente, intervaloDias, status:'pendente', concluidaEm:null, criadoEm: todayISO() });
+  await saveTarefas();
+  document.getElementById('novaTarefaDescricao').value='';
+  document.getElementById('novaTarefaData').value='';
+  document.getElementById('novaTarefaValor').value='';
+  document.getElementById('novaTarefaRecorrente').checked=false;
+  document.getElementById('novaTarefaRecorrenteWrap').style.display='none';
+  renderTarefas();
+  toast('Tarefa adicionada!');
+});
+async function concluirTarefa(id){
+  const t = STATE.tarefas.find(x=>x.id===id);
+  if(!t) return;
+  t.status='concluida';
+  t.concluidaEm = todayISO();
+  if(t.valor && t.valor>0){
+    STATE.despesas.push({ id:'e'+Date.now(), descricao:'Manutenção — '+t.descricao, valor:t.valor, dataPagamento: todayISO(), recorrente:false, intervaloDias:30, pago:true, formaPagamento:'Dinheiro', criadoEm: todayISO() });
+    await saveDespesas();
+  }
+  if(t.recorrente && t.intervaloDias){
+    const baseData = t.dataPrevista ? new Date(t.dataPrevista+'T00:00:00') : new Date();
+    baseData.setDate(baseData.getDate()+t.intervaloDias);
+    STATE.tarefas.push({ id:'tf'+Date.now()+'_r', descricao:t.descricao, categoria:t.categoria, dataPrevista: toISO(baseData), valor:t.valor, recorrente:true, intervaloDias:t.intervaloDias, status:'pendente', concluidaEm:null, criadoEm: todayISO() });
+  }
+  await saveTarefas();
+  renderTarefas();
+  renderDashboard();
+  toast(t.valor>0 ? 'Tarefa concluída e despesa lançada!' : 'Tarefa concluída!');
+}
+function renderTarefas(){
+  renderTarefaCategorias();
+  populateTarefaCategoriaSelect();
+  const hoje = todayISO();
+  const pendentes = STATE.tarefas.filter(t=>t.status==='pendente').sort((a,b)=>(a.dataPrevista||'9999').localeCompare(b.dataPrevista||'9999'));
+  const area = document.getElementById('tarefasPendentesArea');
+  if(pendentes.length===0){ area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhuma tarefa pendente!</div>'; }
+  else{
+    area.innerHTML = pendentes.map(t=>{
+      const atrasada = t.dataPrevista && t.dataPrevista<hoje;
+      const venceHoje = t.dataPrevista===hoje;
+      return '<div class="listrow" data-id="'+t.id+'" style="align-items:flex-start;">'+
+        '<div style="flex-shrink:0; padding-top:2px;"><input type="checkbox" class="tarefaConcluirCheck" data-id="'+t.id+'" style="width:20px; height:20px; accent-color:var(--free);"></div>'+
+        '<div class="rinfo"><div class="rname">'+t.descricao+(t.recorrente?' 🔄':'')+'</div>'+
+        '<div class="rmeta">'+t.categoria+(t.dataPrevista?' • '+fmtDateFull(new Date(t.dataPrevista+'T00:00:00')):'')+(t.valor?' • '+formatBRL(t.valor):'')+'</div>'+
+        (atrasada?'<div class="rmeta" style="color:var(--full); font-weight:700;">⚠️ Atrasada</div>':(venceHoje?'<div class="rmeta" style="color:var(--amarelo); font-weight:700;">⏰ Vence hoje</div>':''))+
+        '</div>'+
+        '<button data-id="'+t.id+'" class="tarefaDelBtn" style="background:none; border:none; color:var(--muted); font-size:15px;">✕</button>'+
+      '</div>';
+    }).join('');
+    area.querySelectorAll('.tarefaConcluirCheck').forEach(cb=>{
+      cb.addEventListener('change',()=>{ if(cb.checked) concluirTarefa(cb.dataset.id); });
+    });
+    area.querySelectorAll('.tarefaDelBtn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        STATE.tarefas = STATE.tarefas.filter(x=>x.id!==btn.dataset.id);
+        await saveTarefas();
+        renderTarefas();
+      });
+    });
+  }
+  renderTarefaHistorico('');
+}
+function renderTarefaHistorico(termo){
+  const concluidas = STATE.tarefas.filter(t=>t.status==='concluida' && (!termo || t.descricao.toLowerCase().includes(termo.toLowerCase()))).sort((a,b)=>(b.concluidaEm||'').localeCompare(a.concluidaEm||''));
+  const area = document.getElementById('tarefasHistoricoArea');
+  if(concluidas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma tarefa concluída ainda.</div>'; return; }
+  area.innerHTML = concluidas.slice(0,50).map(t=>
+    '<div class="penditem"><span>'+fmtDateFull(new Date(t.concluidaEm+'T00:00:00'))+' • '+t.descricao+' ('+t.categoria+')</span><span>'+(t.valor?formatBRL(t.valor):'—')+'</span></div>'
+  ).join('');
+}
+document.getElementById('buscaHistTarefa').addEventListener('input',(e)=>renderTarefaHistorico(e.target.value.trim()));
+
 function renderEstoqueList(){
   const area = document.getElementById('estoqueArea');
   if(STATE.estoque.length===0){ area.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum item cadastrado ainda.</div>'; }
@@ -5038,7 +5236,7 @@ async function startApp(){
           const foundEntry = Object.entries(usuarios).find(([k,u])=>u.nome.toLowerCase()===currentUser.nome.toLowerCase());
           if(foundEntry){ currentUser.key = foundEntry[0]; localStorage.setItem('md_currentUser', JSON.stringify(currentUser)); }
         }
-        if(currentUser.key && usuarios[currentUser.key]){ agendaViewMode = usuarios[currentUser.key].agendaViewMode || 'ambos'; applyMenuOrder(usuarios[currentUser.key].menuOrder); }
+        if(currentUser.key && usuarios[currentUser.key]){ agendaViewMode = usuarios[currentUser.key].agendaViewMode || 'ambos'; applyMenuOrder(usuarios[currentUser.key].navItems); }
       }catch(e){}
       document.getElementById('loginScreen').classList.add('hide');
       applyPermissions();
