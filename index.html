@@ -333,14 +333,16 @@
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
       <div class="dashgreetbox">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
           <img id="headerLogoImg" class="logoimg" style="display:none; width:40px; height:40px; border-radius:10px;">
           <span id="headerLogoPh" class="logoph" style="font-size:26px;">🐾</span>
-          <p class="brand" id="headerBrandName" style="margin:0; font-size:17px; color:var(--roxo-dark);">Meu Dengo</p>
+          <p class="brand" id="headerBrandName" style="margin:0; font-size:17px; color:var(--roxo-dark); flex:1;">Meu Dengo</p>
+          <span id="digitalClock" style="font-weight:800; font-size:16px; color:var(--roxo-dark); cursor:pointer;" title="Toque pra trocar 12h/24h">--:--</span>
+          <button id="btnSairTopo" title="Sair" style="background:none; border:none; color:var(--full); font-size:18px; padding:2px;">🚪</button>
         </div>
+        <div id="weatherWidget" style="display:none; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); margin-bottom:6px;"></div>
         <div id="dashGreeting"></div>
         <div id="dashGreetingSub">Tenha um dia abençoado</div>
-        <div class="footer-note" id="drawerUserInfo" style="text-align:left; padding:0; margin-top:4px; display:flex; justify-content:space-between; align-items:center;"></div>
         <div class="dashIconsRow">
           <button id="btnAgendaDash" class="dashIconBtn">📅<span>Agenda</span></button>
           <button id="btnCombustivel" class="dashIconBtn">⛽<span>Combustível</span></button>
@@ -702,6 +704,8 @@
           <p class="footer-note" style="margin:0 0 10px; text-align:left;">Avisa no celular quando um agendamento é criado ou cancelado (com o app aberto em segundo plano).</p>
           <div class="footer-note" id="notifStatus" style="text-align:left; padding:0; margin-bottom:8px; font-weight:700;"></div>
           <button class="btn btn-primary btn-block" id="ativarNotifBtn">Ativar notificações</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:8px; color:var(--full);" id="desativarNotifBtn">Desativar notificações (deste app)</button>
+          <p class="footer-note" style="margin-top:8px;">Se mesmo "ativadas" elas não chegarem, o problema costuma estar nas configurações de notificação do próprio Android pra esse app instalado — vale conferir lá também.</p>
         </div>
       </div>
     </div>
@@ -1592,6 +1596,7 @@ function flattenAgenda(ag){
   return out;
 }
 async function notifyIfPossible(title, body){
+  if(localStorage.getItem('md_notifDesativado')==='1') return;
   if(!('Notification' in window) || Notification.permission!=='granted') return;
   try{
     const reg = await navigator.serviceWorker.ready;
@@ -1736,19 +1741,70 @@ document.getElementById('btnResetPeriodoConfirmar').addEventListener('click', as
   toast('Período resetado!');
 });
 function applyPermissions(){
-  const isAdmin = currentUser && currentUser.role==='admin';
-  document.getElementById('drawerUserInfo').innerHTML = currentUser ? ('<span>'+currentUser.nome+' • '+(isAdmin?'Administrador':'Equipe')+'</span><button id="logoutBtn" style="background:none; border:none; color:var(--full); font-weight:700; font-size:12.5px;">🚪 Sair</button>') : '';
-  const logoutBtn = document.getElementById('logoutBtn');
-  if(logoutBtn) logoutBtn.addEventListener('click', ()=>{
-    localStorage.removeItem('md_currentUser');
-    currentUser = null;
-    document.getElementById('loginNome').value='';
-    document.getElementById('loginSenha').value='';
-    document.getElementById('loginErro').style.display='none';
-    document.getElementById('loginScreen').classList.remove('hide');
-  });
   renderBottomNav();
 }
+document.getElementById('btnSairTopo').addEventListener('click', ()=>{
+  localStorage.removeItem('md_currentUser');
+  currentUser = null;
+  document.getElementById('loginNome').value='';
+  document.getElementById('loginSenha').value='';
+  document.getElementById('loginErro').style.display='none';
+  document.getElementById('loginScreen').classList.remove('hide');
+});
+
+// ---------- RELÓGIO DIGITAL ----------
+let clockFormato24h = localStorage.getItem('md_clockFormato')!=='12h';
+function tickClock(){
+  const el = document.getElementById('digitalClock');
+  if(!el) return;
+  const agora = new Date();
+  if(clockFormato24h){
+    el.textContent = String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+  } else {
+    let h = agora.getHours()%12; if(h===0) h=12;
+    const ampm = agora.getHours()<12 ? 'AM' : 'PM';
+    el.textContent = h+':'+String(agora.getMinutes()).padStart(2,'0')+' '+ampm;
+  }
+}
+document.getElementById('digitalClock').addEventListener('click',()=>{
+  clockFormato24h = !clockFormato24h;
+  localStorage.setItem('md_clockFormato', clockFormato24h?'24h':'12h');
+  tickClock();
+  toast('Formato: '+(clockFormato24h?'24h':'12h'));
+});
+tickClock();
+setInterval(tickClock, 15000);
+
+// ---------- CLIMA (Open-Meteo, gratuito, sem chave) ----------
+const WEATHER_ICONS = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌦️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',96:'⛈️',99:'⛈️'};
+function carregarClima(){
+  if(!navigator.geolocation) return;
+  const cache = localStorage.getItem('md_weatherCache');
+  if(cache){
+    try{
+      const data = JSON.parse(cache);
+      if(Date.now()-data.ts < 30*60*1000){ mostrarClima(data.temp, data.code); return; }
+    }catch(e){}
+  }
+  navigator.geolocation.getCurrentPosition(async (pos)=>{
+    try{
+      const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+pos.coords.latitude+'&longitude='+pos.coords.longitude+'&current_weather=true');
+      const json = await res.json();
+      if(json.current_weather){
+        const temp = Math.round(json.current_weather.temperature);
+        const code = json.current_weather.weathercode;
+        localStorage.setItem('md_weatherCache', JSON.stringify({ts:Date.now(), temp, code}));
+        mostrarClima(temp, code);
+      }
+    }catch(e){}
+  }, ()=>{}, {timeout:8000});
+}
+function mostrarClima(temp, code){
+  const el = document.getElementById('weatherWidget');
+  el.style.display='flex';
+  el.innerHTML = '<span>'+(WEATHER_ICONS[code]||'🌡️')+'</span><span>'+temp+'°C agora</span>';
+}
+carregarClima();
 // ---------- BARRA INFERIOR DE NAVEGAÇÃO ----------
 const NAV_DESTINATIONS = {
   dashboard: {icon:'🏠', label:'Home'},
@@ -4380,15 +4436,23 @@ document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
 function renderNotifStatus(){
   const el = document.getElementById('notifStatus');
   if(!('Notification' in window)){ el.textContent = 'Seu navegador não suporta notificações.'; return; }
+  const desativadoAqui = localStorage.getItem('md_notifDesativado')==='1';
+  if(desativadoAqui){ el.textContent = '⚫ Desativadas neste app (mesmo com permissão do navegador ativa)'; return; }
   const map = {granted:'🟢 Ativadas', denied:'🔴 Bloqueadas (ative manualmente nas configurações do navegador)', default:'🟡 Ainda não ativadas'};
   el.textContent = map[Notification.permission] || '';
 }
 document.getElementById('ativarNotifBtn').addEventListener('click', async ()=>{
   if(!('Notification' in window)){ toast('Seu navegador não suporta notificações'); return; }
+  localStorage.removeItem('md_notifDesativado');
   const perm = await Notification.requestPermission();
   renderNotifStatus();
   if(perm==='granted') toast('Notificações ativadas!');
   else toast('Permissão não concedida.');
+});
+document.getElementById('desativarNotifBtn').addEventListener('click', ()=>{
+  localStorage.setItem('md_notifDesativado', '1');
+  renderNotifStatus();
+  toast('Notificações desativadas neste app.');
 });
 let zonaDiaAtual = 'Segunda';
 function renderZonaDia(){
