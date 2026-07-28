@@ -973,9 +973,24 @@
         <div><label><input type="checkbox" id="mPago"> Já foi pago</label></div>
       </div>
       <hr class="divider">
-      <label>Outros pets no mesmo horário (opcional)</label>
+      <label>Outro pet do mesmo cliente nesse horário (opcional)</label>
+      <p class="footer-note" style="margin:0 0 6px; text-align:left;">Pra outro cliente, crie um agendamento separado.</p>
       <div id="mOutrosPetsList" class="addedServicesList"></div>
       <button type="button" class="btn btn-ghost btn-block" id="mAddOutroPetBtn">+ Adicionar outro pet</button>
+      <div id="mOutroPetForm" style="display:none; margin-top:10px; background:var(--card-soft); border-radius:14px; padding:12px;">
+        <label>Pet</label>
+        <select id="outroPetSelect"></select>
+        <label>Serviços</label>
+        <div id="outroPetServicosList" class="addedServicesList"></div>
+        <div class="row">
+          <select id="outroPetServicoAdd" style="flex:2;"></select>
+          <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="outroPetServicoAddBtn">+</button>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button type="button" class="btn btn-ghost" id="cancelarOutroPetBtn">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="confirmarOutroPetBtn">Adicionar à lista</button>
+        </div>
+      </div>
     </div>
     <div class="row">
       <div><label>Início</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="mInicio"></div>
@@ -1083,25 +1098,6 @@
       <button class="btn btn-ghost btn-block" id="dWhatsAbrir">Só abrir o chat</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dWhatsModelo">Enviar mensagem pré-escrita</button>
     </div>
-  </div>
-</div>
-
-<!-- MODAL: Adicionar outro pet -->
-<div class="modal-bg" id="outroPetModalBg">
-  <div class="modal">
-    <button class="closebtn" id="closeOutroPetModal">×</button>
-    <h3>+ Adicionar outro pet</h3>
-    <label>Pet cadastrado</label>
-    <select id="outroPetSelect"></select>
-    <label>Serviços</label>
-    <div id="outroPetServicosList" class="addedServicesList"></div>
-    <div class="row">
-      <select id="outroPetServicoAdd" style="flex:2;"></select>
-      <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="outroPetServicoAddBtn">+ Adicionar</button>
-    </div>
-    <label>Valor (R$)</label>
-    <input type="number" id="outroPetValor" min="0" step="0.5">
-    <button class="btn btn-primary btn-block" style="margin-top:12px;" id="confirmarOutroPetBtn">Adicionar à lista</button>
   </div>
 </div>
 
@@ -2229,7 +2225,23 @@ function renderBlock(s, body, workStartMin, colIdx, colCount){
   block.style.right = '';
   block.style.width = 'calc('+widthPct+'% - 4px)';
   const status = s.statusAtendimento||'nenhum';
-  if(s.tipo==='cliente'){
+  if(s.__isGrupo){
+    let acc = 0;
+    const totalDur = s.duracao||1;
+    const stops = [];
+    s.__grupoMembros.forEach(m=>{
+      const svcName = (m.servicos&&m.servicos[0]) || m.servico;
+      const svc = getService(svcName);
+      const cor = svc ? svc.color : '#AA426C';
+      const from = (acc/totalDur)*100;
+      acc += m.duracao;
+      const to = (acc/totalDur)*100;
+      stops.push(cor+' '+from.toFixed(1)+'%, '+cor+' '+to.toFixed(1)+'%');
+    });
+    block.style.background = 'linear-gradient(to bottom, '+stops.join(', ')+')';
+    block.style.border = '2px solid var(--roxo-dark)';
+    if(status==='cancelado') block.style.opacity = '0.55';
+  } else if(s.tipo==='cliente'){
     const svc = getService(s.servico);
     const svcColor = svc ? svc.color : '#AA426C';
     if(status==='nenhum'){
@@ -2395,6 +2407,7 @@ function openModal(startMin, op){
   populateModalServiceSelect();
   mOutrosPets = [];
   renderMOutrosPetsList();
+  document.getElementById('mOutroPetForm').style.display='none';
   document.getElementById('modalBg').classList.add('show');
 }
 document.getElementById('closeModal').addEventListener('click',()=>document.getElementById('modalBg').classList.remove('show'));
@@ -2513,15 +2526,9 @@ function renderOutroPetServicosList(){
       outroPetServicosSel = outroPetServicosSel.filter(n=>n!==name);
       renderOutroPetServicoAddSelect();
       renderOutroPetServicosList();
-      updateOutroPetValor();
     });
     list.appendChild(row);
   });
-}
-function updateOutroPetValor(){
-  let total=0;
-  outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc) total+=svc.price; });
-  document.getElementById('outroPetValor').value = total;
 }
 document.getElementById('outroPetServicoAddBtn').addEventListener('click',()=>{
   const val = document.getElementById('outroPetServicoAdd').value;
@@ -2529,33 +2536,44 @@ document.getElementById('outroPetServicoAddBtn').addEventListener('click',()=>{
     outroPetServicosSel.push(val);
     renderOutroPetServicoAddSelect();
     renderOutroPetServicosList();
-    updateOutroPetValor();
   }
 });
+function getPrimaryTutorIdSelecionado(){
+  const petMode = document.querySelector('#mPetModeToggle button.active').dataset.mode;
+  if(petMode!=='existing') return null;
+  const p = getPet(document.getElementById('mPetSelect').value);
+  return p ? p.tutorId : null;
+}
 document.getElementById('mAddOutroPetBtn').addEventListener('click',()=>{
+  const tutorId = getPrimaryTutorIdSelecionado();
+  if(!tutorId){ toast('Escolha primeiro o pet principal (precisa ser um cliente já cadastrado)'); return; }
+  const jaAdicionados = mOutrosPets.map(op=>op.petId);
+  const primarioId = document.getElementById('mPetSelect').value;
+  const opcoes = STATE.pets.filter(p=>p.tutorId===tutorId && p.id!==primarioId && !jaAdicionados.includes(p.id));
+  if(opcoes.length===0){ toast('Esse cliente não tem outro pet cadastrado disponível'); return; }
   const sel = document.getElementById('outroPetSelect');
   sel.innerHTML='';
-  STATE.pets.forEach(p=>{ const t=getTutor(p.tutorId); const o=document.createElement('option'); o.value=p.id; o.textContent=p.name+' ('+(t?t.name:'?')+')'; sel.appendChild(o); });
+  opcoes.forEach(p=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; sel.appendChild(o); });
   outroPetServicosSel = STATE.config.services[0] ? [STATE.config.services[0].name] : [];
   renderOutroPetServicoAddSelect();
   renderOutroPetServicosList();
-  updateOutroPetValor();
-  document.getElementById('outroPetModalBg').classList.add('show');
+  document.getElementById('mOutroPetForm').style.display='block';
 });
-document.getElementById('closeOutroPetModal').addEventListener('click',()=>document.getElementById('outroPetModalBg').classList.remove('show'));
+document.getElementById('cancelarOutroPetBtn').addEventListener('click',()=>{
+  document.getElementById('mOutroPetForm').style.display='none';
+});
 document.getElementById('confirmarOutroPetBtn').addEventListener('click',()=>{
   const petId = document.getElementById('outroPetSelect').value;
   const p = getPet(petId);
   if(!p){ toast('Selecione um pet'); return; }
   if(outroPetServicosSel.length===0){ toast('Selecione ao menos um serviço'); return; }
   const t = getTutor(p.tutorId);
-  const valor = parseFloat(document.getElementById('outroPetValor').value)||0;
-  let duracao=0;
-  outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc) duracao+=svc.duration; });
+  let valor=0, duracao=0;
+  outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc){ valor+=svc.price; duracao+=svc.duration; } });
   mOutrosPets.push({ petId, nome:p.name+' ('+(t?t.name:'?')+')', servicos:outroPetServicosSel.slice(), servico:outroPetServicosSel.join(' + '), valor, duracao:duracao||60 });
   renderMOutrosPetsList();
-  document.getElementById('outroPetModalBg').classList.remove('show');
-  toast('Pet adicionado à lista!');
+  document.getElementById('mOutroPetForm').style.display='none';
+  toast('Pet adicionado!');
 });
 
 document.getElementById('mSalvar').addEventListener('click', async ()=>{
@@ -4275,7 +4293,7 @@ function collectPendencias(){
           const tutorId = p ? p.tutorId : null;
           const key = tutorId || ('avulso:'+s.nome);
           if(!groups[key]) groups[key]={name: tutorId?getTutor(tutorId).name:s.nome, tutorId, items:[]};
-          groups[key].items.push({iso, op, id:s.id, servico:servicoLabel(s), valor:valorDevido(s)});
+          groups[key].items.push({iso, op, id:s.id, nome:s.nome, grupoId:s.grupoId||null, servico:servicoLabel(s), valor:valorDevido(s)});
         }
       });
     });
@@ -4540,7 +4558,26 @@ async function renderFinanceiro(){
     totalPend += total;
     const card = document.createElement('div');
     card.className='pendcard';
-    const itemsHtml = g.items.map(i=>'<div class="penditem"><label style="display:flex; gap:6px; align-items:center; flex:1;"><input type="checkbox" class="avulsoCheck" data-tutor="'+key+'" data-iso="'+i.iso+'" data-op="'+i.op+'" data-id="'+i.id+'"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')</span></label><span>'+formatBRL(i.valor)+'</span></div>').join('');
+    // combina itens que compartilham grupoId (múltiplos pets no mesmo horário) numa linha só
+    const vistos = new Set();
+    const linhas = [];
+    g.items.forEach(i=>{
+      if(vistos.has(i.id)) return;
+      if(i.grupoId){
+        const membros = g.items.filter(x=>x.grupoId===i.grupoId);
+        membros.forEach(m=>vistos.add(m.id));
+        linhas.push({
+          ids: membros.map(m=>m.id).join(','),
+          iso: i.iso, op: i.op,
+          label: fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+membros.map(m=>m.nome).join(' + '),
+          valor: membros.reduce((a,m)=>a+m.valor,0)
+        });
+      } else {
+        vistos.add(i.id);
+        linhas.push({ ids:i.id, iso:i.iso, op:i.op, label: fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')', valor:i.valor });
+      }
+    });
+    const itemsHtml = linhas.map(l=>'<div class="penditem"><label style="display:flex; gap:6px; align-items:center; flex:1;"><input type="checkbox" class="avulsoCheck" data-tutor="'+key+'" data-ids="'+l.ids+'"><span>'+l.label+'</span></label><span>'+formatBRL(l.valor)+'</span></div>').join('');
     card.innerHTML = '<div class="pname">'+g.name+'</div>'+itemsHtml+
       '<div class="pendtotal"><span>Total</span><span>'+formatBRL(total)+'</span></div>';
     area.appendChild(card);
@@ -4556,8 +4593,14 @@ async function renderFinanceiro(){
     const cobranca = { id:'cb'+Date.now(), tutorId: checked[0].dataset.tutor, dataPagamento: dataPagamento||null, pago:false, criadoEm: todayISO() };
     STATE.cobrancas.push(cobranca);
     checked.forEach(c=>{
-      const slot = (STATE.agenda[c.dataset.iso][c.dataset.op]||[]).find(s=>s.id===c.dataset.id);
-      if(slot) slot.cobrancaId = cobranca.id;
+      c.dataset.ids.split(',').forEach(itemId=>{
+        Object.keys(STATE.agenda).forEach(iso=>{
+          ['Fixo','Móvel'].forEach(op=>{
+            const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===itemId);
+            if(slot) slot.cobrancaId = cobranca.id;
+          });
+        });
+      });
     });
     await saveCobrancas(); await saveAgenda();
     toast('Cobrança agrupada!');
@@ -4570,7 +4613,7 @@ async function renderFinanceiro(){
     let items=[];
     Object.keys(STATE.agenda).forEach(iso=>{
       ['Fixo','Móvel'].forEach(op=>{
-        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,servico:servicoLabel(s),valor:valorDevido(s),petId:s.petId,seriesId:s.seriesId}); });
+        (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso,op,id:s.id,nome:s.nome,grupoId:s.grupoId||null,servico:servicoLabel(s),valor:valorDevido(s),petId:s.petId,seriesId:s.seriesId}); });
       });
     });
     const total = items.reduce((a,i)=>a+i.valor,0);
@@ -4590,7 +4633,19 @@ async function renderFinanceiro(){
       const g = pacotePorPet[petId];
       return '<div class="penditem"><span>📦 Pacote de '+g.count+'× '+g.servico+' — '+(p?p.name:'?')+'</span><span>'+formatBRL(g.total)+'</span></div>';
     }).join('');
-    linhasHtml += extraItems.map(i=>'<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')</span><span>'+formatBRL(i.valor)+'</span></div>').join('');
+    const vistosExtra = new Set();
+    extraItems.forEach(i=>{
+      if(vistosExtra.has(i.id)) return;
+      if(i.grupoId){
+        const membros = extraItems.filter(x=>x.grupoId===i.grupoId);
+        membros.forEach(m=>vistosExtra.add(m.id));
+        const valorGrupo = membros.reduce((a,m)=>a+m.valor,0);
+        linhasHtml += '<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+membros.map(m=>m.nome).join(' + ')+'</span><span>'+formatBRL(valorGrupo)+'</span></div>';
+      } else {
+        vistosExtra.add(i.id);
+        linhasHtml += '<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')</span><span>'+formatBRL(i.valor)+'</span></div>';
+      }
+    });
 
     const mesesLabel = cb.meses && cb.meses.length ? cb.meses.map(relMonthLabelFromYm).join(', ') : '';
 
