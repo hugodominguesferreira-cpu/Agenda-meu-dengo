@@ -217,7 +217,7 @@
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--roxo); color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,0.2); z-index:100; opacity:0; pointer-events:none; transition:.25s;}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
 
-  .modal-bg{position:fixed; inset:0; background:rgba(46,31,53,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:50; opacity:0; pointer-events:none; transition:.2s;}
+  .modal-bg{position:fixed; inset:0; background:rgba(46,31,53,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:200; opacity:0; pointer-events:none; transition:.2s;}
   .modal-bg.show{opacity:1; pointer-events:auto;}
   .modal{background:var(--card); color:var(--text); border-radius:20px 20px 0 0; padding:20px; width:100%; max-width:780px; max-height:88vh; overflow-y:auto; transform:translateY(20px); transition:.2s;}
   .modal-bg.show .modal{transform:translateY(0);}
