@@ -333,14 +333,16 @@
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="active">
       <div class="dashgreetbox">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+        <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:4px;">
           <img id="headerLogoImg" class="logoimg" style="display:none; width:40px; height:40px; border-radius:10px;">
           <span id="headerLogoPh" class="logoph" style="font-size:26px;">🐾</span>
-          <p class="brand" id="headerBrandName" style="margin:0; font-size:17px; color:var(--roxo-dark); flex:1;">Meu Dengo</p>
-          <span id="digitalClock" style="font-weight:800; font-size:16px; color:var(--roxo-dark); cursor:pointer;" title="Toque pra trocar 12h/24h">--:--</span>
+          <p class="brand" id="headerBrandName" style="margin:0; font-size:17px; color:var(--roxo-dark); flex:1; padding-top:4px;">Meu Dengo</p>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <span id="digitalClock" style="font-weight:800; font-size:16px; color:var(--roxo-dark); cursor:pointer;" title="Toque pra trocar 12h/24h">--:--</span>
+            <div id="weatherWidget" style="display:none; align-items:center; gap:4px; font-size:11px; color:var(--muted);"></div>
+          </div>
           <button id="btnSairTopo" title="Sair" style="background:none; border:none; color:var(--full); font-size:18px; padding:2px;">🚪</button>
         </div>
-        <div id="weatherWidget" style="display:none; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); margin-bottom:6px;"></div>
         <div id="dashGreeting"></div>
         <div id="dashGreetingSub">Tenha um dia abençoado</div>
         <div class="dashIconsRow">
