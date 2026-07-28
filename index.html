@@ -949,7 +949,7 @@
       </div>
       <div id="mPetExistingWrap">
         <label>Pet</label>
-        <select id="mPetSelect"></select>
+        <button type="button" id="mPetSelectBtn" class="btn btn-ghost btn-block" style="text-align:left; font-weight:700;">🔍 Toque para escolher o pet</button>
         <img id="mPetFotoPreview" class="rphoto" style="display:none; width:56px; height:56px; margin-top:8px;">
       </div>
       <div id="mPetNewWrap" style="display:none;">
@@ -1069,6 +1069,13 @@
       <label>Duração (minutos)</label>
       <input type="number" id="dDuracao" min="10" step="5">
       <hr class="divider">
+      <label>Aplicar desconto</label>
+      <div class="row">
+        <select id="dDescontoTipo" style="flex:1;"><option value="fixo">R$</option><option value="percentual">%</option></select>
+        <input type="number" id="dDescontoValor" min="0" step="0.5" placeholder="0" style="flex:1;">
+        <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="dAplicarDescontoBtn">Aplicar</button>
+      </div>
+      <hr class="divider">
       <div id="dPagoInfo"></div>
       <button class="btn btn-ghost btn-block" id="dGerarReciboBtn" style="display:none; margin-top:8px;">🧾 Gerar recibo em PDF</button>
       <div id="dPagarArea" style="display:none;">
@@ -1161,6 +1168,16 @@
     <div id="enfeitesLista" style="margin-top:10px;"></div>
     <button class="btn btn-primary btn-block" style="margin-top:14px;" id="confirmarEnfeitesBtn">Confirmar e concluir</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="pularEnfeitesBtn">Concluir sem usar itens</button>
+  </div>
+</div>
+
+<!-- MODAL: Buscar/escolher pet -->
+<div class="modal-bg" id="petPickerModalBg">
+  <div class="modal">
+    <button class="closebtn" id="closePetPickerModal">×</button>
+    <h3>Escolher pet</h3>
+    <input id="petPickerBusca" placeholder="Buscar por nome do pet ou tutor...">
+    <div id="petPickerLista" style="margin-top:10px; max-height:58vh; overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -2432,18 +2449,67 @@ document.querySelectorAll('#mPetModeToggle button').forEach(b=>{
   b.addEventListener('click',()=>setPetMode(b.dataset.mode));
 });
 function populatePetSelect(){
-  const sel = document.getElementById('mPetSelect');
-  sel.innerHTML = STATE.pets.length ? '' : '<option value="">Nenhum pet cadastrado ainda</option>';
-  STATE.pets.forEach(p=>{
-    const t = getTutor(p.tutorId);
-    const o=document.createElement('option'); o.value=p.id; o.textContent=p.name+' ('+(t?t.name:'?')+')'; sel.appendChild(o);
-  });
+  mSelectedPetId = null;
+  document.getElementById('mPetSelectBtn').textContent = '🔍 Toque para escolher o pet';
+  document.getElementById('mPetFotoPreview').style.display='none';
 }
 function servicoLabel(s){
   if(s.servicos && s.servicos.length) return s.servicos.join(' + ');
   return s.servico||'';
 }
 let mSelectedServicos = [];
+let mSelectedPetId = null;
+let petPickerCallback = null;
+let petPickerFiltroTutor = null;
+function abrirPetPicker(callback, filtroTutorId){
+  petPickerCallback = callback;
+  petPickerFiltroTutor = filtroTutorId||null;
+  document.getElementById('petPickerBusca').value='';
+  renderPetPickerLista('');
+  document.getElementById('petPickerModalBg').classList.add('show');
+}
+function renderPetPickerLista(termo){
+  let pets = STATE.pets.slice();
+  if(petPickerFiltroTutor) pets = pets.filter(p=>p.tutorId===petPickerFiltroTutor);
+  if(termo){
+    const tm = termo.toLowerCase();
+    pets = pets.filter(p=>{
+      const tutor = getTutor(p.tutorId);
+      return p.name.toLowerCase().includes(tm) || (tutor && tutor.name.toLowerCase().includes(tm)) || (p.breed||'').toLowerCase().includes(tm);
+    });
+  }
+  pets.sort((a,b)=>a.name.localeCompare(b.name));
+  const lista = document.getElementById('petPickerLista');
+  if(pets.length===0){ lista.innerHTML='<div class="empty"><span class="emoji">🐾</span>Nenhum pet encontrado.</div>'; return; }
+  lista.innerHTML = pets.map(p=>{
+    const t = getTutor(p.tutorId);
+    return '<div class="listrow" data-id="'+p.id+'" style="cursor:pointer;">'+
+      (p.photo?'<img class="rphoto" src="'+p.photo+'" style="object-position:'+(p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%;">':'<div class="rphoto"></div>')+
+      '<div class="rinfo"><div class="rname">'+p.name+'</div><div class="rmeta">'+(t?t.name:'')+'</div></div></div>';
+  }).join('');
+  lista.querySelectorAll('.listrow').forEach(row=>{
+    row.addEventListener('click',()=>{
+      document.getElementById('petPickerModalBg').classList.remove('show');
+      if(petPickerCallback) petPickerCallback(row.dataset.id);
+    });
+  });
+}
+document.getElementById('petPickerBusca').addEventListener('input',(e)=>renderPetPickerLista(e.target.value.trim()));
+document.getElementById('closePetPickerModal').addEventListener('click',()=>document.getElementById('petPickerModalBg').classList.remove('show'));
+document.getElementById('mPetSelectBtn').addEventListener('click',()=>{
+  abrirPetPicker((petId)=>{
+    mSelectedPetId = petId;
+    const p = getPet(petId);
+    const t = p ? getTutor(p.tutorId) : null;
+    document.getElementById('mPetSelectBtn').textContent = p ? ('🐾 '+p.name+' ('+(t?t.name:'?')+')') : '🔍 Toque para escolher o pet';
+    const preview = document.getElementById('mPetFotoPreview');
+    if(p && p.photo){
+      preview.src = p.photo;
+      preview.style.objectPosition = (p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%';
+      preview.style.display='block';
+    } else { preview.style.display='none'; }
+  }, null);
+});
 function populateModalServiceSelect(){
   mSelectedServicos = STATE.config.services[0] ? [STATE.config.services[0].name] : [];
   renderMServicoAddSelect();
@@ -2487,17 +2553,6 @@ function updateMValorFromServicos(){
   document.getElementById('mValor').value = totalValor;
   document.getElementById('mDuracao').value = totalDur||60;
 }
-document.getElementById('mPetSelect').addEventListener('change',(e)=>{
-  const p = getPet(e.target.value);
-  const preview = document.getElementById('mPetFotoPreview');
-  if(p && p.photo){
-    preview.src = p.photo;
-    preview.style.objectPosition = (p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%';
-    preview.style.display='block';
-  } else {
-    preview.style.display='none';
-  }
-});
 // ---------- OUTROS PETS NO MESMO HORÁRIO ----------
 let mOutrosPets = [];
 let outroPetServicosSel = [];
@@ -2546,14 +2601,14 @@ document.getElementById('outroPetServicoAddBtn').addEventListener('click',()=>{
 function getPrimaryTutorIdSelecionado(){
   const petMode = document.querySelector('#mPetModeToggle button.active').dataset.mode;
   if(petMode!=='existing') return null;
-  const p = getPet(document.getElementById('mPetSelect').value);
+  const p = getPet(mSelectedPetId);
   return p ? p.tutorId : null;
 }
 document.getElementById('mAddOutroPetBtn').addEventListener('click',()=>{
   const tutorId = getPrimaryTutorIdSelecionado();
   if(!tutorId){ toast('Escolha primeiro o pet principal (precisa ser um cliente já cadastrado)'); return; }
   const jaAdicionados = mOutrosPets.map(op=>op.petId);
-  const primarioId = document.getElementById('mPetSelect').value;
+  const primarioId = mSelectedPetId;
   const opcoes = STATE.pets.filter(p=>p.tutorId===tutorId && p.id!==primarioId && !jaAdicionados.includes(p.id));
   if(opcoes.length===0){ toast('Esse cliente não tem outro pet cadastrado disponível'); return; }
   const sel = document.getElementById('outroPetSelect');
@@ -2609,7 +2664,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     petId = novoPet.id;
     nome = novoPet.name+' ('+novoTutor.name+')';
   } else {
-    const pid = document.getElementById('mPetSelect').value;
+    const pid = mSelectedPetId;
     const p = getPet(pid);
     if(!p){ toast('Selecione um pet cadastrado'); return; }
     const t=getTutor(p.tutorId);
@@ -2622,22 +2677,24 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   const pago = document.getElementById('mPago').checked;
 
   const seriesId = vezes>1 ? 's'+Date.now() : null;
-  const grupoId = mOutrosPets.length>0 ? 'g'+Date.now() : null;
+  const usaGrupo = mOutrosPets.length>0;
+  const outrosSeriesIds = mOutrosPets.map((op,idx)=> vezes>1 ? 's'+Date.now()+'_x'+idx : null);
   const baseDate = new Date(selectedDateISO+'T00:00:00');
   for(let i=0;i<vezes;i++){
     const d = new Date(baseDate); d.setDate(baseDate.getDate() + i*intervalo);
     const iso = toISO(d);
     if(!STATE.agenda[iso]) STATE.agenda[iso] = {Fixo:[],Móvel:[]};
     if(!STATE.agenda[iso][operacao]) STATE.agenda[iso][operacao]=[];
-    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso, pacoteQtd, grupoId: i===0?grupoId:null });
-  }
-  if(grupoId){
-    let cursorMin = timeToMinutes(inicio) + duracao;
-    mOutrosPets.forEach((op,idx)=>{
-      const inicioOutro = minutesToTime(cursorMin);
-      STATE.agenda[selectedDateISO][operacao].push({ id:'a'+Date.now()+'_g'+idx, tipo:'cliente', nome:op.nome, petId:op.petId, seriesId:null, servico:op.servico, servicos:op.servicos, valor:op.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:inicioOutro, duracao:op.duracao, recorrenteAvulso:false, pacoteQtd:null, grupoId });
-      cursorMin += op.duracao;
-    });
+    const grupoIdData = usaGrupo ? 'g'+Date.now()+'_'+i : null;
+    STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso, pacoteQtd, grupoId: grupoIdData });
+    if(usaGrupo){
+      let cursorMin = timeToMinutes(inicio) + duracao;
+      mOutrosPets.forEach((op2,idx)=>{
+        const inicioOutro = minutesToTime(cursorMin);
+        STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i+'_g'+idx, tipo:'cliente', nome:op2.nome, petId:op2.petId, seriesId:outrosSeriesIds[idx], servico:op2.servico, servicos:op2.servicos, valor:op2.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:inicioOutro, duracao:op2.duracao, recorrenteAvulso, pacoteQtd, grupoId:grupoIdData });
+        cursorMin += op2.duracao;
+      });
+    }
   }
   await saveAgenda();
   document.getElementById('modalBg').classList.remove('show');
@@ -2870,6 +2927,20 @@ document.getElementById('dInicioEdit').addEventListener('change', ()=>{
 document.getElementById('dValor').addEventListener('change', ()=>{
   const novoValor = parseBRLMask(document.getElementById('dValor').value);
   applyWithScope(slot=>{ slot.valor = novoValor; }, 'Valor atualizado!');
+});
+document.getElementById('dAplicarDescontoBtn').addEventListener('click', ()=>{
+  const tipo = document.getElementById('dDescontoTipo').value;
+  const val = parseFloat(document.getElementById('dDescontoValor').value)||0;
+  if(val<=0){ toast('Informe um valor de desconto'); return; }
+  const valorAtual = parseBRLMask(document.getElementById('dValor').value);
+  const descontoPreview = tipo==='percentual' ? valorAtual*val/100 : val;
+  const novoValorPreview = Math.max(0, valorAtual-descontoPreview);
+  applyWithScope(slot=>{
+    const desconto = tipo==='percentual' ? (slot.valor||0)*val/100 : val;
+    slot.valor = Math.max(0, (slot.valor||0) - desconto);
+  }, 'Desconto aplicado!');
+  document.getElementById('dValor').value = formatBRLMaskValue(novoValorPreview);
+  document.getElementById('dDescontoValor').value='';
 });
 document.getElementById('dDuracao').addEventListener('change', ()=>{
   const novaDuracao = parseInt(document.getElementById('dDuracao').value)||60;
