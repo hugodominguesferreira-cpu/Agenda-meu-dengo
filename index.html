@@ -1988,7 +1988,7 @@ function renderDashboard(){
         if(falta>0){
           temAlerta = true;
           const faltaFmt = falta%1===0?falta:falta.toFixed(1);
-          return '<div class="penditem" style="color:var(--full); font-weight:700;"><span>⚠️ '+it.nome+'</span><span>Vai faltar '+faltaFmt+' pra concluir hoje</span></div>';
+          return '<div style="margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:center; color:var(--full); font-weight:700;"><span>⚠️ '+it.nome+'</span><span style="font-size:16px;">-'+faltaFmt+'</span></div><div class="footer-note" style="text-align:left; padding:0; color:var(--full);">Faltam '+faltaFmt+' '+(it.unidade||'un')+' pra concluir hoje</div></div>';
         }
         return '<div class="penditem"><span>'+it.nome+'</span><span>'+(it.quantidade||0)+' '+(it.unidade||'')+'</span></div>';
       }).join('');
@@ -2226,21 +2226,26 @@ function renderBlock(s, body, workStartMin, colIdx, colCount){
   block.style.width = 'calc('+widthPct+'% - 4px)';
   const status = s.statusAtendimento||'nenhum';
   if(s.__isGrupo){
-    let acc = 0;
-    const totalDur = s.duracao||1;
-    const stops = [];
-    s.__grupoMembros.forEach(m=>{
-      const svcName = (m.servicos&&m.servicos[0]) || m.servico;
-      const svc = getService(svcName);
-      const cor = svc ? svc.color : '#AA426C';
-      const from = (acc/totalDur)*100;
-      acc += m.duracao;
-      const to = (acc/totalDur)*100;
-      stops.push(cor+' '+from.toFixed(1)+'%, '+cor+' '+to.toFixed(1)+'%');
-    });
-    block.style.background = 'linear-gradient(to bottom, '+stops.join(', ')+')';
-    block.style.border = '2px solid var(--roxo-dark)';
-    if(status==='cancelado') block.style.opacity = '0.55';
+    if(status==='nenhum'){
+      let acc = 0;
+      const totalDur = s.duracao||1;
+      const stops = [];
+      s.__grupoMembros.forEach(m=>{
+        const svcName = (m.servicos&&m.servicos[0]) || m.servico;
+        const svc = getService(svcName);
+        const cor = svc ? svc.color : '#AA426C';
+        const from = (acc/totalDur)*100;
+        acc += m.duracao;
+        const to = (acc/totalDur)*100;
+        stops.push(cor+' '+from.toFixed(1)+'%, '+cor+' '+to.toFixed(1)+'%');
+      });
+      block.style.background = 'linear-gradient(to bottom, '+stops.join(', ')+')';
+      block.style.border = '2px solid var(--roxo-dark)';
+    } else {
+      block.style.background = STATUS_COLORS[status] || '#AA426C';
+      block.style.border = '3px solid var(--roxo-dark)';
+      if(status==='cancelado') block.style.opacity = '0.55';
+    }
   } else if(s.tipo==='cliente'){
     const svc = getService(s.servico);
     const svcColor = svc ? svc.color : '#AA426C';
@@ -4577,12 +4582,71 @@ async function renderFinanceiro(){
         linhas.push({ ids:i.id, iso:i.iso, op:i.op, label: fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')', valor:i.valor });
       }
     });
-    const itemsHtml = linhas.map(l=>'<div class="penditem"><label style="display:flex; gap:6px; align-items:center; flex:1;"><input type="checkbox" class="avulsoCheck" data-tutor="'+key+'" data-ids="'+l.ids+'"><span>'+l.label+'</span></label><span>'+formatBRL(l.valor)+'</span></div>').join('');
+    const itemsHtml = linhas.map((l,idx)=>{
+      return '<div class="penditem" style="flex-direction:column; align-items:stretch; gap:6px;">'+
+        '<div style="display:flex; gap:6px; align-items:center;">'+
+          '<label style="display:flex; gap:6px; align-items:center; flex:1;"><input type="checkbox" class="avulsoCheck" data-tutor="'+key+'" data-ids="'+l.ids+'"><span>'+l.label+'</span></label>'+
+          '<span>'+formatBRL(l.valor)+'</span>'+
+        '</div>'+
+        '<div class="row" style="margin:0; align-items:center;">'+
+          '<div style="flex:1;"><label style="margin:0 0 2px;">Valor pago (R$)</label><input type="text" inputmode="numeric" class="avulsoValorInput" data-ids="'+l.ids+'" value="'+formatBRLMaskValue(l.valor)+'"></div>'+
+        '</div>'+
+        '<div class="row" style="margin:0;">'+
+          '<button class="btn btn-ghost btn-small avulsoPagarBtn" data-ids="'+l.ids+'" data-forma="Dinheiro">💵 Pago (Dinheiro)</button>'+
+          '<button class="btn btn-ghost btn-small avulsoPagarBtn" data-ids="'+l.ids+'" data-forma="Pix">📱 Pago (Pix)</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
     card.innerHTML = '<div class="pname">'+g.name+'</div>'+itemsHtml+
       '<div class="pendtotal"><span>Total</span><span>'+formatBRL(total)+'</span></div>';
     area.appendChild(card);
   });
   if(Object.keys(groups).length===0) area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhum avulso pendente!</div>';
+  document.querySelectorAll('.avulsoValorInput').forEach(inp=>attachCurrencyMask(inp));
+  document.querySelectorAll('.avulsoPagarBtn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const ids = btn.dataset.ids.split(',');
+      const forma = btn.dataset.forma;
+      const valorInput = document.querySelector('.avulsoValorInput[data-ids="'+btn.dataset.ids+'"]');
+      const valorInformado = valorInput ? parseBRLMask(valorInput.value) : null;
+      let restante = valorInformado;
+      let tutorIdParaCredito = null;
+      ids.forEach(itemId=>{
+        let slot=null;
+        Object.keys(STATE.agenda).forEach(iso=>{
+          ['Fixo','Móvel'].forEach(op=>{
+            const s = (STATE.agenda[iso][op]||[]).find(x=>x.id===itemId);
+            if(s) slot=s;
+          });
+        });
+        if(!slot) return;
+        const p = getPet(slot.petId);
+        if(p) tutorIdParaCredito = p.tutorId;
+        if(restante==null){
+          slot.pago=true; slot.valorPago=slot.valor; slot.formaPagamento=forma;
+        } else {
+          const devendo = valorDevido(slot);
+          const aplicar = Math.min(Math.max(restante,0), devendo);
+          slot.valorPago = (slot.valorPago||0)+aplicar;
+          slot.formaPagamento = forma;
+          if(slot.valorPago >= slot.valor){ slot.pago=true; slot.valorPago=slot.valor; }
+          restante -= aplicar;
+        }
+      });
+      if(restante!=null && restante>0.001 && tutorIdParaCredito){
+        const t = getTutor(tutorIdParaCredito);
+        if(t){
+          t.saldoCredito = (t.saldoCredito||0)+restante;
+          await saveTutors();
+          await aplicarCreditoTutor(tutorIdParaCredito, null);
+        }
+      }
+      await saveAgenda();
+      toast(restante>0.001 ? ('Pago! R$'+restante.toFixed(2).replace('.',',')+' de crédito aplicado no próximo atendimento.') : 'Marcado como pago!');
+      renderFinanceiro();
+      renderWeek();
+    });
+  });
 
   document.getElementById('agruparBtn').onclick = async ()=>{
     const checked = Array.from(document.querySelectorAll('.avulsoCheck:checked'));
