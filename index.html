@@ -847,6 +847,7 @@
         <h3>📦 Itens em estoque</h3>
         <div id="estoqueArea"></div>
         <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addEstoqueBtn">➕ Adicionar item</button>
+        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="fecharCustoDiaBtn">🔒 Fechar custo do dia (reforço manual)</button>
       </div>
 
       <div class="card">
@@ -875,13 +876,15 @@
         <div class="card">
           <div id="fornecedoresArea"></div>
           <hr class="divider">
-          <label>Novo fornecedor</label>
+          <label id="fFormLabel">Novo fornecedor</label>
+          <input type="hidden" id="fEditId">
           <input id="fNome" placeholder="Nome do fornecedor">
           <label>Tipo de produtos</label>
           <input id="fTipoProdutos" placeholder="Ex: Shampoos, acessórios...">
           <label>Telefone</label>
           <input id="fTelefone" placeholder="(opcional)">
           <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addFornecedorBtn">+ Adicionar fornecedor</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:6px; display:none;" id="cancelarEdicaoFornecedorBtn">Cancelar edição</button>
         </div>
       </div>
     </div>
@@ -897,8 +900,9 @@
           <select id="compraItem"></select>
           <div class="row">
             <div><label>Quantidade comprada</label><input type="number" id="compraQuantidade" min="0" step="0.1"></div>
-            <div><label>Valor unitário (R$0000,00)</label><input type="text" inputmode="numeric" id="compraValorUnitario"></div>
+            <div><label>Valor total pago (R$0000,00)</label><input type="text" inputmode="numeric" id="compraValorTotal"></div>
           </div>
+          <div class="footer-note" id="compraCustoUnitarioPreview" style="text-align:left; padding:0; font-weight:700;"></div>
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="registrarCompraBtn">Registrar compra (soma no estoque)</button>
         </div>
       </div>
@@ -3196,6 +3200,42 @@ async function aplicarDescontoAutomaticoEConcluir(slot){
   slot.statusAtendimento = 'concluido';
   await Promise.all([saveAgenda(), saveEstoque(), saveConsumoEstoque()]);
   renderWeek();
+  await verificarUltimoAtendimentoDoDia();
+}
+async function verificarUltimoAtendimentoDoDia(){
+  const iso = todayISO();
+  let restantes = 0;
+  ['Fixo','Móvel'].forEach(op=>{
+    (STATE.agenda[iso] && STATE.agenda[iso][op]||[]).forEach(s=>{
+      if(s.tipo==='cliente' && s.statusAtendimento!=='concluido' && s.statusAtendimento!=='cancelado') restantes++;
+    });
+  });
+  if(restantes===0){ await fecharCustoDoDia(iso); }
+}
+async function fecharCustoDoDia(iso, silencioso){
+  const usos = STATE.consumoEstoque.filter(u=>u.data===iso && !u.incluidoNoFechamento);
+  if(usos.length===0){ if(!silencioso) toast('Nenhum consumo de estoque pra fechar hoje.'); return; }
+  let total = 0;
+  const linhas = [];
+  const porItem = {};
+  usos.forEach(u=>{
+    const it = STATE.estoque.find(x=>x.id===u.itemId);
+    if(!it) return;
+    if(!porItem[u.itemId]) porItem[u.itemId] = {nome:it.nome, unidade:it.unidade, qtd:0, valor:0};
+    const custo = (it.valorCusto||0)*u.quantidade;
+    porItem[u.itemId].qtd += u.quantidade;
+    porItem[u.itemId].valor += custo;
+    total += custo;
+  });
+  if(total<=0){ usos.forEach(u=>u.incluidoNoFechamento=true); await saveConsumoEstoque(); return; }
+  Object.values(porItem).forEach(p=>{
+    linhas.push(p.nome+': '+p.qtd+(p.unidade?(' '+p.unidade):'')+' ('+formatBRL(p.valor)+')');
+  });
+  STATE.despesas.push({ id:'e'+Date.now(), descricao:'Custo de materiais do dia — '+linhas.join('; '), valor: total, dataPagamento: iso, recorrente:false, intervaloDias:30, pago:true, formaPagamento:'Estoque', criadoEm: todayISO() });
+  await saveDespesas();
+  usos.forEach(u=>u.incluidoNoFechamento=true);
+  await saveConsumoEstoque();
+  if(!silencioso) toast('Fechamento de custo do dia lançado: '+formatBRL(total));
 }
 document.getElementById('confirmarEnfeitesBtn').addEventListener('click', async ()=>{
   const iso = document.getElementById('enfeitesModalBg').dataset.slotIso;
@@ -3977,9 +4017,21 @@ function renderFornecedoresArea(){
     STATE.fornecedores.forEach(f=>{
       const row=document.createElement('div');
       row.className='fornecedorrow';
+      row.style.cursor='pointer';
       row.innerHTML='<div><div class="fname">'+f.nome+'</div><div class="fmeta">'+(f.tipoProdutos||'—')+(f.telefone?' • '+f.telefone:'')+'</div></div>'+
         '<button data-act="del">🗑️</button>';
-      row.querySelector('[data-act="del"]').addEventListener('click', async ()=>{
+      row.addEventListener('click',(e)=>{
+        if(e.target.dataset.act==='del') return;
+        document.getElementById('fEditId').value = f.id;
+        document.getElementById('fFormLabel').textContent = 'Editando fornecedor';
+        document.getElementById('fNome').value = f.nome;
+        document.getElementById('fTipoProdutos').value = f.tipoProdutos||'';
+        document.getElementById('fTelefone').value = f.telefone||'';
+        document.getElementById('addFornecedorBtn').textContent = 'Salvar alterações';
+        document.getElementById('cancelarEdicaoFornecedorBtn').style.display='block';
+      });
+      row.querySelector('[data-act="del"]').addEventListener('click', async (e)=>{
+        e.stopPropagation();
         STATE.fornecedores = STATE.fornecedores.filter(x=>x.id!==f.id);
         await saveFornecedores();
         renderFornecedoresArea();
@@ -3990,14 +4042,36 @@ function renderFornecedoresArea(){
   }
   populateCompraSelects();
 }
+function limparFormFornecedor(){
+  document.getElementById('fEditId').value='';
+  document.getElementById('fFormLabel').textContent='Novo fornecedor';
+  document.getElementById('fNome').value='';
+  document.getElementById('fTipoProdutos').value='';
+  document.getElementById('fTelefone').value='';
+  document.getElementById('addFornecedorBtn').textContent='+ Adicionar fornecedor';
+  document.getElementById('cancelarEdicaoFornecedorBtn').style.display='none';
+}
+document.getElementById('cancelarEdicaoFornecedorBtn').addEventListener('click', limparFormFornecedor);
 document.getElementById('addFornecedorBtn').addEventListener('click', async ()=>{
   const nome = document.getElementById('fNome').value.trim();
   if(!nome){ toast('Informe o nome do fornecedor'); return; }
-  STATE.fornecedores.push({ id:'f'+Date.now(), nome, tipoProdutos: document.getElementById('fTipoProdutos').value.trim(), telefone: document.getElementById('fTelefone').value.trim() });
-  await saveFornecedores();
-  document.getElementById('fNome').value=''; document.getElementById('fTipoProdutos').value=''; document.getElementById('fTelefone').value='';
-  renderFornecedoresArea();
-  toast('Fornecedor adicionado!');
+  const editId = document.getElementById('fEditId').value;
+  const tipoProdutos = document.getElementById('fTipoProdutos').value.trim();
+  const telefone = document.getElementById('fTelefone').value.trim();
+  if(editId){
+    const f = STATE.fornecedores.find(x=>x.id===editId);
+    if(f){ f.nome=nome; f.tipoProdutos=tipoProdutos; f.telefone=telefone; }
+    await saveFornecedores();
+    limparFormFornecedor();
+    renderFornecedoresArea();
+    toast('Fornecedor atualizado!');
+  } else {
+    STATE.fornecedores.push({ id:'f'+Date.now(), nome, tipoProdutos, telefone });
+    await saveFornecedores();
+    limparFormFornecedor();
+    renderFornecedoresArea();
+    toast('Fornecedor adicionado!');
+  }
 });
 function populateCompraSelects(){
   const fSel = document.getElementById('compraFornecedor');
@@ -4007,24 +4081,36 @@ function populateCompraSelects(){
   iSel.innerHTML = STATE.estoque.length ? '' : '<option value="">Nenhum item cadastrado</option>';
   STATE.estoque.forEach(it=>{ const o=document.createElement('option'); o.value=it.id; o.textContent=it.nome; iSel.appendChild(o); });
 }
-attachCurrencyMask(document.getElementById('compraValorUnitario'));
+attachCurrencyMask(document.getElementById('compraValorTotal'));
+function atualizarPreviewCustoUnitario(){
+  const quantidade = parseFloat(document.getElementById('compraQuantidade').value)||0;
+  const valorTotal = parseBRLMask(document.getElementById('compraValorTotal').value);
+  const preview = document.getElementById('compraCustoUnitarioPreview');
+  if(quantidade>0 && valorTotal>0){
+    preview.textContent = 'Custo por unidade: '+formatBRL(valorTotal/quantidade);
+  } else { preview.textContent=''; }
+}
+document.getElementById('compraQuantidade').addEventListener('input', atualizarPreviewCustoUnitario);
+document.getElementById('compraValorTotal').addEventListener('input', atualizarPreviewCustoUnitario);
 document.getElementById('registrarCompraBtn').addEventListener('click', async ()=>{
   const fornecedorId = document.getElementById('compraFornecedor').value;
   const itemId = document.getElementById('compraItem').value;
   const quantidade = parseFloat(document.getElementById('compraQuantidade').value)||0;
-  const valorUnitario = parseBRLMask(document.getElementById('compraValorUnitario').value);
+  const valorTotal = parseBRLMask(document.getElementById('compraValorTotal').value);
   if(!fornecedorId || !itemId || quantidade<=0){ toast('Preencha fornecedor, item e quantidade'); return; }
   const item = STATE.estoque.find(x=>x.id===itemId);
   if(!item){ toast('Item não encontrado'); return; }
+  const valorUnitario = valorTotal>0 ? valorTotal/quantidade : 0;
   item.quantidade = (item.quantidade||0) + quantidade;
   if(valorUnitario>0) item.valorCusto = valorUnitario;
   await saveEstoque();
-  STATE.compras.push({ id:'c'+Date.now(), fornecedorId, itemId, quantidade, valorUnitario, valorTotal: quantidade*valorUnitario, data: todayISO() });
+  STATE.compras.push({ id:'c'+Date.now(), fornecedorId, itemId, quantidade, valorUnitario, valorTotal, data: todayISO() });
   await saveCompras();
   document.getElementById('compraQuantidade').value='';
-  document.getElementById('compraValorUnitario').value='';
+  document.getElementById('compraValorTotal').value='';
+  document.getElementById('compraCustoUnitarioPreview').textContent='';
   renderEstoqueList();
-  toast('Compra registrada e estoque atualizado!');
+  toast('Compra registrada! Custo por unidade: '+formatBRL(valorUnitario));
 });
 function renderHistCompraSearch(){
   const term = document.getElementById('buscaHistCompra').value.trim().toLowerCase();
@@ -4398,6 +4484,10 @@ document.getElementById('deleteEstoqueBtn').addEventListener('click', async ()=>
   toast('Item removido!');
 });
 document.getElementById('addEstoqueBtn').addEventListener('click',()=>openEstoqueModal(null));
+document.getElementById('fecharCustoDiaBtn').addEventListener('click', async ()=>{
+  await fecharCustoDoDia(todayISO(), false);
+  renderFinanceiro();
+});
 document.getElementById('closeEstoqueModal').addEventListener('click',()=>document.getElementById('estoqueModalBg').classList.remove('show'));
 document.getElementById('closeTodosPacotesModal').addEventListener('click',()=>document.getElementById('todosPacotesModalBg').classList.remove('show'));
 attachCurrencyMask(document.getElementById('eValorCusto'));
