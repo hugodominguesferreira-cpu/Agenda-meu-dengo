@@ -641,12 +641,29 @@
           <input type="date" id="eData">
           <label><input type="checkbox" id="eRecorrente"> Despesa recorrente</label>
           <div id="eRecorrenteFields" style="display:none;">
-            <label>Repetir a cada (dias)</label>
+            <label>Tipo de recorrência</label>
+            <select id="eRecorrenciaTipo">
+              <option value="dias">A cada X dias</option>
+              <option value="semanas">A cada X semanas</option>
+              <option value="meses">A cada X meses</option>
+              <option value="anos">A cada X anos</option>
+              <option value="diaFixoMes">Todo mês, num dia fixo</option>
+            </select>
+            <label id="eRecorrenciaValorLabel">Repetir a cada quantos dias?</label>
             <input type="number" id="eIntervalo" min="1" value="30">
           </div>
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addDespesaBtn">+ Adicionar despesa</button>
           <hr class="divider">
           <div id="despesasArea"></div>
+          <hr class="divider">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">🔍 Histórico de despesas (inclusive já pagas)</label>
+            <button id="btnBuscaDespesaHist" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">🔍</button>
+          </div>
+          <div id="despesaHistWrap" style="display:none; margin-top:8px;">
+            <input id="buscaDespesaHist" placeholder="Buscar por descrição...">
+            <div id="despesaHistArea" style="margin-top:10px;"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -5310,14 +5327,33 @@ function getDespesaStatus(d){
 document.getElementById('eRecorrente').addEventListener('change',(e)=>{
   document.getElementById('eRecorrenteFields').style.display = e.target.checked?'block':'none';
 });
+function calcularProximaDataRecorrencia(baseDateISO, tipo, valor){
+  const d = baseDateISO ? new Date(baseDateISO+'T00:00:00') : new Date();
+  if(tipo==='semanas') d.setDate(d.getDate()+valor*7);
+  else if(tipo==='meses') d.setMonth(d.getMonth()+valor);
+  else if(tipo==='anos') d.setFullYear(d.getFullYear()+valor);
+  else if(tipo==='diaFixoMes'){ d.setMonth(d.getMonth()+1); d.setDate(Math.min(Math.max(valor,1),28)); }
+  else d.setDate(d.getDate()+valor);
+  return toISO(d);
+}
+document.getElementById('eRecorrenciaTipo').addEventListener('change',(e)=>{
+  const label = document.getElementById('eRecorrenciaValorLabel');
+  const input = document.getElementById('eIntervalo');
+  if(e.target.value==='diaFixoMes'){ label.textContent='Dia fixo do mês (1 a 28)'; input.max=28; input.value = input.value>28?25:input.value; }
+  else if(e.target.value==='semanas'){ label.textContent='Repetir a cada quantas semanas?'; input.removeAttribute('max'); }
+  else if(e.target.value==='meses'){ label.textContent='Repetir a cada quantos meses?'; input.removeAttribute('max'); }
+  else if(e.target.value==='anos'){ label.textContent='Repetir a cada quantos anos?'; input.removeAttribute('max'); }
+  else { label.textContent='Repetir a cada quantos dias?'; input.removeAttribute('max'); }
+});
 document.getElementById('addDespesaBtn').addEventListener('click', async ()=>{
   const descricao = document.getElementById('despDescricao').value.trim();
   const valor = parseFloat(document.getElementById('eValor').value)||0;
   const dataPagamento = document.getElementById('eData').value||null;
   const recorrente = document.getElementById('eRecorrente').checked;
-  const intervaloDias = parseInt(document.getElementById('eIntervalo').value)||30;
+  const recorrenciaTipo = document.getElementById('eRecorrenciaTipo').value;
+  const recorrenciaValor = parseInt(document.getElementById('eIntervalo').value)||30;
   if(!descricao || valor<=0){ toast('Preencha descrição e valor'); return; }
-  STATE.despesas.push({ id:'e'+Date.now(), descricao, valor, dataPagamento, recorrente, intervaloDias, pago:false, formaPagamento:null, criadoEm: todayISO() });
+  STATE.despesas.push({ id:'e'+Date.now(), descricao, valor, dataPagamento, recorrente, recorrenciaTipo, recorrenciaValor, pago:false, formaPagamento:null, criadoEm: todayISO() });
   await saveDespesas();
   document.getElementById('despDescricao').value='';
   document.getElementById('eValor').value='';
@@ -5332,9 +5368,10 @@ async function marcarDespesaPaga(id){
   if(!d) return;
   d.pago = true;
   if(d.recorrente){
-    let nextDate = d.dataPagamento ? new Date(d.dataPagamento+'T00:00:00') : new Date();
-    nextDate.setDate(nextDate.getDate()+d.intervaloDias);
-    STATE.despesas.push({ id:'e'+Date.now(), descricao:d.descricao, valor:d.valor, dataPagamento:toISO(nextDate), recorrente:true, intervaloDias:d.intervaloDias, pago:false, formaPagamento:null, criadoEm: todayISO() });
+    const tipo = d.recorrenciaTipo || 'dias';
+    const valor = d.recorrenciaValor || d.intervaloDias || 30;
+    const proximaData = calcularProximaDataRecorrencia(d.dataPagamento, tipo, valor);
+    STATE.despesas.push({ id:'e'+Date.now(), descricao:d.descricao, valor:d.valor, dataPagamento:proximaData, recorrente:true, recorrenciaTipo:tipo, recorrenciaValor:valor, pago:false, formaPagamento:null, criadoEm: todayISO() });
   }
   await saveDespesas();
   renderDespesas();
@@ -5364,7 +5401,22 @@ function renderDespesas(){
     });
     area.appendChild(card);
   });
+  renderDespesaHistorico(document.getElementById('buscaDespesaHist').value.trim());
 }
+document.getElementById('btnBuscaDespesaHist').addEventListener('click',()=>{
+  const wrap = document.getElementById('despesaHistWrap');
+  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
+});
+function renderDespesaHistorico(termo){
+  const t = (termo||'').toLowerCase();
+  const todas = STATE.despesas.filter(d=> !t || d.descricao.toLowerCase().includes(t)).sort((a,b)=>(b.dataPagamento||b.criadoEm||'').localeCompare(a.dataPagamento||a.criadoEm||''));
+  const area = document.getElementById('despesaHistArea');
+  if(todas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma despesa encontrada.</div>'; return; }
+  area.innerHTML = todas.slice(0,80).map(d=>
+    '<div class="penditem"><span>'+(d.dataPagamento?fmtDateFull(new Date(d.dataPagamento+'T00:00:00')):'—')+' • '+d.descricao+(d.recorrente?' 🔁':'')+'</span><span>'+formatBRL(d.valor)+' '+(d.pago?'✅':'🟡')+'</span></div>'
+  ).join('');
+}
+document.getElementById('buscaDespesaHist').addEventListener('input',(e)=>renderDespesaHistorico(e.target.value.trim()));
 
 async function startApp(){
   await loadAll();
