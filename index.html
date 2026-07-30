@@ -494,6 +494,7 @@
               <div class="footer-note" style="text-align:left; margin:2px 0 0; padding:0;" id="profTel"></div>
               <div class="footer-note" style="text-align:left; margin:0; padding:0;" id="profEndereco"></div>
               <div class="footer-note" style="text-align:left; margin:2px 0 0; padding:0; display:none; font-weight:700; color:var(--free);" id="profSaldoCredito"></div>
+              <div class="footer-note" style="text-align:left; margin:2px 0 0; padding:0; display:none; font-weight:700; color:var(--full);" id="profSaldoDevedor"></div>
             </div>
           </div>
           <div class="quickbtns">
@@ -2878,7 +2879,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   renderWeek();
   if(vezes>1){ await autoGeneratePackageCobrancas(); await generateQuantityPackages(); }
   const petCriado = getPet(petId);
-  if(petCriado) await aplicarCreditoTutor(petCriado.tutorId, null);
+  if(petCriado){ await aplicarCreditoTutor(petCriado.tutorId, null); await aplicarDebitoTutor(petCriado.tutorId, null); }
   toast(vezes>1 ? 'Pacote criado — '+vezes+' agendamentos gerados!' : 'Horário adicionado!');
 });
 
@@ -2977,7 +2978,8 @@ function refreshPagoInfo(slot){
     if(slot.cobrancaId){ const g = STATE.cobrancas.find(c=>c.id===slot.cobrancaId); if(g) status = getCobrancaStatus(g); }
     if(valorPago>0){
       pagoInfo.innerHTML = '<span class="badge parcial">🟠 Parcial</span> Pago: <b>'+formatBRL(valorPago)+'</b> • Devendo: <b>'+formatBRL(devendo)+'</b>'+
-        '<button class="btn btn-ghost btn-block btn-small" style="margin-top:8px;" id="dDesfazerPagoBtn">↩️ Desfazer pagamento</button>';
+        '<button class="btn btn-ghost btn-block btn-small" style="margin-top:8px;" id="dDesfazerPagoBtn">↩️ Desfazer pagamento</button>'+
+        '<button class="btn btn-ghost btn-block btn-small" style="margin-top:6px;" id="dTransferirDebitoBtn">➡️ Transferir diferença pro próximo atendimento</button>';
     } else {
       pagoInfo.innerHTML = '<span class="badge '+status+'">'+(status==='atrasado'?'🔴 Atrasado':'🟡 Pendente')+'</span> <span style="font-weight:700;">'+formatBRL(devendo)+'</span>';
     }
@@ -2994,6 +2996,8 @@ function refreshPagoInfo(slot){
     refreshPagoInfo(slot);
     toast('Pagamento desfeito!');
   });
+  const transferirBtn = document.getElementById('dTransferirDebitoBtn');
+  if(transferirBtn) transferirBtn.addEventListener('click', transferirDebitoProximoAtendimento);
 }
 document.getElementById('dGerarReciboBtn').addEventListener('click',()=>{
   if(!detailRef || !window.jspdf) { toast('Biblioteca de PDF ainda carregando'); return; }
@@ -3347,6 +3351,35 @@ async function aplicarCreditoTutor(tutorId, excludeSlotId){
   }
   if(mudou){ await Promise.all([saveAgenda(), saveTutors()]); }
 }
+async function aplicarDebitoTutor(tutorId, excludeSlotId){
+  const t = getTutor(tutorId);
+  if(!t || !(t.saldoDevedor>0)) return;
+  const proximo = findNextUnpaidSlotForTutor(tutorId, excludeSlotId);
+  if(!proximo) return;
+  proximo.slot.valor = (proximo.slot.valor||0) + t.saldoDevedor;
+  t.saldoDevedor = 0;
+  await Promise.all([saveAgenda(), saveTutors()]);
+}
+async function transferirDebitoProximoAtendimento(){
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  if(!slot) return;
+  const devendo = valorDevido(slot);
+  if(devendo<=0){ toast('Não há valor faltando nesse atendimento.'); return; }
+  const p = getPet(slot.petId);
+  if(!p){ toast('Esse agendamento não tem um pet vinculado'); return; }
+  const t = getTutor(p.tutorId);
+  if(!t){ toast('Tutor não encontrado'); return; }
+  t.saldoDevedor = (t.saldoDevedor||0) + devendo;
+  slot.pago = true;
+  slot.valorPago = slot.valor;
+  await saveTutors();
+  await saveAgenda();
+  await aplicarDebitoTutor(t.id, slot.id);
+  renderWeek();
+  refreshPagoInfo(slot);
+  toast('R$'+devendo.toFixed(2).replace('.',',')+' transferido pro próximo atendimento!');
+}
 function marcarPago(forma){
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
@@ -3572,6 +3605,9 @@ function openTutorProfile(id){
   const saldoEl = document.getElementById('profSaldoCredito');
   if(t.saldoCredito>0){ saldoEl.style.display='block'; saldoEl.textContent = '💰 Crédito disponível: '+formatBRL(t.saldoCredito)+' (será usado no próximo atendimento)'; }
   else { saldoEl.style.display='none'; }
+  const devedorEl = document.getElementById('profSaldoDevedor');
+  if(t.saldoDevedor>0){ devedorEl.style.display='block'; devedorEl.textContent = '⚠️ Deve '+formatBRL(t.saldoDevedor)+' (será somado no próximo atendimento)'; }
+  else { devedorEl.style.display='none'; }
   renderPetList();
 }
 document.getElementById('btnWhats').addEventListener('click',()=>{
@@ -4766,15 +4802,21 @@ function renderFechamento(){
   const dataInput = document.getElementById('fechamentoData');
   if(!dataInput.value) dataInput.value = todayISO();
   const iso = dataInput.value;
-  let total = 0, count = 0;
+  let entradas = 0, countEntradas = 0;
   ['Fixo','Móvel'].forEach(op=>{
     (STATE.agenda[iso]&&STATE.agenda[iso][op]||[]).forEach(s=>{
-      if(s.tipo==='cliente' && s.pago===true){ total += (s.valor||0); count++; }
+      if(s.tipo==='cliente' && s.pago===true){ entradas += (s.valor||0); countEntradas++; }
     });
   });
+  const despesasDoDia = STATE.despesas.filter(d=>d.pago && d.dataPagamento===iso);
+  const saidas = despesasDoDia.reduce((a,d)=>a+d.valor,0);
+  const saldo = entradas-saidas;
   document.getElementById('fechamentoResumo').innerHTML =
-    '<div class="pendtotal"><span>Total recebido em '+fmtDateFull(new Date(iso+'T00:00:00'))+'</span><span>'+formatBRL(total)+'</span></div>'+
-    '<div class="footer-note" style="text-align:left; padding:0; margin-top:4px;">'+count+' atendimento(s) pago(s) nesse dia.</div>';
+    '<div class="penditem"><span>💰 Entradas</span><span style="color:var(--free); font-weight:700;">'+formatBRL(entradas)+'</span></div>'+
+    '<div class="footer-note" style="text-align:left; padding:0; margin:-4px 0 8px;">'+countEntradas+' atendimento(s) pago(s)</div>'+
+    '<div class="penditem"><span>💸 Saídas</span><span style="color:var(--full); font-weight:700;">'+formatBRL(saidas)+'</span></div>'+
+    '<div class="footer-note" style="text-align:left; padding:0; margin:-4px 0 8px;">'+despesasDoDia.length+' despesa(s) paga(s)</div>'+
+    '<div class="pendtotal"><span>Saldo do dia</span><span style="color:'+(saldo>=0?'var(--free)':'var(--full)')+';">'+formatBRL(saldo)+'</span></div>';
 }
 document.getElementById('fechamentoData').addEventListener('change', renderFechamento);
 document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
@@ -5413,8 +5455,33 @@ function renderDespesaHistorico(termo){
   const area = document.getElementById('despesaHistArea');
   if(todas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma despesa encontrada.</div>'; return; }
   area.innerHTML = todas.slice(0,80).map(d=>
-    '<div class="penditem"><span>'+(d.dataPagamento?fmtDateFull(new Date(d.dataPagamento+'T00:00:00')):'—')+' • '+d.descricao+(d.recorrente?' 🔁':'')+'</span><span>'+formatBRL(d.valor)+' '+(d.pago?'✅':'🟡')+'</span></div>'
+    '<div class="penditem" style="flex-direction:column; align-items:stretch; gap:4px;">'+
+      '<div style="display:flex; justify-content:space-between;"><span>'+(d.dataPagamento?fmtDateFull(new Date(d.dataPagamento+'T00:00:00')):'—')+' • '+d.descricao+(d.recorrente?' 🔁':'')+'</span><span>'+formatBRL(d.valor)+' '+(d.pago?'✅':'🟡')+'</span></div>'+
+      '<div class="row" style="margin:0;">'+
+        (d.pago?'<button class="btn btn-ghost btn-small" data-act="desfazer" data-id="'+d.id+'">↩️ Desfazer pagamento</button>':'')+
+        '<button class="btn btn-ghost btn-small" data-act="excluir" data-id="'+d.id+'" style="color:var(--full);">🗑️ Excluir</button>'+
+      '</div>'+
+    '</div>'
   ).join('');
+  area.querySelectorAll('[data-act="desfazer"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const d = STATE.despesas.find(x=>x.id===btn.dataset.id);
+      if(!d) return;
+      d.pago = false;
+      d.formaPagamento = null;
+      await saveDespesas();
+      renderDespesas();
+      toast('Pagamento da despesa desfeito!');
+    });
+  });
+  area.querySelectorAll('[data-act="excluir"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      STATE.despesas = STATE.despesas.filter(x=>x.id!==btn.dataset.id);
+      await saveDespesas();
+      renderDespesas();
+      toast('Despesa excluída!');
+    });
+  });
 }
 document.getElementById('buscaDespesaHist').addEventListener('input',(e)=>renderDespesaHistorico(e.target.value.trim()));
 
