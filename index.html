@@ -548,7 +548,6 @@
           <button class="iconGridBtn" data-panel="fsComparativo">📈<span>Comparativo</span></button>
           <button class="iconGridBtn" data-panel="fsAvulsos">🗂️<span>Avulsos</span></button>
           <button class="iconGridBtn" data-panel="fsPacotesFin">📦<span>Pacotes</span></button>
-          <button class="iconGridBtn" data-panel="fsCobrancas">🧾<span>Cobranças agrupadas</span></button>
           <button class="iconGridBtn" data-panel="fsDespesas">💸<span>Despesas</span></button>
         </div>
       </div>
@@ -589,11 +588,8 @@
       <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🗂️ Avulsos</h3></div>
       <div class="fsPanelBody">
         <div class="card">
-          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Selecione itens do mesmo tutor pra agrupar numa cobrança com vencimento.</p>
+          <p class="footer-note" style="margin:0 0 10px; text-align:left;">Agrupamento automático por cliente — assim que um avulso é concluído, já entra na cobrança do cliente.</p>
           <div id="avulsosArea"></div>
-          <label style="margin-top:14px;">Vencimento da cobrança</label>
-          <input type="date" id="grupoVencimento">
-          <button class="btn btn-primary btn-block" style="margin-top:10px;" id="agruparBtn">Agrupar selecionados</button>
           <hr class="divider">
           <label>🔍 Histórico de pagamentos avulsos</label>
           <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
@@ -614,16 +610,6 @@
           <label>🔍 Histórico de pagamentos de pacotes</label>
           <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histPacoteResultado" style="margin-top:8px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- FS: Cobranças agrupadas -->
-    <div class="fsPanel" id="fsCobrancas">
-      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🧾 Cobranças agrupadas</h3></div>
-      <div class="fsPanelBody">
-        <div class="card">
-          <div id="cobrancasArea"></div>
         </div>
       </div>
     </div>
@@ -861,6 +847,15 @@
     <!-- ESTOQUE -->
     <section id="tab-estoque">
       <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
+      <div class="card">
+        <h3>🏷️ Categorias</h3>
+        <p class="footer-note" style="margin:0 0 8px; text-align:left;">Segure 3 segundos numa categoria pra reordenar.</p>
+        <div id="estoqueCategoriasArea" style="display:flex; flex-direction:column; gap:4px;"></div>
+        <div class="row" style="margin-top:8px;">
+          <input id="novaEstoqueCategoriaInput" placeholder="Nova categoria (ex: Shampoo)">
+          <button class="btn btn-ghost" style="flex:0 0 auto;" id="addEstoqueCategoriaBtn">+</button>
+        </div>
+      </div>
       <div class="card">
         <h3>📦 Itens em estoque</h3>
         <div id="estoqueArea"></div>
@@ -1323,7 +1318,7 @@
     <label>Descrição</label>
     <textarea id="eDescricao" placeholder="Detalhes do produto..."></textarea>
     <label>Categoria</label>
-    <input id="eCategoria" placeholder="Ex: Shampoo, Luvas, Perfume...">
+    <select id="eCategoria"></select>
     <div class="row">
       <div><label>Quantidade atual</label><input type="number" id="eQuantidade" min="0" step="0.1"></div>
       <div><label>Unidade</label><input id="eUnidade" placeholder="ml, un, kg..."></div>
@@ -1497,6 +1492,7 @@ let STATE = {
   fornecedores: [],
   compras: [],
   consumoEstoque: [],
+  estoqueCategorias: ['Geral'],
   tarefas: [],
   tarefaCategorias: ['Manutenção'],
   config: {
@@ -1546,6 +1542,7 @@ async function loadAll(){
   try{ STATE.fornecedores = (await fbGet('fornecedores')) || []; }catch(e){ STATE.fornecedores=[]; }
   try{ STATE.compras = (await fbGet('compras')) || []; }catch(e){ STATE.compras=[]; }
   try{ STATE.consumoEstoque = (await fbGet('consumoEstoque')) || []; }catch(e){ STATE.consumoEstoque=[]; }
+  try{ STATE.estoqueCategorias = (await fbGet('estoqueCategorias')) || ['Geral']; }catch(e){ STATE.estoqueCategorias=['Geral']; }
   try{ STATE.tarefas = (await fbGet('tarefas')) || []; }catch(e){ STATE.tarefas=[]; }
   try{ STATE.tarefaCategorias = (await fbGet('tarefaCategorias')) || ['Manutenção']; }catch(e){ STATE.tarefaCategorias=['Manutenção']; }
   try{
@@ -1594,6 +1591,7 @@ async function saveEstoque(){ try{ await fbSet('estoque', STATE.estoque); }catch
 async function saveFornecedores(){ try{ await fbSet('fornecedores', STATE.fornecedores); }catch(e){ toast('Erro ao salvar fornecedores'); } }
 async function saveCompras(){ try{ await fbSet('compras', STATE.compras); }catch(e){ toast('Erro ao salvar compras'); } }
 async function saveConsumoEstoque(){ try{ await fbSet('consumoEstoque', STATE.consumoEstoque); }catch(e){ toast('Erro ao salvar consumo de estoque'); } }
+async function saveEstoqueCategorias(){ try{ await fbSet('estoqueCategorias', STATE.estoqueCategorias); }catch(e){ toast('Erro ao salvar categorias'); } }
 async function saveTarefas(){ try{ await fbSet('tarefas', STATE.tarefas); }catch(e){ toast('Erro ao salvar tarefas'); } }
 async function saveTarefaCategorias(){ try{ await fbSet('tarefaCategorias', STATE.tarefaCategorias); }catch(e){ toast('Erro ao salvar categorias'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
@@ -2101,7 +2099,7 @@ function switchToTab(tab){
   const realTab = tab==='adm' ? 'adm' : tab;
   const el = document.getElementById('tab-'+realTab);
   if(el) el.classList.add('active');
-  if(tab==='dashboard'){ Promise.all([autoGeneratePackageCobrancas(), generateQuantityPackages()]).then(renderDashboard); }
+  if(tab==='dashboard'){ Promise.all([autoGeneratePackageCobrancas(), generateQuantityPackages(), autoGenerateAvulsoCobrancas()]).then(renderDashboard); }
   if(tab==='agenda'){ selectedDateISO = todayISO(); renderWeek(); }
   if(tab==='clientes'){ showTutoresList(); }
   if(tab==='config') renderConfigForm();
@@ -2255,15 +2253,17 @@ function renderDashboard(){
   const keys = Object.keys(groups);
   let totalPend = 0;
   keys.forEach(k=>groups[k].items.forEach(i=>totalPend+=i.valor));
-  const cobrancasAtrasadas = STATE.cobrancas.filter(c=>getCobrancaStatus(c)==='atrasado');
+  const cobrancasAtrasadas = STATE.cobrancas.filter(c=>!c.auto && getCobrancaStatus(c)==='atrasado');
+  const pacotesAtrasados = STATE.cobrancas.filter(c=>c.auto && getCobrancaStatus(c)==='atrasado');
   const despesasHoje = STATE.despesas.filter(d=>!d.pago && d.dataPagamento===iso);
   const despesasAtrasadas = STATE.despesas.filter(d=>getDespesaStatus(d)==='atrasado');
 
-  if(keys.length===0 && cobrancasAtrasadas.length===0 && despesasHoje.length===0 && despesasAtrasadas.length===0){
+  if(keys.length===0 && cobrancasAtrasadas.length===0 && pacotesAtrasados.length===0 && despesasHoje.length===0 && despesasAtrasadas.length===0){
     cb.innerHTML = '<div class="empty"><span class="emoji">✅</span>Nada pendente por aqui!</div>';
   } else {
     let html = '';
     if(totalPend>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px;">💰 '+keys.length+' tutor(es) com pendência avulsa — total '+formatBRL(totalPend)+'</div>';
+    if(pacotesAtrasados.length>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px; color:var(--full); font-weight:700;">🔴 '+pacotesAtrasados.length+' pacote(s) atrasado(s)</div>';
     if(cobrancasAtrasadas.length>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px; color:var(--full); font-weight:700;">🔴 '+cobrancasAtrasadas.length+' cobrança(s) agrupada(s) atrasada(s)</div>';
     if(despesasHoje.length>0){
       const totalDespHoje = despesasHoje.reduce((a,d)=>a+d.valor,0);
@@ -2878,6 +2878,7 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   document.getElementById('modalBg').classList.remove('show');
   renderWeek();
   if(vezes>1){ await autoGeneratePackageCobrancas(); await generateQuantityPackages(); }
+  await autoGenerateAvulsoCobrancas();
   const petCriado = getPet(petId);
   if(petCriado){ await aplicarCreditoTutor(petCriado.tutorId, null); await aplicarDebitoTutor(petCriado.tutorId, null); }
   toast(vezes>1 ? 'Pacote criado — '+vezes+' agendamentos gerados!' : 'Horário adicionado!');
@@ -4447,21 +4448,100 @@ function renderTarefaHistorico(termo){
 }
 document.getElementById('buscaHistTarefa').addEventListener('input',(e)=>renderTarefaHistorico(e.target.value.trim()));
 
+function populateEstoqueCategoriaSelect(){
+  const sel = document.getElementById('eCategoria');
+  const atual = sel.value;
+  sel.innerHTML = STATE.estoqueCategorias.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  if(STATE.estoqueCategorias.includes(atual)) sel.value = atual;
+}
+function renderEstoqueCategorias(){
+  const area = document.getElementById('estoqueCategoriasArea');
+  area.innerHTML = STATE.estoqueCategorias.map((c,idx)=>
+    '<div class="listrow" data-idx="'+idx+'" style="padding:8px 10px;"><div class="rinfo"><div class="rname">'+c+'</div></div>'+
+    (STATE.estoqueCategorias.length>1?'<button data-idx="'+idx+'" class="estCatDelBtn" style="background:none; border:none; color:var(--full); font-size:15px;">✕</button>':'')+
+    '</div>'
+  ).join('');
+  area.querySelectorAll('.estCatDelBtn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const removida = STATE.estoqueCategorias[idx];
+      STATE.estoqueCategorias.splice(idx,1);
+      STATE.estoque.forEach(it=>{ if(it.categoria===removida) it.categoria = STATE.estoqueCategorias[0]; });
+      await saveEstoqueCategorias();
+      await saveEstoque();
+      renderEstoqueCategorias();
+      populateEstoqueCategoriaSelect();
+      renderEstoqueList();
+      toast('Categoria excluída!');
+    });
+  });
+  let pressTimer=null, origemIdx=null;
+  area.querySelectorAll('.listrow').forEach(row=>{
+    row.addEventListener('pointerdown',()=>{
+      pressTimer=setTimeout(()=>{
+        origemIdx = parseInt(row.dataset.idx);
+        area.querySelectorAll('.listrow').forEach(r=>r.style.background='');
+        row.style.background='var(--rosa)';
+        toast('Toque em outra categoria pra trocar de posição');
+      }, 3000);
+    });
+    ['pointerup','pointerleave','pointercancel'].forEach(evt=>row.addEventListener(evt,()=>clearTimeout(pressTimer)));
+    row.addEventListener('click', async ()=>{
+      if(origemIdx===null) return;
+      const destinoIdx = parseInt(row.dataset.idx);
+      if(destinoIdx===origemIdx){ origemIdx=null; renderEstoqueCategorias(); return; }
+      const arr = STATE.estoqueCategorias;
+      const [item] = arr.splice(origemIdx,1);
+      arr.splice(destinoIdx,0,item);
+      origemIdx=null;
+      await saveEstoqueCategorias();
+      renderEstoqueCategorias();
+      renderEstoqueList();
+      toast('Ordem atualizada!');
+    });
+  });
+}
+document.getElementById('addEstoqueCategoriaBtn').addEventListener('click', async ()=>{
+  const val = document.getElementById('novaEstoqueCategoriaInput').value.trim();
+  if(!val){ toast('Digite o nome da categoria'); return; }
+  if(STATE.estoqueCategorias.includes(val)){ toast('Categoria já existe'); return; }
+  STATE.estoqueCategorias.push(val);
+  await saveEstoqueCategorias();
+  document.getElementById('novaEstoqueCategoriaInput').value='';
+  renderEstoqueCategorias();
+  populateEstoqueCategoriaSelect();
+});
 function renderEstoqueList(){
+  renderEstoqueCategorias();
+  populateEstoqueCategoriaSelect();
   const area = document.getElementById('estoqueArea');
   if(STATE.estoque.length===0){ area.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum item cadastrado ainda.</div>'; }
   else{
     area.innerHTML='';
-    STATE.estoque.forEach(it=>{
-      const baixo = (it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo;
-      const card = document.createElement('div');
-      card.className='estoquecard'+(baixo?' baixo':'');
-      card.innerHTML = (it.foto?'<img class="ephoto" src="'+it.foto+'">':'<div class="ephoto"></div>')+
-        '<div class="einfo"><div class="ename">'+it.nome+'</div>'+
-        '<div class="emeta">'+(it.categoria||'—')+'</div></div>'+
-        '<div class="eqtd">'+(it.quantidade||0)+' '+(it.unidade||'')+(baixo?'<br><span style="font-size:10px;">⚠️ baixo</span>':'')+'</div>';
-      card.addEventListener('click',()=>openEstoqueModal(it.id));
-      area.appendChild(card);
+    const categoriasOrdenadas = STATE.estoqueCategorias.slice();
+    const semCategoria = 'Sem categoria';
+    const todasCategorias = categoriasOrdenadas.concat(
+      STATE.estoque.some(it=>!STATE.estoqueCategorias.includes(it.categoria)) ? [semCategoria] : []
+    );
+    todasCategorias.forEach(cat=>{
+      const itensCat = STATE.estoque.filter(it=> cat===semCategoria ? !STATE.estoqueCategorias.includes(it.categoria) : it.categoria===cat);
+      if(itensCat.length===0) return;
+      const catHeader = document.createElement('div');
+      catHeader.style.cssText='font-weight:800; color:var(--roxo-dark); font-size:13px; margin:10px 0 4px; font-family:"Baloo 2",sans-serif;';
+      catHeader.textContent = cat;
+      area.appendChild(catHeader);
+      itensCat.forEach(it=>{
+        const baixo = (it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo;
+        const card = document.createElement('div');
+        card.className='estoquecard'+(baixo?' baixo':'');
+        card.innerHTML = (it.foto?'<img class="ephoto" src="'+it.foto+'">':'<div class="ephoto"></div>')+
+          '<div class="einfo"><div class="ename">'+it.nome+'</div>'+
+          '<div class="emeta">'+(it.categoria||'—')+'</div></div>'+
+          '<div class="eqtd">'+(it.quantidade||0)+' '+(it.unidade||'')+(baixo?'<br><span style="font-size:10px;">⚠️ baixo</span>':'')+'</div>';
+        card.addEventListener('click',()=>openEstoqueModal(it.id));
+        area.appendChild(card);
+      });
     });
   }
   renderFornecedoresArea();
@@ -4472,7 +4552,8 @@ function openEstoqueModal(id){
   document.getElementById('estoqueModalTitle').textContent = id?'Editar item':'Novo item';
   document.getElementById('eNome').value = it?it.nome:'';
   document.getElementById('eDescricao').value = it?(it.descricao||''):'';
-  document.getElementById('eCategoria').value = it?(it.categoria||''):'';
+  populateEstoqueCategoriaSelect();
+  document.getElementById('eCategoria').value = it&&STATE.estoqueCategorias.includes(it.categoria) ? it.categoria : STATE.estoqueCategorias[0];
   document.getElementById('eQuantidade').value = it?(it.quantidade||0):0;
   document.getElementById('eUnidade').value = it?(it.unidade||''):'';
   document.getElementById('eValorCusto').value = formatBRLMaskValue(it?(it.valorCusto||0):0);
@@ -4684,6 +4765,7 @@ document.getElementById('saveConfigBtn').addEventListener('click', async ()=>{
   toast('Configurações salvas!');
   renderWeek();
   autoGeneratePackageCobrancas();
+  autoGenerateAvulsoCobrancas();
   generateQuantityPackages();
   renderFinanceiro();
 });
@@ -4931,6 +5013,35 @@ async function generateQuantityPackages(){
   }
   if(changed){ await saveAgenda(); await saveCobrancas(); }
 }
+async function autoGenerateAvulsoCobrancas(){
+  let changed = false;
+  const porTutor = {};
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || s.pago || s.cobrancaId || (s.valor||0)<=0 || s.statusAtendimento!=='concluido') return;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+        if(isPacoteItem) return;
+        const p = getPet(s.petId);
+        if(!p) return;
+        if(!porTutor[p.tutorId]) porTutor[p.tutorId] = [];
+        porTutor[p.tutorId].push(s);
+      });
+    });
+  });
+  Object.keys(porTutor).forEach(tutorId=>{
+    const itens = porTutor[tutorId];
+    if(itens.length===0) return;
+    let cobranca = STATE.cobrancas.find(c=>!c.auto && !c.pago && c.tutorId===tutorId);
+    if(!cobranca){
+      cobranca = { id:'cb'+Date.now()+Math.random().toString(36).slice(2,5), tutorId, dataPagamento:null, pago:false, criadoEm: todayISO(), auto:false, meses:[] };
+      STATE.cobrancas.push(cobranca);
+    }
+    itens.forEach(s=>{ s.cobrancaId = cobranca.id; });
+    changed = true;
+  });
+  if(changed){ await saveAgenda(); await saveCobrancas(); }
+}
 async function autoGeneratePackageCobrancas(){
   const currentYm = todayISO().slice(0,7);
   let changed = false;
@@ -5052,124 +5163,17 @@ async function renderFinanceiro(){
   renderFechamento();
   renderRelatorioMensal();
   const groups = collectPendencias();
+  let totalPend=0;
+  Object.keys(groups).forEach(key=>{ groups[key].items.forEach(i=>totalPend+=i.valor); });
+
+  await autoGenerateAvulsoCobrancas();
   const area = document.getElementById('avulsosArea');
   area.innerHTML='';
-  let totalPend=0;
-  Object.keys(groups).forEach(key=>{
-    const g = groups[key];
-    const total = g.items.reduce((a,i)=>a+i.valor,0);
-    totalPend += total;
-    const card = document.createElement('div');
-    card.className='pendcard';
-    // combina itens que compartilham grupoId (múltiplos pets no mesmo horário) numa linha só
-    const vistos = new Set();
-    const linhas = [];
-    g.items.forEach(i=>{
-      if(vistos.has(i.id)) return;
-      if(i.grupoId){
-        const membros = g.items.filter(x=>x.grupoId===i.grupoId);
-        membros.forEach(m=>vistos.add(m.id));
-        linhas.push({
-          ids: membros.map(m=>m.id).join(','),
-          iso: i.iso, op: i.op,
-          label: fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+membros.map(m=>m.nome).join(' + '),
-          valor: membros.reduce((a,m)=>a+m.valor,0)
-        });
-      } else {
-        vistos.add(i.id);
-        linhas.push({ ids:i.id, iso:i.iso, op:i.op, label: fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.servico+' ('+i.op+')', valor:i.valor });
-      }
-    });
-    const itemsHtml = linhas.map((l,idx)=>{
-      return '<div class="penditem" style="flex-direction:column; align-items:stretch; gap:6px;">'+
-        '<div style="display:flex; gap:6px; align-items:center;">'+
-          '<label style="display:flex; gap:6px; align-items:center; flex:1;"><input type="checkbox" class="avulsoCheck" data-tutor="'+key+'" data-ids="'+l.ids+'"><span>'+l.label+'</span></label>'+
-          '<span>'+formatBRL(l.valor)+'</span>'+
-        '</div>'+
-        '<div class="row" style="margin:0; align-items:center;">'+
-          '<div style="flex:1;"><label style="margin:0 0 2px;">Valor pago (R$)</label><input type="text" inputmode="numeric" class="avulsoValorInput" data-ids="'+l.ids+'" value="'+formatBRLMaskValue(l.valor)+'"></div>'+
-        '</div>'+
-        '<div class="row" style="margin:0;">'+
-          '<button class="btn btn-ghost btn-small avulsoPagarBtn" data-ids="'+l.ids+'" data-forma="Dinheiro">💵 Pago (Dinheiro)</button>'+
-          '<button class="btn btn-ghost btn-small avulsoPagarBtn" data-ids="'+l.ids+'" data-forma="Pix">📱 Pago (Pix)</button>'+
-        '</div>'+
-      '</div>';
-    }).join('');
-    card.innerHTML = '<div class="pname">'+g.name+'</div>'+itemsHtml+
-      '<div class="pendtotal"><span>Total</span><span>'+formatBRL(total)+'</span></div>';
-    area.appendChild(card);
-  });
-  if(Object.keys(groups).length===0) area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhum avulso pendente!</div>';
-  document.querySelectorAll('.avulsoValorInput').forEach(inp=>attachCurrencyMask(inp));
-  document.querySelectorAll('.avulsoPagarBtn').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const ids = btn.dataset.ids.split(',');
-      const forma = btn.dataset.forma;
-      const valorInput = document.querySelector('.avulsoValorInput[data-ids="'+btn.dataset.ids+'"]');
-      const valorInformado = valorInput ? parseBRLMask(valorInput.value) : null;
-      let restante = valorInformado;
-      let tutorIdParaCredito = null;
-      ids.forEach(itemId=>{
-        let slot=null;
-        Object.keys(STATE.agenda).forEach(iso=>{
-          ['Fixo','Móvel'].forEach(op=>{
-            const s = (STATE.agenda[iso][op]||[]).find(x=>x.id===itemId);
-            if(s) slot=s;
-          });
-        });
-        if(!slot) return;
-        const p = getPet(slot.petId);
-        if(p) tutorIdParaCredito = p.tutorId;
-        if(restante==null){
-          slot.pago=true; slot.valorPago=slot.valor; slot.formaPagamento=forma;
-        } else {
-          const devendo = valorDevido(slot);
-          const aplicar = Math.min(Math.max(restante,0), devendo);
-          slot.valorPago = (slot.valorPago||0)+aplicar;
-          slot.formaPagamento = forma;
-          if(slot.valorPago >= slot.valor){ slot.pago=true; slot.valorPago=slot.valor; }
-          restante -= aplicar;
-        }
-      });
-      if(restante!=null && restante>0.001 && tutorIdParaCredito){
-        const t = getTutor(tutorIdParaCredito);
-        if(t){
-          t.saldoCredito = (t.saldoCredito||0)+restante;
-          await saveTutors();
-          await aplicarCreditoTutor(tutorIdParaCredito, null);
-        }
-      }
-      await saveAgenda();
-      toast(restante>0.001 ? ('Pago! R$'+restante.toFixed(2).replace('.',',')+' de crédito aplicado no próximo atendimento.') : 'Marcado como pago!');
-      renderFinanceiro();
-      renderWeek();
-    });
-  });
+  const avulsosCobrancas = STATE.cobrancas.filter(c=>!c.auto && !c.pago);
+  if(avulsosCobrancas.length===0){ area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhum avulso pendente!</div>'; }
+  avulsosCobrancas.forEach(cb=>renderCobrancaCard(cb, area, false));
 
-  document.getElementById('agruparBtn').onclick = async ()=>{
-    const checked = Array.from(document.querySelectorAll('.avulsoCheck:checked'));
-    if(checked.length===0){ toast('Selecione ao menos um item'); return; }
-    const tutorKeys = new Set(checked.map(c=>c.dataset.tutor));
-    if(tutorKeys.size>1){ toast('Selecione itens de apenas um tutor por vez'); return; }
-    const dataPagamento = document.getElementById('grupoVencimento').value;
-    const cobranca = { id:'cb'+Date.now(), tutorId: checked[0].dataset.tutor, dataPagamento: dataPagamento||null, pago:false, criadoEm: todayISO() };
-    STATE.cobrancas.push(cobranca);
-    checked.forEach(c=>{
-      c.dataset.ids.split(',').forEach(itemId=>{
-        Object.keys(STATE.agenda).forEach(iso=>{
-          ['Fixo','Móvel'].forEach(op=>{
-            const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===itemId);
-            if(slot) slot.cobrancaId = cobranca.id;
-          });
-        });
-      });
-    });
-    await saveCobrancas(); await saveAgenda();
-    toast('Cobrança agrupada!');
-    renderFinanceiro();
-  };
-
-  // pacotes (automáticos) e cobranças manuais, renderizados separadamente
+  // pacotes (automáticos), renderizados separadamente
   function renderCobrancaCard(cb, container, isPacote){
     const t = getTutor(cb.tutorId);
     let items=[];
@@ -5340,12 +5344,6 @@ async function renderFinanceiro(){
     document.getElementById('todosPacotesModalBg').classList.add('show');
   };
 
-  const cbArea = document.getElementById('cobrancasArea');
-  cbArea.innerHTML='';
-  const abertas = STATE.cobrancas.filter(c=>!c.pago && !c.auto);
-  if(abertas.length===0){ cbArea.innerHTML='<div class="empty"><span class="emoji">📁</span>Nenhuma cobrança agrupada ainda.</div>'; }
-  abertas.forEach(cb=>renderCobrancaCard(cb, cbArea, false));
-
   document.getElementById('totalPendente').textContent = formatBRL(totalPend);
   let totalRecebido=0;
   const now=new Date(); const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
@@ -5492,6 +5490,7 @@ async function startApp(){
   renderWeek();
   await autoGeneratePackageCobrancas();
   await generateQuantityPackages();
+  await autoGenerateAvulsoCobrancas();
   renderDashboard();
   attachRealtimeListeners();
 }
