@@ -1336,6 +1336,10 @@
       <option value="manual">Manual (pergunta ao concluir, você escolhe quantidade)</option>
       <option value="automatico">Automático (desconta sozinho em TODO atendimento concluído)</option>
     </select>
+    <div id="ePermiteExtraWrap" style="display:none;">
+      <label><input type="checkbox" id="ePermiteExtra"> Perguntar se usou um extra desse item ao concluir</label>
+      <p class="footer-note" style="margin:0; text-align:left;">Além do desconto automático de sempre, o sistema pergunta se precisou de uma quantidade a mais nesse atendimento específico.</p>
+    </div>
     <hr class="divider">
     <label><input type="checkbox" id="eRastrearConsumo"> Calcular consumo médio automaticamente</label>
     <div id="eRastrearWrap" style="display:none;">
@@ -3194,17 +3198,32 @@ document.getElementById('confirmarTipoCobrancaBtn').addEventListener('click', as
 // ---------- ENFEITES (ITENS DE ESTOQUE NO ATENDIMENTO) ----------
 function abrirEnfeitesOuConcluir(slot){
   const itensManual = STATE.estoque.filter(it=>it.modoDesconto==='manual');
-  if(itensManual.length===0){
+  const itensExtra = STATE.estoque.filter(it=>it.modoDesconto==='automatico' && it.permiteExtra);
+  if(itensManual.length===0 && itensExtra.length===0){
     aplicarDescontoAutomaticoEConcluir(slot);
     return;
   }
   const lista = document.getElementById('enfeitesLista');
-  lista.innerHTML = itensManual.map(it=>
-    '<div class="row" style="align-items:center;">'+
-      '<label style="display:flex; align-items:center; gap:8px; flex:2;"><input type="checkbox" data-item="'+it.id+'" class="enfeiteCheck"> '+it.nome+'</label>'+
-      '<input type="number" min="0" step="0.1" value="'+(it.consumoPorAtendimento||1)+'" data-qtd="'+it.id+'" class="enfeiteQtd" style="flex:1;">'+
-    '</div>'
-  ).join('');
+  let html = '';
+  if(itensManual.length>0){
+    html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700;">Itens usados</p>';
+    html += itensManual.map(it=>
+      '<div class="row" style="align-items:center;">'+
+        '<label style="display:flex; align-items:center; gap:8px; flex:2;"><input type="checkbox" data-item="'+it.id+'" class="enfeiteCheck"> '+it.nome+'</label>'+
+        '<input type="number" min="0" step="0.1" value="'+(it.consumoPorAtendimento||1)+'" data-qtd="'+it.id+'" class="enfeiteQtd" style="flex:1;">'+
+      '</div>'
+    ).join('');
+  }
+  if(itensExtra.length>0){
+    html += '<p class="footer-note" style="margin:10px 0 4px; text-align:left; font-weight:700;">Precisou de algum extra?</p>';
+    html += itensExtra.map(it=>
+      '<div class="row" style="align-items:center;">'+
+        '<label style="display:flex; align-items:center; gap:8px; flex:2;"><input type="checkbox" data-item="'+it.id+'" class="enfeiteCheck"> '+it.nome+' (extra)</label>'+
+        '<input type="number" min="0" step="0.1" value="'+(it.consumoPorAtendimento||1)+'" data-qtd="'+it.id+'" class="enfeiteQtd" style="flex:1;">'+
+      '</div>'
+    ).join('');
+  }
+  lista.innerHTML = html;
   document.getElementById('enfeitesModalBg').dataset.slotIso = detailRef.iso;
   document.getElementById('enfeitesModalBg').dataset.slotOp = detailRef.op;
   document.getElementById('enfeitesModalBg').dataset.slotId = detailRef.id;
@@ -4458,9 +4477,29 @@ function renderEstoqueCategorias(){
   const area = document.getElementById('estoqueCategoriasArea');
   area.innerHTML = STATE.estoqueCategorias.map((c,idx)=>
     '<div class="listrow" data-idx="'+idx+'" style="padding:8px 10px;"><div class="rinfo"><div class="rname">'+c+'</div></div>'+
+    '<button data-idx="'+idx+'" class="estCatEditBtn" style="background:none; border:none; color:var(--roxo); font-size:15px;">✏️</button>'+
     (STATE.estoqueCategorias.length>1?'<button data-idx="'+idx+'" class="estCatDelBtn" style="background:none; border:none; color:var(--full); font-size:15px;">✕</button>':'')+
     '</div>'
   ).join('');
+  area.querySelectorAll('.estCatEditBtn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const atual = STATE.estoqueCategorias[idx];
+      const novoNome = prompt('Renomear categoria:', atual);
+      if(!novoNome || !novoNome.trim() || novoNome.trim()===atual) return;
+      const nome = novoNome.trim();
+      if(STATE.estoqueCategorias.includes(nome)){ toast('Já existe uma categoria com esse nome'); return; }
+      STATE.estoque.forEach(it=>{ if(it.categoria===atual) it.categoria = nome; });
+      STATE.estoqueCategorias[idx] = nome;
+      await saveEstoqueCategorias();
+      await saveEstoque();
+      renderEstoqueCategorias();
+      populateEstoqueCategoriaSelect();
+      renderEstoqueList();
+      toast('Categoria renomeada!');
+    });
+  });
   area.querySelectorAll('.estCatDelBtn').forEach(btn=>{
     btn.addEventListener('click', async (e)=>{
       e.stopPropagation();
@@ -4560,6 +4599,8 @@ function openEstoqueModal(id){
   document.getElementById('eNivelMinimo').value = it?(it.nivelMinimo||0):0;
   document.getElementById('eConsumoAtendimento').value = it?(it.consumoPorAtendimento||0):0;
   document.getElementById('eModoDesconto').value = it?(it.modoDesconto||'nenhum'):'nenhum';
+  document.getElementById('ePermiteExtra').checked = it?!!it.permiteExtra:false;
+  document.getElementById('ePermiteExtraWrap').style.display = (it&&it.modoDesconto==='automatico') ? 'block':'none';
   document.getElementById('eRastrearConsumo').checked = it?!!it.rastrearConsumo:false;
   document.getElementById('eDataEntrada').value = it?(it.dataEntrada||''):'';
   document.getElementById('eDataFim').value = it?(it.dataFim||''):'';
@@ -4574,6 +4615,10 @@ function openEstoqueModal(id){
   document.getElementById('estoqueModalBg').classList.add('show');
 }
 
+document.getElementById('eModoDesconto').addEventListener('change',(e)=>{
+  document.getElementById('ePermiteExtraWrap').style.display = e.target.value==='automatico' ? 'block':'none';
+  if(e.target.value!=='automatico') document.getElementById('ePermiteExtra').checked=false;
+});
 document.getElementById('eRastrearConsumo').addEventListener('change',(e)=>{
   document.getElementById('eRastrearWrap').style.display = e.target.checked ? 'block' : 'none';
 });
@@ -4659,6 +4704,7 @@ document.getElementById('saveEstoqueBtn').addEventListener('click', async ()=>{
     nivelMinimo: parseFloat(document.getElementById('eNivelMinimo').value)||0,
     consumoPorAtendimento: parseFloat(document.getElementById('eConsumoAtendimento').value)||0,
     modoDesconto: document.getElementById('eModoDesconto').value,
+    permiteExtra: document.getElementById('eModoDesconto').value==='automatico' && document.getElementById('ePermiteExtra').checked,
     rastrearConsumo: document.getElementById('eRastrearConsumo').checked,
     dataEntrada: document.getElementById('eDataEntrada').value||null,
     dataFim: document.getElementById('eDataFim').value||null,
