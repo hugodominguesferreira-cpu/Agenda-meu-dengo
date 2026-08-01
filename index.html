@@ -1131,8 +1131,16 @@
           <div id="dTutorNome" class="footer-note" style="text-align:left; padding:0;"></div>
         </div>
         <button id="dWhatsIconBtn" style="background:var(--free-bg); border:none; border-radius:12px; width:40px; height:40px; font-size:19px; flex-shrink:0;">📲</button>
-        <button id="dEditIconBtn" style="background:var(--card-soft); border:none; border-radius:12px; width:40px; height:40px; font-size:17px; flex-shrink:0;">✏️</button>
+        <button id="dEditIconBtn" style="background:var(--card-soft); border:none; border-radius:12px; width:40px; height:40px; font-size:17px; flex-shrink:0;">💳</button>
       </div>
+      <label>Status do atendimento</label>
+      <select id="dStatus">
+        <option value="nenhum">⚪ Nenhum</option>
+        <option value="deslocamento">🚐 No percurso</option>
+        <option value="andamento">✂️ Em atendimento</option>
+        <option value="concluido">✅ Concluído</option>
+        <option value="cancelado">❌ Cancelado</option>
+      </select>
       <div class="footer-note" id="dSeriesInfo" style="display:none; text-align:left; background:var(--card-soft); border-radius:8px; padding:8px; margin:8px 0 0;"></div>
       <div id="dClienteEditFields" style="margin-top:10px;">
         <div class="row">
@@ -1145,24 +1153,16 @@
           <select id="dServicoAdd" style="flex:2;"></select>
           <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="dServicoAddBtn">+ Adicionar</button>
         </div>
+        <label>Tempo de serviço (minutos)</label>
+        <input type="number" id="dDuracao" min="10" step="5">
       </div>
-      <label>Status do atendimento</label>
-      <select id="dStatus">
-        <option value="nenhum">Nenhum</option>
-        <option value="deslocamento">No percurso</option>
-        <option value="andamento">Em atendimento</option>
-        <option value="concluido">Concluído</option>
-        <option value="cancelado">Cancelado</option>
-      </select>
       <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="dVoltarMain">‹ Voltar</button>
     </div>
 
     <div id="dEditPanel" style="display:none;">
-      <h3 style="margin-top:0;">✏️ Editar</h3>
+      <h3 style="margin-top:0;">💳 Cobrança</h3>
       <label>Valor (R$0000,00)</label>
       <input type="text" inputmode="numeric" id="dValor">
-      <label>Duração (minutos)</label>
-      <input type="number" id="dDuracao" min="10" step="5">
       <hr class="divider">
       <label>Aplicar desconto</label>
       <div class="row">
@@ -2999,6 +2999,7 @@ function openDetailModal(iso, op, id){
     populateDetailServiceSelect(slot.servicos && slot.servicos.length ? slot.servicos : (slot.servico?[slot.servico]:[]));
   }
   document.getElementById('dStatus').value = slot.statusAtendimento||'nenhum';
+  document.getElementById('dDuracao').value = slot.duracao||60;
   document.getElementById('detailModalBg').classList.add('show');
 }
 function refreshPagoInfo(slot){
