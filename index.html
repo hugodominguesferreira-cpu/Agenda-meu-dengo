@@ -5271,6 +5271,68 @@ document.getElementById('buscaHistAvulso').addEventListener('input', ()=>renderH
 document.getElementById('buscaHistPacote').addEventListener('input', ()=>renderHistSearch('buscaHistPacote','histPacoteResultado', true));
 
 let avulsoMesDate = new Date();
+function abrirPickerMes(itens, painelId){
+  if(itens.length===1){
+    const i = itens[0];
+    closeFsPanel(painelId);
+    selectedDateISO = i.iso;
+    switchToTab('agenda');
+    setTimeout(()=>openDetailModal(i.iso, i.op, i.id), 200);
+    return;
+  }
+  document.getElementById('maisHorarioLista').innerHTML = itens.map((i,idx)=>
+    '<div class="listrow" data-idx="'+idx+'" style="cursor:pointer;"><div class="rinfo"><div class="rname">'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' — '+i.nome+'</div><div class="rmeta">'+i.servico+' • '+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</div></div></div>'
+  ).join('');
+  document.getElementById('maisHorarioLista').querySelectorAll('.listrow').forEach(row=>{
+    row.addEventListener('click',()=>{
+      const i = itens[parseInt(row.dataset.idx)];
+      document.getElementById('maisHorarioModalBg').classList.remove('show');
+      closeFsPanel(painelId);
+      selectedDateISO = i.iso;
+      switchToTab('agenda');
+      setTimeout(()=>openDetailModal(i.iso, i.op, i.id), 200);
+    });
+  });
+  document.getElementById('maisHorarioModalBg').classList.add('show');
+}
+function agruparPorTutor(lista){
+  const grupos = {};
+  lista.forEach(i=>{
+    const key = i.tutorId || ('avulso:'+i.nome);
+    if(!grupos[key]) grupos[key] = {label: i.tutorId?(getTutor(i.tutorId)?getTutor(i.tutorId).name:i.nome):i.nome, total:0, itens:[], dataOrdenacao:''};
+    grupos[key].total += i.valor;
+    grupos[key].itens.push(i);
+    const dataComp = i.pago ? (i.dataPagamento||i.iso) : i.iso;
+    if(dataComp > grupos[key].dataOrdenacao) grupos[key].dataOrdenacao = dataComp;
+  });
+  return Object.values(grupos).sort((a,b)=>a.dataOrdenacao.localeCompare(b.dataOrdenacao));
+}
+function renderMesAgrupado(itens, areaId, painelId){
+  const area = document.getElementById(areaId);
+  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada encontrado nesse mês.</div>'; return; }
+  const gruposPend = agruparPorTutor(itens.filter(i=>!i.pago));
+  const gruposPagos = agruparPorTutor(itens.filter(i=>i.pago));
+  function linhaGrupo(g, mostrarPago){
+    const detalheData = g.itens.length===1
+      ? (mostrarPago ? ('Pago em '+(g.itens[0].dataPagamento?fmtDateFull(new Date(g.itens[0].dataPagamento+'T00:00:00')):'—')) : fmtDateFull(new Date(g.itens[0].iso+'T00:00:00')))
+      : g.itens.length+' atendimentos';
+    return {g, html:'<div class="penditem grupoMesRow" style="cursor:pointer;"><span>'+g.label+' • '+detalheData+'</span><span>'+formatBRL(g.total)+' '+(mostrarPago?'✅':'🟡')+'</span></div>'};
+  }
+  let html = '';
+  const linhas = [];
+  if(gruposPend.length>0){
+    html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700; color:var(--amarelo);">🟡 Pendentes ('+gruposPend.length+')</p>';
+    gruposPend.forEach(g=>{ const r=linhaGrupo(g,false); html+=r.html; linhas.push(r.g); });
+  }
+  if(gruposPagos.length>0){
+    html += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700; color:var(--free);">✅ Pagos ('+gruposPagos.length+') — fluxo de caixa do mês</p>';
+    gruposPagos.forEach(g=>{ const r=linhaGrupo(g,true); html+=r.html; linhas.push(r.g); });
+  }
+  area.innerHTML = html;
+  area.querySelectorAll('.grupoMesRow').forEach((row,idx)=>{
+    row.addEventListener('click',()=>abrirPickerMes(linhas[idx].itens, painelId));
+  });
+}
 function renderAvulsoMes(){
   document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const ym = avulsoMesDate.getFullYear()+'-'+String(avulsoMesDate.getMonth()+1).padStart(2,'0');
@@ -5283,40 +5345,12 @@ function renderAvulsoMes(){
         if(isPacoteItem) return;
         const dataRef = s.pago ? (s.dataPagamento||iso) : iso;
         if(!dataRef.startsWith(ym)) return;
-        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null});
+        const p = getPet(s.petId);
+        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null});
       });
     });
   });
-  const pendentes = itens.filter(i=>!i.pago).sort((a,b)=>a.iso.localeCompare(b.iso));
-  const pagos = itens.filter(i=>i.pago).sort((a,b)=>(a.dataPagamento||a.iso).localeCompare(b.dataPagamento||b.iso));
-  const area = document.getElementById('avulsoMesResultado');
-  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum avulso nesse mês.</div>'; return; }
-  function linhaHtml(i, idxGlobal, mostrarDataPagamento){
-    const dataLabel = mostrarDataPagamento
-      ? 'Pago em '+(i.dataPagamento?fmtDateFull(new Date(i.dataPagamento+'T00:00:00')):'—')+' • atendimento '+fmtDateFull(new Date(i.iso+'T00:00:00'))
-      : fmtDateFull(new Date(i.iso+'T00:00:00'));
-    return '<div class="penditem" data-idx="'+idxGlobal+'" style="cursor:pointer;"><span>'+dataLabel+' • '+i.nome+' • '+i.servico+'</span><span>'+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</span></div>';
-  }
-  const todosOrdenados = pendentes.concat(pagos);
-  let html = '';
-  if(pendentes.length>0){
-    html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700; color:var(--amarelo);">🟡 Pendentes ('+pendentes.length+')</p>';
-    html += pendentes.map((i)=>linhaHtml(i, todosOrdenados.indexOf(i), false)).join('');
-  }
-  if(pagos.length>0){
-    html += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700; color:var(--free);">✅ Pagos ('+pagos.length+') — fluxo de caixa do mês</p>';
-    html += pagos.map((i)=>linhaHtml(i, todosOrdenados.indexOf(i), true)).join('');
-  }
-  area.innerHTML = html;
-  area.querySelectorAll('.penditem').forEach(row=>{
-    row.addEventListener('click',()=>{
-      const i = todosOrdenados[parseInt(row.dataset.idx)];
-      closeFsPanel('fsAvulsos');
-      selectedDateISO = i.iso;
-      switchToTab('agenda');
-      setTimeout(()=>openDetailModal(i.iso, i.op, i.id), 200);
-    });
-  });
+  renderMesAgrupado(itens, 'avulsoMesResultado', 'fsAvulsos');
 }
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
@@ -5334,40 +5368,12 @@ function renderPacoteMes(){
         if(!isPacoteItem) return;
         const dataRef = s.pago ? (s.dataPagamento||iso) : iso;
         if(!dataRef.startsWith(ym)) return;
-        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null});
+        const p = getPet(s.petId);
+        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null});
       });
     });
   });
-  const pendentes = itens.filter(i=>!i.pago).sort((a,b)=>a.iso.localeCompare(b.iso));
-  const pagos = itens.filter(i=>i.pago).sort((a,b)=>(a.dataPagamento||a.iso).localeCompare(b.dataPagamento||b.iso));
-  const area = document.getElementById('pacoteMesResultado');
-  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum banho de pacote nesse mês.</div>'; return; }
-  function linhaHtml(i, mostrarDataPagamento){
-    const dataLabel = mostrarDataPagamento
-      ? 'Pago em '+(i.dataPagamento?fmtDateFull(new Date(i.dataPagamento+'T00:00:00')):'—')+' • atendimento '+fmtDateFull(new Date(i.iso+'T00:00:00'))
-      : fmtDateFull(new Date(i.iso+'T00:00:00'));
-    return {html:'<div class="penditem" style="cursor:pointer;"><span>'+dataLabel+' • '+i.nome+' • '+i.servico+'</span><span>'+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</span></div>', item:i};
-  }
-  const todosOrdenados = pendentes.concat(pagos);
-  let html = '';
-  if(pendentes.length>0){
-    html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700; color:var(--amarelo);">🟡 Pendentes ('+pendentes.length+')</p>';
-    html += pendentes.map(i=>linhaHtml(i, false).html).join('');
-  }
-  if(pagos.length>0){
-    html += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700; color:var(--free);">✅ Pagos ('+pagos.length+') — fluxo de caixa do mês</p>';
-    html += pagos.map(i=>linhaHtml(i, true).html).join('');
-  }
-  area.innerHTML = html;
-  area.querySelectorAll('.penditem').forEach((row,idx)=>{
-    row.addEventListener('click',()=>{
-      const i = todosOrdenados[idx];
-      closeFsPanel('fsPacotesFin');
-      selectedDateISO = i.iso;
-      switchToTab('agenda');
-      setTimeout(()=>openDetailModal(i.iso, i.op, i.id), 200);
-    });
-  });
+  renderMesAgrupado(itens, 'pacoteMesResultado', 'fsPacotesFin');
 }
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
