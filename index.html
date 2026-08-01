@@ -601,8 +601,6 @@
       <div class="fsPanelBody">
         <div class="card">
           <p class="footer-note" style="margin:0 0 10px; text-align:left;">Agrupamento automático por cliente — assim que um avulso é concluído, já entra na cobrança do cliente.</p>
-          <div id="avulsosArea"></div>
-          <hr class="divider">
           <label>🔍 Histórico de pagamentos avulsos</label>
           <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histAvulsoResultado" style="margin-top:8px;"></div>
@@ -614,6 +612,14 @@
             <button id="avulsoMesNextBtn">›</button>
           </div>
           <div id="avulsoMesResultado" style="margin-top:8px;"></div>
+          <hr class="divider">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">🗂️ Cobranças avulsas agrupadas</label>
+            <button id="btnMostrarAvulsosArea" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">👁️</button>
+          </div>
+          <div id="avulsosAreaWrap" style="display:none; margin-top:8px;">
+            <div id="avulsosArea"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -624,9 +630,6 @@
       <div class="fsPanelBody">
         <div class="card">
           <p class="footer-note" style="margin:0 0 10px; text-align:left;">Cobranças automáticas dos banhos recorrentes. Vencimento editável a qualquer momento.</p>
-          <div id="pacotesArea"></div>
-          <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
-          <hr class="divider">
           <label>🔍 Histórico de pagamentos de pacotes</label>
           <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histPacoteResultado" style="margin-top:8px;"></div>
@@ -638,6 +641,15 @@
             <button id="pacoteMesNextBtn">›</button>
           </div>
           <div id="pacoteMesResultado" style="margin-top:8px;"></div>
+          <hr class="divider">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">📦 Cobranças de pacote agrupadas</label>
+            <button id="btnMostrarPacotesArea" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">👁️</button>
+          </div>
+          <div id="pacotesAreaWrap" style="display:none; margin-top:8px;">
+            <div id="pacotesArea"></div>
+            <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
+          </div>
         </div>
       </div>
     </div>
@@ -5359,6 +5371,14 @@ function renderPacoteMes(){
 }
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
+document.getElementById('btnMostrarPacotesArea').addEventListener('click',()=>{
+  const wrap = document.getElementById('pacotesAreaWrap');
+  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
+});
+document.getElementById('btnMostrarAvulsosArea').addEventListener('click',()=>{
+  const wrap = document.getElementById('avulsosAreaWrap');
+  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
+});
 
 async function renderFinanceiro(){
   await autoGeneratePackageCobrancas();
