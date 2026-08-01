@@ -606,6 +606,14 @@
           <label>🔍 Histórico de pagamentos avulsos</label>
           <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histAvulsoResultado" style="margin-top:8px;"></div>
+          <hr class="divider">
+          <label>📅 Ver tudo por mês (pago e pendente)</label>
+          <div class="monthnav">
+            <button id="avulsoMesPrevBtn">‹</button>
+            <span id="avulsoMesLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
+            <button id="avulsoMesNextBtn">›</button>
+          </div>
+          <div id="avulsoMesResultado" style="margin-top:8px;"></div>
         </div>
       </div>
     </div>
@@ -2104,6 +2112,7 @@ document.addEventListener('click',(e)=>{
     openFsPanel(iconBtn.dataset.panel);
     if(iconBtn.dataset.panel==='fsGraficos') renderGraficos();
     if(iconBtn.dataset.panel==='fsComparativo') renderComparativo();
+    if(iconBtn.dataset.panel==='fsAvulsos') renderAvulsoMes();
   }
   const admBtn = e.target.closest('[data-admgo]');
   if(admBtn){ switchToTab(admBtn.dataset.admgo); }
@@ -5226,6 +5235,32 @@ function renderHistSearch(inputId, resultId, wantPacote){
 }
 document.getElementById('buscaHistAvulso').addEventListener('input', ()=>renderHistSearch('buscaHistAvulso','histAvulsoResultado', false));
 document.getElementById('buscaHistPacote').addEventListener('input', ()=>renderHistSearch('buscaHistPacote','histPacoteResultado', true));
+
+let avulsoMesDate = new Date();
+function renderAvulsoMes(){
+  document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const ym = avulsoMesDate.getFullYear()+'-'+String(avulsoMesDate.getMonth()+1).padStart(2,'0');
+  let itens = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(!iso.startsWith(ym)) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || (s.valor||0)<=0 || s.statusAtendimento!=='concluido') return;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+        if(isPacoteItem) return;
+        itens.push({iso, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago});
+      });
+    });
+  });
+  itens.sort((a,b)=>a.iso.localeCompare(b.iso));
+  const area = document.getElementById('avulsoMesResultado');
+  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum avulso concluído nesse mês.</div>'; return; }
+  area.innerHTML = itens.map(i=>
+    '<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.nome+' • '+i.servico+'</span><span>'+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</span></div>'
+  ).join('');
+}
+document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
+document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
 
 async function renderFinanceiro(){
   await autoGeneratePackageCobrancas();
