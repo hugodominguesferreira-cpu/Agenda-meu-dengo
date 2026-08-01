@@ -5299,7 +5299,8 @@ function agruparPorTutor(lista){
   const grupos = {};
   lista.forEach(i=>{
     const key = i.tutorId || ('avulso:'+i.nome);
-    if(!grupos[key]) grupos[key] = {label: i.tutorId?(getTutor(i.tutorId)?getTutor(i.tutorId).name:i.nome):i.nome, total:0, itens:[], dataOrdenacao:''};
+    if(!grupos[key]) grupos[key] = {tutorNome: i.tutorId?(getTutor(i.tutorId)?getTutor(i.tutorId).name:i.nome):i.nome, pets:new Set(), total:0, itens:[], dataOrdenacao:''};
+    grupos[key].pets.add(i.petNome||i.nome);
     grupos[key].total += i.valor;
     grupos[key].itens.push(i);
     const dataComp = i.pago ? (i.dataPagamento||i.iso) : i.iso;
@@ -5313,10 +5314,11 @@ function renderMesAgrupado(itens, areaId, painelId){
   const gruposPend = agruparPorTutor(itens.filter(i=>!i.pago));
   const gruposPagos = agruparPorTutor(itens.filter(i=>i.pago));
   function linhaGrupo(g, mostrarPago){
+    const label = g.tutorNome+' ('+Array.from(g.pets).join(', ')+')';
     const detalheData = g.itens.length===1
       ? (mostrarPago ? ('Pago em '+(g.itens[0].dataPagamento?fmtDateFull(new Date(g.itens[0].dataPagamento+'T00:00:00')):'—')) : fmtDateFull(new Date(g.itens[0].iso+'T00:00:00')))
       : g.itens.length+' atendimentos';
-    return {g, html:'<div class="penditem grupoMesRow" style="cursor:pointer;"><span>'+g.label+' • '+detalheData+'</span><span>'+formatBRL(g.total)+' '+(mostrarPago?'✅':'🟡')+'</span></div>'};
+    return {g, html:'<div class="penditem grupoMesRow" style="cursor:pointer;"><span>'+label+' • '+detalheData+'</span><span>'+formatBRL(g.total)+' '+(mostrarPago?'✅':'🟡')+'</span></div>'};
   }
   let html = '';
   const linhas = [];
@@ -5346,7 +5348,7 @@ function renderAvulsoMes(){
         const dataRef = s.pago ? (s.dataPagamento||iso) : iso;
         if(!dataRef.startsWith(ym)) return;
         const p = getPet(s.petId);
-        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null});
+        itens.push({iso, op, id:s.id, nome:s.nome, petNome:p?p.name:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null});
       });
     });
   });
@@ -5369,11 +5371,77 @@ function renderPacoteMes(){
         const dataRef = s.pago ? (s.dataPagamento||iso) : iso;
         if(!dataRef.startsWith(ym)) return;
         const p = getPet(s.petId);
-        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null});
+        itens.push({iso, op, id:s.id, nome:s.nome, petNome:p?p.name:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago, dataPagamento:s.dataPagamento||null, tutorId: p?p.tutorId:null, seriesId:s.seriesId, pacoteQtd:s.pacoteQtd||null});
       });
     });
   });
-  renderMesAgrupado(itens, 'pacoteMesResultado', 'fsPacotesFin');
+  const area = document.getElementById('pacoteMesResultado');
+  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum pacote nesse mês.</div>'; return; }
+
+  // pacotes por quantidade: agrupa por série (cada pet/pacote), mostra progresso X/Y
+  function progressoSerie(seriesId, pacoteQtd){
+    let concluidos = 0;
+    Object.keys(STATE.agenda).forEach(iso2=>{
+      ['Fixo','Móvel'].forEach(op2=>{
+        (STATE.agenda[iso2][op2]||[]).forEach(s2=>{ if(s2.seriesId===seriesId && s2.statusAtendimento==='concluido' && !s2.pago) concluidos++; });
+      });
+    });
+    return concluidos+'/'+pacoteQtd;
+  }
+  function agrupar(lista, porSerie){
+    const grupos = {};
+    lista.forEach(i=>{
+      const key = porSerie ? i.seriesId : (i.tutorId||('x:'+i.nome));
+      if(!grupos[key]){
+        grupos[key] = { tutorNome: i.tutorId?(getTutor(i.tutorId)?getTutor(i.tutorId).name:i.nome):i.nome, pets:new Set(), total:0, itens:[], seriesId:i.seriesId, pacoteQtd:i.pacoteQtd, dataOrdenacao:'' };
+      }
+      grupos[key].pets.add(i.petNome);
+      grupos[key].total += i.valor;
+      grupos[key].itens.push(i);
+      const dataComp = i.pago ? (i.dataPagamento||i.iso) : i.iso;
+      if(dataComp > grupos[key].dataOrdenacao) grupos[key].dataOrdenacao = dataComp;
+    });
+    return Object.values(grupos).sort((a,b)=>a.dataOrdenacao.localeCompare(b.dataOrdenacao));
+  }
+  function labelGrupo(g){ return g.tutorNome+' ('+Array.from(g.pets).join(', ')+')'; }
+
+  const itensQtd = itens.filter(i=>i.pacoteQtd);
+  const itensMensal = itens.filter(i=>!i.pacoteQtd);
+
+  function render(lista, porSerie, painelId){
+    const pend = agrupar(lista.filter(i=>!i.pago), porSerie);
+    const pagos = agrupar(lista.filter(i=>i.pago), porSerie);
+    let html='';
+    const todasLinhas = [];
+    function linha(g, mostrarPago){
+      todasLinhas.push(g);
+      const progresso = porSerie ? ' • '+progressoSerie(g.seriesId, g.pacoteQtd)+' banhos' : '';
+      return '<div class="penditem grupoMesRow" style="cursor:pointer;"><span>'+labelGrupo(g)+progresso+'</span><span>'+formatBRL(g.total)+' '+(mostrarPago?'✅':'🟡')+'</span></div>';
+    }
+    if(pend.length>0) html += pend.map(g=>linha(g,false)).join('');
+    if(pagos.length>0) html += pagos.map(g=>linha(g,true)).join('');
+    return {html, todasLinhas};
+  }
+
+  let htmlFinal = '';
+  const linhasQtd = [], linhasMensal = [];
+  if(itensMensal.length>0){
+    htmlFinal += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700;">📦 Pacote mensal</p>';
+    const r = render(itensMensal, false);
+    htmlFinal += r.html;
+    linhasMensal.push(...r.todasLinhas);
+  }
+  if(itensQtd.length>0){
+    htmlFinal += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700;">🔢 Pacote por quantidade de banho</p>';
+    const r = render(itensQtd, true);
+    htmlFinal += r.html;
+    linhasQtd.push(...r.todasLinhas);
+  }
+  area.innerHTML = htmlFinal;
+  const todasLinhasCombinadas = linhasMensal.concat(linhasQtd);
+  area.querySelectorAll('.grupoMesRow').forEach((row,idx)=>{
+    row.addEventListener('click',()=>abrirPickerMes(todasLinhasCombinadas[idx].itens, 'fsPacotesFin'));
+  });
 }
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
