@@ -5248,16 +5248,25 @@ function renderAvulsoMes(){
         if(s.tipo!=='cliente' || (s.valor||0)<=0 || s.statusAtendimento!=='concluido') return;
         const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
         if(isPacoteItem) return;
-        itens.push({iso, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago});
+        itens.push({iso, op, id:s.id, nome:s.nome, servico:servicoLabel(s), valor:s.valor, pago:s.pago});
       });
     });
   });
   itens.sort((a,b)=>a.iso.localeCompare(b.iso));
   const area = document.getElementById('avulsoMesResultado');
   if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum avulso concluído nesse mês.</div>'; return; }
-  area.innerHTML = itens.map(i=>
-    '<div class="penditem"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.nome+' • '+i.servico+'</span><span>'+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</span></div>'
+  area.innerHTML = itens.map((i,idx)=>
+    '<div class="penditem" data-idx="'+idx+'" style="cursor:pointer;"><span>'+fmtDateFull(new Date(i.iso+'T00:00:00'))+' • '+i.nome+' • '+i.servico+'</span><span>'+formatBRL(i.valor)+' '+(i.pago?'✅':'🟡')+'</span></div>'
   ).join('');
+  area.querySelectorAll('.penditem').forEach(row=>{
+    row.addEventListener('click',()=>{
+      const i = itens[parseInt(row.dataset.idx)];
+      closeFsPanel('fsAvulsos');
+      selectedDateISO = i.iso;
+      switchToTab('agenda');
+      setTimeout(()=>openDetailModal(i.iso, i.op, i.id), 200);
+    });
+  });
 }
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
