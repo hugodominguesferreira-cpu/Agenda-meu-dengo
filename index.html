@@ -625,14 +625,6 @@
             <button id="avulsoMesNextBtn">›</button>
           </div>
           <div id="avulsoMesResultado" style="margin-top:8px;"></div>
-          <hr class="divider">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label style="margin:0;">🗂️ Cobranças avulsas agrupadas</label>
-            <button id="btnMostrarAvulsosArea" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">👁️</button>
-          </div>
-          <div id="avulsosAreaWrap" style="display:none; margin-top:8px;">
-            <div id="avulsosArea"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -654,15 +646,7 @@
             <button id="pacoteMesNextBtn">›</button>
           </div>
           <div id="pacoteMesResultado" style="margin-top:8px;"></div>
-          <hr class="divider">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label style="margin:0;">📦 Cobranças de pacote agrupadas</label>
-            <button id="btnMostrarPacotesArea" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">👁️</button>
-          </div>
-          <div id="pacotesAreaWrap" style="display:none; margin-top:8px;">
-            <div id="pacotesArea"></div>
-            <button class="btn btn-ghost btn-block" id="verTodosPacotesBtn" style="display:none; margin-top:6px;">Ver todos</button>
-          </div>
+          <div id="pacotesArea" style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -5501,36 +5485,117 @@ function renderMesAgrupado(itens, areaId, painelId){
 }
 function renderAvulsoMes(){
   document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado', 'avulsosAreaWrap', 'fsAvulsos');
+  renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado');
 }
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
 
 let pacoteMesDate = new Date();
-function abrirCardCobranca(cobrancaId, wrapId, painelId){
+function calcularCobranca(cb){
+  let items=[];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso, op, slot:s}); });
+    });
+  });
+  const subtotal = items.reduce((a,x)=>a+(x.slot.valor||0),0);
+  const totalPago = items.reduce((a,x)=>a+(x.slot.valorPago||0),0);
+  const descontoValor = cb.desconto ? (cb.desconto.tipo==='percentual' ? subtotal*cb.desconto.valor/100 : cb.desconto.valor) : 0;
+  const totalFinal = Math.max(0, subtotal-descontoValor);
+  const devendo = Math.max(0, totalFinal-totalPago);
+  const pago = items.length>0 && devendo<=0.009;
+  return {items, subtotal, descontoValor, totalFinal, totalPago, devendo, pago};
+}
+function abrirCardCobranca(cobrancaId){
   const cb = STATE.cobrancas.find(c=>c.id===cobrancaId);
   if(!cb){ toast('Cobrança não encontrada.'); return; }
-  const content = document.getElementById('cobDetailContent');
-  content.innerHTML='';
-  if(typeof window.renderCobrancaCard!=='function'){ toast('Aguarda um instante e tenta de novo.'); return; }
-  window.renderCobrancaCard(cb, content, !!cb.auto);
+  renderCobDetailModal(cb);
   document.getElementById('cobrancaDetailModalBg').classList.add('show');
+}
+function renderCobDetailModal(cb){
+  const t = getTutor(cb.tutorId);
+  const calc = calcularCobranca(cb);
+  const pets = new Set(calc.items.map(x=>{ const p=getPet(x.slot.petId); return p?p.name:x.slot.nome; }));
+  const content = document.getElementById('cobDetailContent');
+  content.innerHTML =
+    '<h3 style="margin-top:0;">'+(t?t.name:'?')+'</h3>'+
+    '<p class="footer-note" style="margin:0 0 10px; text-align:left;">'+Array.from(pets).join(', ')+'</p>'+
+    '<div class="penditem"><span>Subtotal</span><span>'+formatBRL(calc.subtotal)+'</span></div>'+
+    (calc.descontoValor>0 ? '<div class="penditem" style="color:var(--full);"><span>Desconto</span><span>-'+formatBRL(calc.descontoValor)+'</span></div>' : '')+
+    '<div class="pendtotal"><span>Total do pacote</span><span>'+formatBRL(calc.totalFinal)+'</span></div>'+
+    (calc.totalPago>0 ? '<div class="footer-note" style="text-align:left; padding:0; margin-top:4px;">Já pago: '+formatBRL(calc.totalPago)+'</div>' : '')+
+    '<div class="footer-note" style="text-align:left; padding:0; margin-top:2px; font-weight:700; color:'+(calc.pago?'var(--free)':'var(--amarelo)')+';">'+(calc.pago?'✅ Pago':'🟡 Devendo '+formatBRL(calc.devendo))+'</div>'+
+    '<hr class="divider">'+
+    '<label>Aplicar desconto</label>'+
+    '<div class="row">'+
+      '<select id="cobDescontoTipo" style="flex:1;"><option value="fixo">R$</option><option value="percentual">%</option></select>'+
+      '<input type="number" id="cobDescontoValor" min="0" step="0.5" placeholder="0" style="flex:1;" value="'+(cb.desconto?cb.desconto.valor:'')+'">'+
+      '<button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="cobAplicarDescontoBtn">Aplicar</button>'+
+    '</div>'+
+    (calc.devendo>0.009 ? (
+      '<hr class="divider">'+
+      '<label>Valor a pagar agora (R$)</label>'+
+      '<input type="text" inputmode="numeric" id="cobValorPagarInput" value="'+formatBRLMaskValue(calc.devendo)+'">'+
+      '<div class="row" style="margin-top:8px;">'+
+        '<button class="btn btn-ghost btn-block" id="cobPagarDinheiro">💵 Dinheiro</button>'+
+        '<button class="btn btn-ghost btn-block" id="cobPagarPix">📱 Pix</button>'+
+      '</div>'
+    ) : '')+
+    '<hr class="divider">'+
+    '<button class="btn btn-ghost btn-block" style="color:var(--full);" id="cobApagarBtn">🗑️ Apagar cobrança (desfaz o agrupamento)</button>';
+
+  if(cb.desconto) content.querySelector('#cobDescontoTipo').value = cb.desconto.tipo;
+  const valorPagarInput = content.querySelector('#cobValorPagarInput');
+  if(valorPagarInput) attachCurrencyMask(valorPagarInput);
+
+  content.querySelector('#cobAplicarDescontoBtn').addEventListener('click', async ()=>{
+    const tipo = content.querySelector('#cobDescontoTipo').value;
+    const valor = parseFloat(content.querySelector('#cobDescontoValor').value)||0;
+    cb.desconto = valor>0 ? {tipo, valor} : null;
+    await saveCobrancas();
+    renderCobDetailModal(cb);
+    toast(valor>0 ? 'Desconto aplicado!' : 'Desconto removido!');
+  });
+  if(valorPagarInput){
+    async function pagar(forma){
+      let valorInformado = parseBRLMask(valorPagarInput.value);
+      if(valorInformado<=0){ toast('Informe um valor válido'); return; }
+      const hoje = todayISO();
+      let restante = valorInformado;
+      for(const x of calc.items){
+        if(restante<=0) break;
+        const devendoItem = Math.max(0,(x.slot.valor||0)-(x.slot.valorPago||0));
+        if(devendoItem<=0) continue;
+        const aplicar = Math.min(restante, devendoItem);
+        x.slot.valorPago = (x.slot.valorPago||0)+aplicar;
+        x.slot.formaPagamento = forma;
+        x.slot.dataPagamento = hoje;
+        if(x.slot.valorPago>=x.slot.valor) x.slot.pago = true;
+        restante -= aplicar;
+      }
+      cb.pago = calcularCobranca(cb).pago;
+      await Promise.all([saveAgenda(), saveCobrancas()]);
+      renderCobDetailModal(cb);
+      renderWeek();
+      toast('Pagamento registrado!');
+    }
+    content.querySelector('#cobPagarDinheiro').addEventListener('click',()=>pagar('Dinheiro'));
+    content.querySelector('#cobPagarPix').addEventListener('click',()=>pagar('Pix'));
+  }
+  content.querySelector('#cobApagarBtn').addEventListener('click', async ()=>{
+    if(!confirm('Apagar essa cobrança? Os atendimentos voltam a ficar soltos (sem agrupamento), sem perder o histórico.')) return;
+    calc.items.forEach(x=>{ x.slot.cobrancaId=null; });
+    STATE.cobrancas = STATE.cobrancas.filter(x=>x.id!==cb.id);
+    await Promise.all([saveAgenda(), saveCobrancas()]);
+    document.getElementById('cobrancaDetailModalBg').classList.remove('show');
+    renderWeek();
+    toast('Cobrança apagada!');
+  });
 }
 document.getElementById('cobDetailVoltarBtn').addEventListener('click',()=>{
   document.getElementById('cobrancaDetailModalBg').classList.remove('show');
 });
-function cobrancaTotal(cb){
-  let items=[];
-  Object.keys(STATE.agenda).forEach(iso=>{
-    ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push(s); });
-    });
-  });
-  const total = items.reduce((a,s)=>a+(cb.pago?s.valor:valorDevido(s)),0);
-  const descontoValor = cb.desconto ? (cb.desconto.tipo==='percentual' ? total*cb.desconto.valor/100 : cb.desconto.valor) : 0;
-  return {total: Math.max(0,total-descontoValor), items};
-}
-function renderCobrancasMes(auto, mesDate, areaId, wrapId, painelId){
+function renderCobrancasMes(auto, mesDate, areaId){
   const ym = mesDate.getFullYear()+'-'+String(mesDate.getMonth()+1).padStart(2,'0');
   const cobs = STATE.cobrancas.filter(cb=>!!cb.auto===auto).filter(cb=>{
     let temNoMes = false;
@@ -5547,16 +5612,16 @@ function renderCobrancasMes(auto, mesDate, areaId, wrapId, painelId){
   });
   const area = document.getElementById(areaId);
   if(cobs.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada encontrado nesse mês.</div>'; return; }
-  const pend = cobs.filter(cb=>!cb.pago);
-  const pagas = cobs.filter(cb=>cb.pago);
-  function linha(cb){
-    const t = getTutor(cb.tutorId);
-    const {total, items} = cobrancaTotal(cb);
-    const pets = new Set(items.map(s=>{ const p=getPet(s.petId); return p?p.name:s.nome; }));
-    const temQtd = items.some(s=>s.pacoteQtd);
+  const calcs = cobs.map(cb=>({cb, calc:calcularCobranca(cb)}));
+  const pend = calcs.filter(x=>!x.calc.pago);
+  const pagas = calcs.filter(x=>x.calc.pago);
+  function linha(x){
+    const t = getTutor(x.cb.tutorId);
+    const pets = new Set(x.calc.items.map(i=>{ const p=getPet(i.slot.petId); return p?p.name:i.slot.nome; }));
+    const temQtd = x.calc.items.some(i=>i.slot.pacoteQtd);
     let progresso = '';
     if(temQtd){
-      const itemQtd = items.find(s=>s.pacoteQtd);
+      const itemQtd = x.calc.items.find(i=>i.slot.pacoteQtd).slot;
       let concluidos = 0;
       Object.keys(STATE.agenda).forEach(iso2=>{
         ['Fixo','Móvel'].forEach(op2=>{
@@ -5566,30 +5631,22 @@ function renderCobrancasMes(auto, mesDate, areaId, wrapId, painelId){
       progresso = ' • '+concluidos+'/'+itemQtd.pacoteQtd+' banhos';
     }
     const label = (t?t.name:'?')+' ('+Array.from(pets).join(', ')+')'+progresso;
-    return '<div class="penditem grupoMesRow" data-cobranca-id="'+cb.id+'" style="cursor:pointer;"><span>'+label+'</span><span>'+formatBRL(total)+' '+(cb.pago?'✅':'🟡')+'</span></div>';
+    return '<div class="penditem grupoMesRow" data-cobranca-id="'+x.cb.id+'" style="cursor:pointer;"><span>'+label+'</span><span>'+formatBRL(x.calc.totalFinal)+' '+(x.calc.pago?'✅':'🟡')+'</span></div>';
   }
   let html='';
   if(pend.length>0){ html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700; color:var(--amarelo);">🟡 Pendentes ('+pend.length+')</p>'; html += pend.map(linha).join(''); }
   if(pagas.length>0){ html += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700; color:var(--free);">✅ Pagas ('+pagas.length+')</p>'; html += pagas.map(linha).join(''); }
   area.innerHTML = html;
   area.querySelectorAll('.grupoMesRow').forEach(row=>{
-    row.addEventListener('click',()=>abrirCardCobranca(row.dataset.cobrancaId, wrapId, painelId));
+    row.addEventListener('click',()=>abrirCardCobranca(row.dataset.cobrancaId));
   });
 }
 function renderPacoteMes(){
   document.getElementById('pacoteMesLabel').textContent = pacoteMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  renderCobrancasMes(true, pacoteMesDate, 'pacoteMesResultado', 'pacotesAreaWrap', 'fsPacotesFin');
+  renderCobrancasMes(true, pacoteMesDate, 'pacoteMesResultado');
 }
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
-document.getElementById('btnMostrarPacotesArea').addEventListener('click',()=>{
-  const wrap = document.getElementById('pacotesAreaWrap');
-  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
-});
-document.getElementById('btnMostrarAvulsosArea').addEventListener('click',()=>{
-  const wrap = document.getElementById('avulsosAreaWrap');
-  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
-});
 
 async function renderFinanceiro(){
   await autoGeneratePackageCobrancas();
@@ -5601,11 +5658,6 @@ async function renderFinanceiro(){
   Object.keys(groups).forEach(key=>{ groups[key].items.forEach(i=>totalPend+=i.valor); });
 
   await autoGenerateAvulsoCobrancas();
-  const area = document.getElementById('avulsosArea');
-  area.innerHTML='';
-  const avulsosCobrancas = STATE.cobrancas.filter(c=>!c.auto && !c.pago);
-  if(avulsosCobrancas.length===0){ area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhum avulso pendente!</div>'; }
-  avulsosCobrancas.forEach(cb=>renderCobrancaCard(cb, area, false));
 
   // pacotes (automáticos), renderizados separadamente
   function renderCobrancaCard(cb, container, isPacote){
@@ -5766,21 +5818,6 @@ async function renderFinanceiro(){
     container.appendChild(card);
   }
   window.renderCobrancaCard = renderCobrancaCard;
-
-  const pacotesArea = document.getElementById('pacotesArea');
-  pacotesArea.innerHTML='';
-  const pacotesAbertos = STATE.cobrancas.filter(c=>!c.pago && c.auto).sort((a,b)=>(a.dataPagamento||'').localeCompare(b.dataPagamento||''));
-  if(pacotesAbertos.length===0){ pacotesArea.innerHTML='<div class="empty"><span class="emoji">📦</span>Nenhum pacote em aberto ainda.</div>'; }
-  pacotesAbertos.slice(0,3).forEach(cb=>renderCobrancaCard(cb, pacotesArea, true));
-  const verTodosBtn = document.getElementById('verTodosPacotesBtn');
-  verTodosBtn.style.display = pacotesAbertos.length>3 ? 'block' : 'none';
-  verTodosBtn.textContent = 'Ver todos ('+pacotesAbertos.length+')';
-  verTodosBtn.onclick = ()=>{
-    const area = document.getElementById('todosPacotesArea');
-    area.innerHTML='';
-    pacotesAbertos.forEach(cb=>renderCobrancaCard(cb, area, true));
-    document.getElementById('todosPacotesModalBg').classList.add('show');
-  };
 
   document.getElementById('totalPendente').textContent = formatBRL(totalPend);
   let totalRecebido=0;
