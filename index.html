@@ -5608,7 +5608,7 @@ async function renderFinanceiro(){
   avulsosCobrancas.forEach(cb=>renderCobrancaCard(cb, area, false));
 
   // pacotes (automáticos), renderizados separadamente
-  const renderCobrancaCard = window.renderCobrancaCard = function(cb, container, isPacote){
+  function renderCobrancaCard(cb, container, isPacote){
     const t = getTutor(cb.tutorId);
     let items=[];
     Object.keys(STATE.agenda).forEach(iso=>{
@@ -5764,7 +5764,8 @@ async function renderFinanceiro(){
       window.open('https://wa.me/55'+t.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(texto), '_blank');
     });
     container.appendChild(card);
-  };
+  }
+  window.renderCobrancaCard = renderCobrancaCard;
 
   const pacotesArea = document.getElementById('pacotesArea');
   pacotesArea.innerHTML='';
