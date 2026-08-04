@@ -208,6 +208,18 @@
   .addedServiceRow .asName{font-weight:700; font-size:13px;}
   .addedServiceRow .asPrice{font-size:12px; color:var(--muted); margin-left:6px;}
   .addedServiceRow button{background:none; border:none; color:var(--full); font-size:15px; cursor:pointer;}
+  .dTopIconsRow{display:flex; gap:8px;}
+  .dTopIconBtn{flex:1; background:var(--card-soft); border:none; border-radius:12px; padding:10px 4px; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10.5px; font-weight:700; color:var(--roxo-dark);}
+  .dTopIconBtn span{font-size:19px;}
+  .detailRow{display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .detailRow:last-of-type{border-bottom:none;}
+  .detailRow .drIcon{font-size:20px; width:24px; text-align:center; flex-shrink:0;}
+  .detailRow .drBody{flex:1; min-width:0;}
+  .detailRow .drLabel{font-size:11px; color:var(--muted); font-weight:700;}
+  .detailRow .drValue{font-size:14.5px; font-weight:700; color:var(--text); margin-top:1px;}
+  .detailRow .drChevron{color:var(--muted); font-size:18px; transition:.2s;}
+  .detailRow.expanded .drChevron{transform:rotate(90deg);}
+  .detailRowExpand{padding:2px 4px 14px 36px;}
   .behaviorchip{padding:6px 10px; border-radius:20px; background:var(--card-soft); font-size:12px; font-weight:600; cursor:pointer; color:var(--roxo-dark); border:1.5px solid transparent;}
   .behaviorchip.sel{background:var(--rosa); color:#fff;}
 
@@ -1145,43 +1157,80 @@
 <div class="modal-bg" id="detailModalBg">
   <div class="modal">
     <div id="dMainView">
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+      <div class="dTopIconsRow">
+        <button id="dWhatsIconBtn" class="dTopIconBtn"><span>📲</span>Whats</button>
+        <button id="dLembreteIconBtn" class="dTopIconBtn"><span>🔔</span>Lembrete</button>
+        <button id="dDeletarIconBtn" class="dTopIconBtn" style="color:var(--full);"><span>🗑️</span>Deletar</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin:10px 0 4px;">
         <img id="dPetFoto" class="rphoto" style="display:none;">
         <div style="flex:1; min-width:0;">
           <div id="dPetNome" style="font-weight:800; font-size:16px; font-family:'Baloo 2',sans-serif; color:var(--roxo-dark);"></div>
           <div id="dTutorNome" class="footer-note" style="text-align:left; padding:0;"></div>
         </div>
-        <button id="dWhatsIconBtn" style="background:var(--free-bg); border:none; border-radius:12px; width:40px; height:40px; font-size:19px; flex-shrink:0;">📲</button>
-        <button id="dEditIconBtn" style="background:var(--card-soft); border:none; border-radius:12px; width:40px; height:40px; font-size:17px; flex-shrink:0;">💳</button>
       </div>
-      <label>Status do atendimento</label>
-      <select id="dStatus">
-        <option value="nenhum">⚪ Nenhum</option>
-        <option value="deslocamento">🚐 No percurso</option>
-        <option value="andamento">✂️ Em atendimento</option>
-        <option value="concluido">✅ Concluído</option>
-        <option value="cancelado">❌ Cancelado</option>
-      </select>
       <div class="footer-note" id="dSeriesInfo" style="display:none; text-align:left; background:var(--card-soft); border-radius:8px; padding:8px; margin:8px 0 0;"></div>
-      <div id="dClienteEditFields" style="margin-top:10px;">
+
+      <!-- LINHA: Data e horário -->
+      <div class="detailRow" data-expand="dExpandHorario">
+        <span class="drIcon">🕐</span>
+        <div class="drBody"><div class="drLabel">Data e horário</div><div class="drValue" id="dResumoHorario">—</div></div>
+        <span class="drChevron">›</span>
+      </div>
+      <div class="detailRowExpand" id="dExpandHorario" style="display:none;">
         <div class="row">
           <div><label>Data</label><input type="date" id="dData"></div>
           <div><label>Horário</label><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="dInicioEdit"></div>
         </div>
-        <label>Serviços</label>
-        <div id="dServicosList" class="addedServicesList"></div>
-        <div class="row">
-          <select id="dServicoAdd" style="flex:2;"></select>
-          <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="dServicoAddBtn">+ Adicionar</button>
-        </div>
-        <label>Tempo de serviço (minutos)</label>
-        <input type="number" id="dDuracao" min="10" step="5">
       </div>
+
+      <!-- LINHA: Serviço + tempo -->
+      <div class="detailRow" data-expand="dExpandServico" id="dRowServico">
+        <span class="drIcon">🐾</span>
+        <div class="drBody"><div class="drLabel">Serviço</div><div class="drValue" id="dResumoServico">—</div></div>
+        <span class="drChevron">›</span>
+      </div>
+      <div class="detailRowExpand" id="dExpandServico" style="display:none;">
+        <div id="dClienteEditFields">
+          <label>Serviços</label>
+          <div id="dServicosList" class="addedServicesList"></div>
+          <div class="row">
+            <select id="dServicoAdd" style="flex:2;"></select>
+            <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="dServicoAddBtn">+ Adicionar</button>
+          </div>
+          <label>Tempo de atendimento (minutos)</label>
+          <input type="number" id="dDuracao" min="10" step="5">
+        </div>
+      </div>
+
+      <!-- LINHA: Status -->
+      <div class="detailRow" data-expand="dExpandStatus">
+        <span class="drIcon">🏷️</span>
+        <div class="drBody"><div class="drLabel">Situação / Status</div><div class="drValue" id="dResumoStatus">—</div></div>
+        <span class="drChevron">›</span>
+      </div>
+      <div class="detailRowExpand" id="dExpandStatus" style="display:none;">
+        <select id="dStatus">
+          <option value="nenhum">⚪ Nenhum</option>
+          <option value="deslocamento">🚐 No percurso</option>
+          <option value="andamento">✂️ Em atendimento</option>
+          <option value="concluido">✅ Concluído</option>
+          <option value="cancelado">❌ Cancelado</option>
+        </select>
+      </div>
+
+      <!-- LINHA: Cobrança (abre o painel) -->
+      <div class="detailRow" id="dRowCobranca">
+        <span class="drIcon">💰</span>
+        <div class="drBody"><div class="drLabel">Cobrança</div><div class="drValue" id="dResumoCobranca">—</div></div>
+        <span class="drChevron">›</span>
+      </div>
+
       <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="dVoltarMain">‹ Voltar</button>
     </div>
 
     <div id="dEditPanel" style="display:none;">
-      <h3 style="margin-top:0;">💳 Cobrança</h3>
+      <h3 style="margin-top:0;">💰 Cobrança</h3>
       <label>Valor (R$0000,00)</label>
       <input type="text" inputmode="numeric" id="dValor">
       <hr class="divider">
@@ -1208,8 +1257,7 @@
       <hr class="divider">
       <button class="btn btn-ghost btn-block" id="dAlterarRecorrenciaBtn" style="display:none;">🔁 Alterar recorrência</button>
       <button class="btn btn-ghost btn-block" id="dAlterarTipoCobrancaBtn" style="display:none; margin-top:8px;">💳 Alterar tipo de cobrança</button>
-      <hr class="divider">
-      <button class="btn btn-ghost btn-block" style="color:var(--full);" id="dExcluir">Excluir agendamento</button>
+      <button class="btn btn-ghost btn-block" style="color:var(--full); display:none;" id="dExcluir">Excluir agendamento</button>
       <div id="dExcluirChoice" style="display:none; margin-top:10px;">
         <p class="footer-note" style="text-align:left; padding:0;">Esse agendamento faz parte de uma recorrência. O que deseja excluir?</p>
         <button class="btn btn-ghost btn-block" id="dExcluirSomente">Somente este</button>
@@ -3000,7 +3048,8 @@ function openDetailModal(iso, op, id){
   document.getElementById('dEditPanel').style.display='none';
   document.getElementById('dExcluir').style.display='block';
   document.getElementById('dExcluirChoice').style.display='none';
-  document.getElementById('dWhatsChoice').style.display='none';
+  document.querySelectorAll('.detailRowExpand').forEach(e=>e.style.display='none');
+  document.querySelectorAll('.detailRow[data-expand]').forEach(r=>r.classList.remove('expanded'));
 
   const isCliente = slot.tipo==='cliente';
   const p = isCliente ? getPet(slot.petId) : null;
@@ -3010,7 +3059,9 @@ function openDetailModal(iso, op, id){
   document.getElementById('dPetNome').textContent = isCliente ? (p?p.name:slot.nome) : (slot.tipo==='almoco'?'Almoço':'Deslocamento');
   document.getElementById('dTutorNome').textContent = t ? t.name : '';
   document.getElementById('dWhatsIconBtn').style.display = isCliente ? 'flex' : 'none';
-  document.getElementById('dEditIconBtn').style.display = isCliente ? 'flex' : 'none';
+  document.getElementById('dLembreteIconBtn').style.display = isCliente ? 'flex' : 'none';
+  document.getElementById('dRowServico').style.display = isCliente ? 'flex' : 'none';
+  document.getElementById('dRowCobranca').style.display = isCliente ? 'flex' : 'none';
 
   const seriesInfo = document.getElementById('dSeriesInfo');
   if(slot.seriesId){ seriesInfo.style.display='block'; seriesInfo.textContent = '🔄 Este agendamento faz parte de uma recorrência.'; }
@@ -3024,8 +3075,44 @@ function openDetailModal(iso, op, id){
   }
   document.getElementById('dStatus').value = slot.statusAtendimento||'nenhum';
   document.getElementById('dDuracao').value = slot.duracao||60;
+
+  atualizarResumosDetalhe(iso, slot);
   document.getElementById('detailModalBg').classList.add('show');
 }
+function atualizarResumosDetalhe(iso, slot){
+  const d = new Date(iso+'T00:00:00');
+  document.getElementById('dResumoHorario').textContent = d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})+' • '+slot.inicio;
+  document.getElementById('dResumoServico').textContent = servicoLabel(slot)+' • '+(slot.duracao||60)+' min';
+  document.getElementById('dResumoStatus').textContent = (STATUS_LABEL[slot.statusAtendimento||'nenhum']||'Nenhum')||'Nenhum';
+  if(slot.tipo==='cliente'){
+    const devendo = valorDevido(slot);
+    let statusTxt;
+    if(slot.pago) statusTxt = 'Pago via '+(slot.formaPagamento||'—');
+    else if((slot.valorPago||0)>0) statusTxt = 'Parcial • Devendo '+formatBRL(devendo);
+    else statusTxt = 'Pendente';
+    document.getElementById('dResumoCobranca').textContent = formatBRL(slot.valor||0)+' • '+statusTxt;
+  }
+}
+document.querySelectorAll('.detailRow[data-expand]').forEach(row=>{
+  row.addEventListener('click',()=>{
+    const expandEl = document.getElementById(row.dataset.expand);
+    const abrindo = expandEl.style.display!=='block';
+    document.querySelectorAll('.detailRowExpand').forEach(e=>e.style.display='none');
+    document.querySelectorAll('.detailRow[data-expand]').forEach(r=>r.classList.remove('expanded'));
+    if(abrindo){ expandEl.style.display='block'; row.classList.add('expanded'); }
+  });
+});
+document.getElementById('dRowCobranca').addEventListener('click',()=>{
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  if(!slot) return;
+  document.getElementById('dValor').value = formatBRLMaskValue(slot.valor||0);
+  document.getElementById('dAlterarRecorrenciaBtn').style.display = slot.seriesId ? 'block' : 'none';
+  document.getElementById('dAlterarTipoCobrancaBtn').style.display = slot.seriesId ? 'block' : 'none';
+  refreshPagoInfo(slot);
+  document.getElementById('dMainView').style.display='none';
+  document.getElementById('dEditPanel').style.display='block';
+});
 function refreshPagoInfo(slot){
   const pagoInfo = document.getElementById('dPagoInfo');
   const pagarArea = document.getElementById('dPagarArea');
@@ -3096,21 +3183,13 @@ document.getElementById('dGerarReciboBtn').addEventListener('click',()=>{
   docPdf.text('Recibo gerado em '+fmtDateFull(new Date())+'.', 14, y);
   docPdf.save('recibo-'+(p?p.name.replace(/\s+/g,'_'):'atendimento')+'-'+detailRef.iso+'.pdf');
 });
-document.getElementById('dEditIconBtn').addEventListener('click',()=>{
-  if(!detailRef) return;
-  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
-  if(!slot) return;
-  document.getElementById('dValor').value = formatBRLMaskValue(slot.valor||0);
-  document.getElementById('dDuracao').value = slot.duracao||60;
-  document.getElementById('dAlterarRecorrenciaBtn').style.display = slot.seriesId ? 'block' : 'none';
-  document.getElementById('dAlterarTipoCobrancaBtn').style.display = slot.seriesId ? 'block' : 'none';
-  refreshPagoInfo(slot);
-  document.getElementById('dMainView').style.display='none';
-  document.getElementById('dEditPanel').style.display='block';
-});
 document.getElementById('dVoltarEdit').addEventListener('click',()=>{
   document.getElementById('dEditPanel').style.display='none';
   document.getElementById('dMainView').style.display='block';
+  if(detailRef){
+    const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+    if(slot) atualizarResumosDetalhe(detailRef.iso, slot);
+  }
 });
 document.getElementById('dVoltarMain').addEventListener('click',()=>aplicarMudancasDataHorarioEFechar());
 attachCurrencyMask(document.getElementById('dValor'));
@@ -3144,12 +3223,13 @@ function applyWithScope(fieldSetter, successMsg){
       else { findFutureSeriesSlots(slot.seriesId, detailRef.iso, detailRef.op).forEach(s=>fieldSetter(s)); }
       await saveAgenda();
       renderWeek();
+      if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot);
       toast(successMsg);
     };
     document.getElementById('scopeChoiceModalBg').classList.add('show');
   } else {
     fieldSetter(slot);
-    saveAgenda().then(()=>{ renderWeek(); toast(successMsg); });
+    saveAgenda().then(()=>{ renderWeek(); if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot); toast(successMsg); });
   }
 }
 document.getElementById('scopeSomenteEste').addEventListener('click', async ()=>{
@@ -3356,6 +3436,7 @@ async function aplicarDescontoAutomaticoEConcluir(slot){
   slot.statusAtendimento = 'concluido';
   await Promise.all([saveAgenda(), saveEstoque(), saveConsumoEstoque()]);
   renderWeek();
+  if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot);
   await verificarUltimoAtendimentoDoDia();
 }
 async function verificarUltimoAtendimentoDoDia(){
@@ -3450,6 +3531,7 @@ document.getElementById('dStatus').addEventListener('change', async (e)=>{
     slot.statusAtendimento = e.target.value;
     await saveAgenda();
     renderWeek();
+    if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot);
   }
 });
 function findNextUnpaidSlotForTutor(tutorId, excludeSlotId){
@@ -3548,9 +3630,6 @@ document.getElementById('dPagarPix').addEventListener('click',()=>marcarPago('Pi
 
 // ---------- WHATSAPP DIRETO DO AGENDAMENTO ----------
 document.getElementById('dWhatsIconBtn').addEventListener('click',()=>{
-  document.getElementById('dWhatsChoice').style.display = document.getElementById('dWhatsChoice').style.display==='block' ? 'none' : 'block';
-});
-document.getElementById('dWhatsAbrir').addEventListener('click',()=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
   const p = slot && getPet(slot.petId);
@@ -3558,13 +3637,24 @@ document.getElementById('dWhatsAbrir').addEventListener('click',()=>{
   if(!t || !t.phone){ toast('Sem telefone cadastrado'); return; }
   window.open('https://wa.me/55'+t.phone.replace(/\D/g,''), '_blank');
 });
-document.getElementById('dWhatsModelo').addEventListener('click',()=>{
+document.getElementById('dLembreteIconBtn').addEventListener('click',()=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
   const p = slot && getPet(slot.petId);
   if(!p){ toast('Esse agendamento não tem um pet vinculado'); return; }
   document.getElementById('detailModalBg').classList.remove('show');
   openMsgModal(p.tutorId, p.id);
+});
+document.getElementById('dDeletarIconBtn').addEventListener('click',()=>{
+  if(!detailRef) return;
+  const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
+  if(!slot) return;
+  document.getElementById('dAlterarRecorrenciaBtn').style.display = slot.seriesId ? 'block' : 'none';
+  document.getElementById('dAlterarTipoCobrancaBtn').style.display = slot.seriesId ? 'block' : 'none';
+  refreshPagoInfo(slot);
+  document.getElementById('dMainView').style.display='none';
+  document.getElementById('dEditPanel').style.display='block';
+  document.getElementById('dExcluir').click();
 });
 
 document.getElementById('dExcluir').addEventListener('click', async ()=>{
