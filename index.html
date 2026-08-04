@@ -467,6 +467,7 @@
         <div class="card">
           <h3>Novo tutor</h3>
           <input type="hidden" id="tEditId">
+          <button type="button" class="btn btn-ghost btn-block" id="importarContatoBtn" style="display:none; margin-bottom:10px;">📱 Importar contato do celular</button>
           <div class="row">
             <div><label>Nome</label><input id="tNome"></div>
             <div><label>Telefone</label><input id="tTel" placeholder="DDD + número"></div>
@@ -3651,6 +3652,22 @@ document.getElementById('btnOrdenarTutor').addEventListener('click',()=>{
   document.getElementById('tutorList').style.display='block';
   document.getElementById('btnMostrarTutores').textContent='Ocultar tutores';
   renderTutorList();
+});
+// ---------- IMPORTAR CONTATO DO CELULAR ----------
+const contatoPickerSuportado = ('contacts' in navigator) && ('ContactsManager' in window);
+if(contatoPickerSuportado) document.getElementById('importarContatoBtn').style.display='block';
+document.getElementById('importarContatoBtn').addEventListener('click', async ()=>{
+  if(!contatoPickerSuportado){ toast('Esse recurso não está disponível nesse navegador/aparelho.'); return; }
+  try{
+    const contatos = await navigator.contacts.select(['name','tel'], {multiple:false});
+    if(!contatos || contatos.length===0) return;
+    const c = contatos[0];
+    if(c.name && c.name[0]) document.getElementById('tNome').value = c.name[0];
+    if(c.tel && c.tel[0]) document.getElementById('tTel').value = c.tel[0].replace(/\D/g,'');
+    toast('Contato importado! Confere e edita antes de salvar.');
+  }catch(e){
+    if(e && e.name!=='AbortError') toast('Não deu pra importar o contato.');
+  }
 });
 document.getElementById('saveTutorBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('tEditId').value;
