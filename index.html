@@ -1274,6 +1274,14 @@
   </div>
 </div>
 
+<!-- MODAL: Detalhe da cobrança -->
+<div class="modal-bg" id="cobrancaDetailModalBg">
+  <div class="modal">
+    <div id="cobDetailContent"></div>
+    <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="cobDetailVoltarBtn">‹ Voltar</button>
+  </div>
+</div>
+
 <!-- MODAL: Escolha de escopo (somente este / próximos) -->
 <div class="modal-bg" id="scopeChoiceModalBg">
   <div class="modal">
@@ -5500,12 +5508,17 @@ document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avuls
 
 let pacoteMesDate = new Date();
 function abrirCardCobranca(cobrancaId, wrapId, painelId){
-  document.getElementById(wrapId).style.display='block';
-  setTimeout(()=>{
-    const card = document.querySelector('[data-cobranca-id="'+cobrancaId+'"]');
-    if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.style.boxShadow='0 0 0 3px var(--rosa)'; setTimeout(()=>{ card.style.boxShadow=''; }, 2000); }
-  }, 100);
+  const cb = STATE.cobrancas.find(c=>c.id===cobrancaId);
+  if(!cb){ toast('Cobrança não encontrada.'); return; }
+  const content = document.getElementById('cobDetailContent');
+  content.innerHTML='';
+  if(typeof window.renderCobrancaCard!=='function'){ toast('Aguarda um instante e tenta de novo.'); return; }
+  window.renderCobrancaCard(cb, content, !!cb.auto);
+  document.getElementById('cobrancaDetailModalBg').classList.add('show');
 }
+document.getElementById('cobDetailVoltarBtn').addEventListener('click',()=>{
+  document.getElementById('cobrancaDetailModalBg').classList.remove('show');
+});
 function cobrancaTotal(cb){
   let items=[];
   Object.keys(STATE.agenda).forEach(iso=>{
@@ -5595,7 +5608,7 @@ async function renderFinanceiro(){
   avulsosCobrancas.forEach(cb=>renderCobrancaCard(cb, area, false));
 
   // pacotes (automáticos), renderizados separadamente
-  function renderCobrancaCard(cb, container, isPacote){
+  const renderCobrancaCard = window.renderCobrancaCard = function(cb, container, isPacote){
     const t = getTutor(cb.tutorId);
     let items=[];
     Object.keys(STATE.agenda).forEach(iso=>{
@@ -5751,7 +5764,7 @@ async function renderFinanceiro(){
       window.open('https://wa.me/55'+t.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(texto), '_blank');
     });
     container.appendChild(card);
-  }
+  };
 
   const pacotesArea = document.getElementById('pacotesArea');
   pacotesArea.innerHTML='';
