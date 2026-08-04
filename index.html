@@ -2994,6 +2994,8 @@ function openDetailModal(iso, op, id){
   const slot = (STATE.agenda[iso][op]||[]).find(s=>s.id===id);
   if(!slot) return;
   detailRef = {iso, op, id};
+  pendingDataAlterada = false;
+  pendingHorarioAlterado = false;
   document.getElementById('dMainView').style.display='block';
   document.getElementById('dEditPanel').style.display='none';
   document.getElementById('dExcluir').style.display='block';
@@ -3110,7 +3112,7 @@ document.getElementById('dVoltarEdit').addEventListener('click',()=>{
   document.getElementById('dEditPanel').style.display='none';
   document.getElementById('dMainView').style.display='block';
 });
-document.getElementById('dVoltarMain').addEventListener('click',()=>document.getElementById('detailModalBg').classList.remove('show'));
+document.getElementById('dVoltarMain').addEventListener('click',()=>aplicarMudancasDataHorarioEFechar());
 attachCurrencyMask(document.getElementById('dValor'));
 attachCurrencyMask(document.getElementById('dValorPagoInput'));
 attachTimeMask('dInicioEdit');
@@ -3121,6 +3123,14 @@ function findFutureSeriesSlots(seriesId, fromIso, op){
   Object.keys(STATE.agenda).forEach(iso=>{
     if(iso < fromIso) return;
     (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.seriesId===seriesId) result.push(s); });
+  });
+  return result;
+}
+function findFutureSeriesSlotsComIso(seriesId, fromIso, op){
+  let result = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(iso < fromIso) return;
+    (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.seriesId===seriesId) result.push({iso, slot:s}); });
   });
   return result;
 }
@@ -3154,27 +3164,66 @@ document.getElementById('scopeProximos').addEventListener('click', async ()=>{
 });
 document.getElementById('closeScopeChoiceModal').addEventListener('click',()=>{ document.getElementById('scopeChoiceModalBg').classList.remove('show'); pendingScopeAction=null; });
 
-document.getElementById('dData').addEventListener('change', async ()=>{
+let pendingDataAlterada = false;
+let pendingHorarioAlterado = false;
+function moverSlot(s, fromIso, paraIso, opLocal){
+  STATE.agenda[fromIso][opLocal] = STATE.agenda[fromIso][opLocal].filter(x=>x.id!==s.id);
+  if(!STATE.agenda[paraIso]) STATE.agenda[paraIso] = {Fixo:[],Móvel:[]};
+  if(!STATE.agenda[paraIso][opLocal]) STATE.agenda[paraIso][opLocal] = [];
+  STATE.agenda[paraIso][opLocal].push(s);
+}
+document.getElementById('dData').addEventListener('change', ()=>{
   if(!detailRef) return;
+  pendingDataAlterada = true;
+});
+async function aplicarMudancasDataHorarioEFechar(){
+  if(!detailRef || (!pendingDataAlterada && !pendingHorarioAlterado)){
+    document.getElementById('detailModalBg').classList.remove('show');
+    return;
+  }
   const oldIso = detailRef.iso, op = detailRef.op, id = detailRef.id;
   const slot = (STATE.agenda[oldIso][op]||[]).find(s=>s.id===id);
-  if(!slot) return;
-  const newIso = document.getElementById('dData').value;
-  if(newIso && newIso!==oldIso){
-    STATE.agenda[oldIso][op] = STATE.agenda[oldIso][op].filter(s=>s.id!==id);
-    if(!STATE.agenda[newIso]) STATE.agenda[newIso] = {Fixo:[],Móvel:[]};
-    if(!STATE.agenda[newIso][op]) STATE.agenda[newIso][op] = [];
-    STATE.agenda[newIso][op].push(slot);
+  if(!slot){ document.getElementById('detailModalBg').classList.remove('show'); return; }
+  const newIso = pendingDataAlterada ? document.getElementById('dData').value : oldIso;
+  const newInicio = pendingHorarioAlterado ? document.getElementById('dInicioEdit').value : slot.inicio;
+
+  async function aplicar(scope){
+    const deltaDias = pendingDataAlterada ? Math.round((new Date(newIso+'T00:00:00') - new Date(oldIso+'T00:00:00'))/86400000) : 0;
+    if(pendingDataAlterada) moverSlot(slot, oldIso, newIso, op);
+    if(pendingHorarioAlterado) slot.inicio = newInicio;
     detailRef.iso = newIso;
     selectedDateISO = newIso;
+    if(scope==='future' && slot.seriesId){
+      const futuros = findFutureSeriesSlotsComIso(slot.seriesId, oldIso, op).filter(x=>x.slot.id!==slot.id);
+      futuros.forEach(({iso, slot:s})=>{
+        let paraIso = iso;
+        if(pendingDataAlterada){
+          const novaData = new Date(iso+'T00:00:00');
+          novaData.setDate(novaData.getDate()+deltaDias);
+          paraIso = toISO(novaData);
+        }
+        if(pendingHorarioAlterado) s.inicio = newInicio;
+        if(paraIso!==iso) moverSlot(s, iso, paraIso, op);
+      });
+    }
     await saveAgenda();
     renderWeek();
-    toast('Data atualizada!');
+    pendingDataAlterada = false;
+    pendingHorarioAlterado = false;
+    document.getElementById('detailModalBg').classList.remove('show');
+    toast(scope==='future' ? 'Atualizado — próximos recalculados!' : 'Atualizado!');
   }
-});
+
+  if(slot.seriesId){
+    pendingScopeAction = aplicar;
+    document.getElementById('scopeChoiceModalBg').classList.add('show');
+  } else {
+    await aplicar('only');
+  }
+}
 document.getElementById('dInicioEdit').addEventListener('change', ()=>{
-  const novoInicio = document.getElementById('dInicioEdit').value;
-  applyWithScope(slot=>{ slot.inicio = novoInicio; }, 'Horário atualizado!');
+  if(!detailRef) return;
+  pendingHorarioAlterado = true;
 });
 document.getElementById('dValor').addEventListener('change', ()=>{
   const novoValor = parseBRLMask(document.getElementById('dValor').value);
