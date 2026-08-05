@@ -6055,15 +6055,32 @@ function renderDespesaHistorico(termo){
   const todas = STATE.despesas.filter(d=> !t || d.descricao.toLowerCase().includes(t)).sort((a,b)=>(b.dataPagamento||b.criadoEm||'').localeCompare(a.dataPagamento||a.criadoEm||''));
   const area = document.getElementById('despesaHistArea');
   if(todas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma despesa encontrada.</div>'; return; }
-  area.innerHTML = todas.slice(0,80).map(d=>
-    '<div class="penditem" style="flex-direction:column; align-items:stretch; gap:4px;">'+
-      '<div style="display:flex; justify-content:space-between;"><span>'+(d.dataPagamento?fmtDateFull(new Date(d.dataPagamento+'T00:00:00')):'—')+' • '+d.descricao+(d.recorrente?' 🔁':'')+'</span><span>'+formatBRL(d.valor)+' '+(d.pago?'✅':'🟡')+'</span></div>'+
+  const lista = todas.slice(0,80);
+  const isCusto = d => d.descricao.indexOf('Custo de materiais do dia')===0;
+  function tituloCurto(d){ return isCusto(d) ? 'Custo de materiais do dia' : d.descricao; }
+  function icone(d){ if(isCusto(d)) return '📦'; if(d.recorrente) return '🔁'; return '💸'; }
+  area.innerHTML = lista.map((d,idx)=>
+    '<div class="detailRow" data-expand-desp="'+idx+'">'+
+      '<span class="drIcon">'+icone(d)+'</span>'+
+      '<div class="drBody"><div class="drLabel">'+(d.dataPagamento?fmtDateFull(new Date(d.dataPagamento+'T00:00:00')):'—')+'</div><div class="drValue">'+tituloCurto(d)+'</div></div>'+
+      '<div style="text-align:right; flex-shrink:0;"><div style="font-weight:800; font-size:14px; color:var(--text);">'+formatBRL(d.valor)+'</div><div style="font-size:15px;">'+(d.pago?'✅':'🟡')+'</div></div>'+
+    '</div>'+
+    '<div class="detailRowExpand" id="despExpand'+idx+'" style="display:none;">'+
+      (isCusto(d) ? '<p class="footer-note" style="text-align:left; padding:0; margin:0 0 10px;">'+d.descricao.replace('Custo de materiais do dia — ','').split('; ').join('<br>')+'</p>' : '')+
       '<div class="row" style="margin:0;">'+
         (d.pago?'<button class="btn btn-ghost btn-small" data-act="desfazer" data-id="'+d.id+'">↩️ Desfazer pagamento</button>':'')+
         '<button class="btn btn-ghost btn-small" data-act="excluir" data-id="'+d.id+'" style="color:var(--full);">🗑️ Excluir</button>'+
       '</div>'+
     '</div>'
   ).join('');
+  area.querySelectorAll('[data-expand-desp]').forEach(row=>{
+    row.addEventListener('click',()=>{
+      const exp = document.getElementById('despExpand'+row.dataset.expandDesp);
+      const abrindo = exp.style.display!=='block';
+      area.querySelectorAll('.detailRowExpand').forEach(e=>e.style.display='none');
+      if(abrindo) exp.style.display='block';
+    });
+  });
   area.querySelectorAll('[data-act="desfazer"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const d = STATE.despesas.find(x=>x.id===btn.dataset.id);
