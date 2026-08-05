@@ -1065,7 +1065,13 @@
           </div>
         </div>
         <div class="card">
-          <h3 id="graficoTitulo"></h3>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="graficoTitulo" style="margin:0;"></h3>
+            <div class="optoggle" id="graficoVisualToggle" style="display:none; width:auto;">
+              <button type="button" data-visual="lista" class="active">📋 Lista</button>
+              <button type="button" data-visual="grafico">📊 Gráfico</button>
+            </div>
+          </div>
           <canvas id="chartPrincipal" height="240" style="display:none;"></canvas>
           <div id="graficoListaArea"></div>
         </div>
@@ -4561,6 +4567,9 @@ function renderGraficos(){
   const itens = itensNoPeriodo(startIso, endIso);
   limparGraficoAnterior();
   const titulo = document.getElementById('graficoTitulo');
+  const toggleWrap = document.getElementById('graficoVisualToggle');
+  const isRanking = ['itemMaisUsado','shampooMaisUsado','rankingClientes'].includes(tipo);
+  toggleWrap.style.display = isRanking ? 'flex' : 'none';
 
   if(tipo==='receitaServico'){
     titulo.textContent = 'Receita por serviço';
@@ -4630,12 +4639,16 @@ function renderGraficos(){
       porItem[u.itemId].atendimentos.add(u.agendamentoId);
     });
     const lista = Object.values(porItem).sort((a,b)=>b.qtd-a.qtd);
-    const area = document.getElementById('graficoListaArea');
-    if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum consumo registrado nesse período.</div>'; }
-    else{
-      area.innerHTML = lista.map((it,idx)=>
-        '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+it.qtd.toFixed(1)+(it.unidade?(' '+it.unidade):'')+' • '+it.atendimentos.size+' atend.</span></div>'
-      ).join('');
+    if(graficoVisual==='grafico'){
+      desenharChart('bar', lista.map(it=>it.nome), lista.map(it=>it.qtd));
+    } else {
+      const area = document.getElementById('graficoListaArea');
+      if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum consumo registrado nesse período.</div>'; }
+      else{
+        area.innerHTML = lista.map((it,idx)=>
+          '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+it.qtd.toFixed(1)+(it.unidade?(' '+it.unidade):'')+' • '+it.atendimentos.size+' atend.</span></div>'
+        ).join('');
+      }
     }
   }
   else if(tipo==='rankingClientes'){
@@ -4650,15 +4663,28 @@ function renderGraficos(){
       porTutor[key].total += s.valor||0;
     });
     const lista = Object.values(porTutor).sort((a,b)=>b.total-a.total).slice(0,15);
-    const area = document.getElementById('graficoListaArea');
-    if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum pagamento nesse período.</div>'; }
-    else{
-      area.innerHTML = lista.map((it,idx)=>
-        '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+formatBRL(it.total)+'</span></div>'
-      ).join('');
+    if(graficoVisual==='grafico'){
+      desenharChart('bar', lista.map(it=>it.nome), lista.map(it=>it.total));
+    } else {
+      const area = document.getElementById('graficoListaArea');
+      if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum pagamento nesse período.</div>'; }
+      else{
+        area.innerHTML = lista.map((it,idx)=>
+          '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+formatBRL(it.total)+'</span></div>'
+        ).join('');
+      }
     }
   }
 }
+let graficoVisual = 'lista';
+document.querySelectorAll('#graficoVisualToggle button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#graficoVisualToggle button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    graficoVisual = btn.dataset.visual;
+    renderGraficos();
+  });
+});
 document.getElementById('graficoSelecao').addEventListener('change', renderGraficos);
 document.querySelectorAll('#graficoPeriodoSwitcher button').forEach(btn=>{
   btn.addEventListener('click',()=>{
