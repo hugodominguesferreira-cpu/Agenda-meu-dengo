@@ -367,6 +367,13 @@
           <button id="btnRotaDash" class="dashIconBtn" style="display:none;" data-panel="fsRotaDia">🗺️<span>Rota do dia</span></button>
         </div>
       </div>
+      <div class="card carddash" id="dashMetaCard" style="display:none;">
+        <h3>🎯 Meta do mês</h3>
+        <div class="footer-note" id="dashMetaTexto" style="text-align:left; padding:0; margin-bottom:6px;"></div>
+        <div style="background:var(--card-soft); border-radius:20px; height:16px; overflow:hidden;">
+          <div id="dashMetaBarra" style="height:100%; background:linear-gradient(90deg,var(--rosa),var(--roxo)); border-radius:20px; width:0%; transition:.4s;"></div>
+        </div>
+      </div>
       <div class="dashRow2">
         <div class="card carddash dashHalf" id="dashCobrancasCard">
           <h3>💰 Cobranças a fazer</h3>
@@ -618,13 +625,17 @@
           <input id="buscaHistAvulso" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histAvulsoResultado" style="margin-top:8px;"></div>
           <hr class="divider">
-          <label>📅 Ver tudo por mês (pago e pendente)</label>
           <div class="monthnav">
             <button id="avulsoMesPrevBtn">‹</button>
             <span id="avulsoMesLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
             <button id="avulsoMesNextBtn">›</button>
           </div>
-          <div id="avulsoMesResultado" style="margin-top:8px;"></div>
+          <div class="iconGrid">
+            <button class="iconGridBtn" id="avulsoVerPendentesBtn">🟡<span>Pendentes</span></button>
+            <button class="iconGridBtn" id="avulsoVerPagosBtn">✅<span>Pagos</span></button>
+          </div>
+          <div id="avulsoMesTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
+          <div id="avulsoMesResultado" style="margin-top:4px;"></div>
         </div>
       </div>
     </div>
@@ -639,14 +650,17 @@
           <input id="buscaHistPacote" placeholder="Buscar por nome do tutor ou pet...">
           <div id="histPacoteResultado" style="margin-top:8px;"></div>
           <hr class="divider">
-          <label>📅 Ver tudo por mês (pago e pendente)</label>
           <div class="monthnav">
             <button id="pacoteMesPrevBtn">‹</button>
             <span id="pacoteMesLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
             <button id="pacoteMesNextBtn">›</button>
           </div>
-          <div id="pacoteMesResultado" style="margin-top:8px;"></div>
-          <div id="pacotesArea" style="display:none;"></div>
+          <div class="iconGrid">
+            <button class="iconGridBtn" id="pacoteVerPendentesBtn">🟡<span>Pendentes</span></button>
+            <button class="iconGridBtn" id="pacoteVerPagosBtn">✅<span>Pagos</span></button>
+          </div>
+          <div id="pacoteMesTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
+          <div id="pacoteMesResultado" style="margin-top:4px;"></div>
         </div>
       </div>
     </div>
@@ -723,6 +737,8 @@
           <input id="perfilNomeEmpresa" placeholder="Meu Dengo">
           <label>CNPJ</label>
           <input id="perfilCnpj" placeholder="00.000.000/0000-00">
+          <label>Meta mensal de faturamento (R$)</label>
+          <input type="number" id="perfilMetaMensal" min="0" step="50" placeholder="Ex: 5000">
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="saveConfigBtn">Salvar logo</button>
           <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
         </div>
@@ -1020,27 +1036,41 @@
       <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📈 Gráficos</h3></div>
       <div class="fsPanelBody">
         <div class="card">
-          <div class="daySwitcher" id="graficoPeriodoSwitcher">
+          <label>Qual gráfico quer ver?</label>
+          <select id="graficoSelecao">
+            <optgroup label="Financeiro">
+              <option value="receitaServico">Receita por serviço</option>
+              <option value="receitaPeriodo">Receita ao longo do período</option>
+            </optgroup>
+            <optgroup label="Atendimentos">
+              <option value="atendimentosDia">Atendimentos por dia</option>
+              <option value="atendimentosSemana">Atendimentos por dia da semana</option>
+              <option value="avulsoPacote">Avulso vs Pacote</option>
+            </optgroup>
+            <optgroup label="Pagamentos">
+              <option value="pixDinheiro">Pix vs Dinheiro</option>
+            </optgroup>
+            <optgroup label="Pets">
+              <option value="machoFemea">Macho vs Fêmea</option>
+            </optgroup>
+            <optgroup label="Estoque">
+              <option value="itemMaisUsado">Item mais usado</option>
+              <option value="shampooMaisUsado">Shampoo mais usado</option>
+            </optgroup>
+            <optgroup label="Clientes">
+              <option value="rankingClientes">Clientes que mais gastam</option>
+            </optgroup>
+          </select>
+          <div class="daySwitcher" id="graficoPeriodoSwitcher" style="margin-top:10px;">
             <button data-periodo="semana">Semana</button>
             <button data-periodo="mes" class="active">Mês</button>
             <button data-periodo="ano">Ano</button>
           </div>
         </div>
         <div class="card">
-          <h3>Receita por serviço</h3>
-          <canvas id="chartPizza" height="220"></canvas>
-        </div>
-        <div class="card">
-          <h3>Atendimentos por dia</h3>
-          <canvas id="chartAtendimentos" height="220"></canvas>
-        </div>
-        <div class="card">
-          <h3>Atendimentos por dia da semana</h3>
-          <canvas id="chartBarra" height="220"></canvas>
-        </div>
-        <div class="card">
-          <h3>Receita ao longo do período</h3>
-          <canvas id="chartLinha" height="220"></canvas>
+          <h3 id="graficoTitulo"></h3>
+          <canvas id="chartPrincipal" height="240" style="display:none;"></canvas>
+          <div id="graficoListaArea"></div>
         </div>
       </div>
     </div>
@@ -2225,6 +2255,25 @@ function renderDashboard(){
   const isAdmin = currentUser && currentUser.role==='admin';
   document.getElementById('dashGreeting').textContent = currentUser ? ('Olá, '+currentUser.nome+'! 👋') : '';
   document.getElementById('dashCobrancasCard').style.display = isAdmin ? 'block' : 'none';
+
+  // ---------- META MENSAL ----------
+  const metaCard = document.getElementById('dashMetaCard');
+  if(isAdmin && STATE.config.metaMensal>0){
+    metaCard.style.display='block';
+    const ymAtual = todayISO().slice(0,7);
+    let entradasMes = 0;
+    Object.keys(STATE.agenda).forEach(iso=>{
+      ['Fixo','Móvel'].forEach(op=>{
+        (STATE.agenda[iso][op]||[]).forEach(s=>{
+          if(s.tipo==='cliente' && s.pago && (s.dataPagamento||iso).startsWith(ymAtual)) entradasMes += (s.valor||0);
+        });
+      });
+    });
+    const pct = Math.min(100, (entradasMes/STATE.config.metaMensal)*100);
+    document.getElementById('dashMetaBarra').style.width = pct+'%';
+    document.getElementById('dashMetaTexto').textContent = formatBRL(entradasMes)+' de '+formatBRL(STATE.config.metaMensal)+' ('+pct.toFixed(0)+'%)';
+  } else { metaCard.style.display='none'; }
+
   const baixos = STATE.estoque.filter(it=>(it.nivelMinimo||0)>0 && (it.quantidade||0)<=it.nivelMinimo);
   const estoqueBaixoCard = document.getElementById('dashEstoqueBaixoCard');
   if(isAdmin && baixos.length>0){
@@ -4483,67 +4532,137 @@ function getGraficoRange(){
   }
   return {start, end};
 }
-function renderGraficos(){
-  if(!window.Chart){ setTimeout(renderGraficos, 400); return; }
-  const {start,end} = getGraficoRange();
-  const startIso = toISO(start), endIso = toISO(end);
-
-  let receitaPorServico = {};
-  let atendimentosPorDia = {};
-  let atendimentosPorDiaSemana = [0,0,0,0,0,0,0];
-  let receitaPorDia = {};
-
+const GRAFICO_CORES = ['#AA426C','#472F7D','#4C8C6B','#C99A2E','#C6603A','#2E6FA3','#8A63C4','#3E4A6B'];
+function limparGraficoAnterior(){
+  if(chartInstances.principal){ chartInstances.principal.destroy(); chartInstances.principal=null; }
+  document.getElementById('chartPrincipal').style.display='none';
+  document.getElementById('graficoListaArea').innerHTML='';
+}
+function desenharChart(tipo, labels, dataset){
+  document.getElementById('chartPrincipal').style.display='block';
+  chartInstances.principal = new Chart(document.getElementById('chartPrincipal'), {
+    type: tipo,
+    data: { labels: labels.length?labels:['Sem dados'], datasets:[Object.assign({data: dataset.length?dataset:[0], backgroundColor: tipo==='pie'?GRAFICO_CORES:(tipo==='bar'?'#472F7D':'rgba(170,66,108,0.2)')}, tipo==='line'?{borderColor:'#AA426C', fill:true, tension:0.3}:{})] },
+    options:{ plugins:{ legend:{ display: tipo==='pie', position:'bottom' } } }
+  });
+}
+function itensNoPeriodo(startIso, endIso){
+  let itens = [];
   Object.keys(STATE.agenda).forEach(iso=>{
     if(iso<startIso || iso>endIso) return;
     ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo!=='cliente') return;
-        if(s.statusAtendimento==='concluido'){
-          atendimentosPorDia[iso] = (atendimentosPorDia[iso]||0)+1;
-          const d = new Date(iso+'T00:00:00');
-          atendimentosPorDiaSemana[d.getDay()]++;
-        }
-        if(s.pago){
-          const label = servicoLabel(s)||'Outro';
-          receitaPorServico[label] = (receitaPorServico[label]||0)+(s.valor||0);
-          receitaPorDia[iso] = (receitaPorDia[iso]||0)+(s.valor||0);
-        }
-      });
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente') itens.push(Object.assign({iso}, s)); });
     });
   });
-
-  const pizzaLabels = Object.keys(receitaPorServico);
-  const pizzaData = pizzaLabels.map(l=>receitaPorServico[l]);
-  const diasOrdenados = Object.keys(atendimentosPorDia).sort();
-  const atendLabels = diasOrdenados.map(d=>fmtDatePt(new Date(d+'T00:00:00')));
-  const atendData = diasOrdenados.map(d=>atendimentosPorDia[d]);
-  const diaSemanaLabels = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  const receitaDiasOrdenados = Object.keys(receitaPorDia).sort();
-  const receitaLabels = receitaDiasOrdenados.map(d=>fmtDatePt(new Date(d+'T00:00:00')));
-  const receitaData = receitaDiasOrdenados.map(d=>receitaPorDia[d]);
-  const cores = ['#AA426C','#472F7D','#4C8C6B','#C99A2E','#C6603A','#2E6FA3','#8A63C4','#3E4A6B'];
-
-  ['chartPizza','chartAtendimentos','chartBarra','chartLinha'].forEach(id=>{
-    if(chartInstances[id]){ chartInstances[id].destroy(); }
-  });
-  chartInstances.chartPizza = new Chart(document.getElementById('chartPizza'), {
-    type:'pie',
-    data:{ labels: pizzaLabels.length?pizzaLabels:['Sem dados'], datasets:[{ data: pizzaData.length?pizzaData:[1], backgroundColor: cores }] },
-    options:{ plugins:{ legend:{ position:'bottom' } } }
-  });
-  chartInstances.chartAtendimentos = new Chart(document.getElementById('chartAtendimentos'), {
-    type:'line',
-    data:{ labels: atendLabels.length?atendLabels:['Sem dados'], datasets:[{ label:'Atendimentos', data: atendData.length?atendData:[0], borderColor:'#AA426C', backgroundColor:'rgba(170,66,108,0.2)', fill:true, tension:0.3 }] }
-  });
-  chartInstances.chartBarra = new Chart(document.getElementById('chartBarra'), {
-    type:'bar',
-    data:{ labels: diaSemanaLabels, datasets:[{ label:'Atendimentos', data: atendimentosPorDiaSemana, backgroundColor:'#472F7D' }] }
-  });
-  chartInstances.chartLinha = new Chart(document.getElementById('chartLinha'), {
-    type:'line',
-    data:{ labels: receitaLabels.length?receitaLabels:['Sem dados'], datasets:[{ label:'Receita (R$)', data: receitaData.length?receitaData:[0], borderColor:'#4C8C6B', backgroundColor:'rgba(76,140,107,0.2)', fill:true, tension:0.3 }] }
-  });
+  return itens;
 }
+function renderGraficos(){
+  if(!window.Chart){ setTimeout(renderGraficos, 400); return; }
+  const tipo = document.getElementById('graficoSelecao').value;
+  const {start,end} = getGraficoRange();
+  const startIso = toISO(start), endIso = toISO(end);
+  const itens = itensNoPeriodo(startIso, endIso);
+  limparGraficoAnterior();
+  const titulo = document.getElementById('graficoTitulo');
+
+  if(tipo==='receitaServico'){
+    titulo.textContent = 'Receita por serviço';
+    let porServico = {};
+    itens.forEach(s=>{ if(s.pago) porServico[servicoLabel(s)||'Outro'] = (porServico[servicoLabel(s)||'Outro']||0)+(s.valor||0); });
+    desenharChart('pie', Object.keys(porServico), Object.values(porServico));
+  }
+  else if(tipo==='receitaPeriodo'){
+    titulo.textContent = 'Receita ao longo do período';
+    let porDia = {};
+    itens.forEach(s=>{ if(s.pago) porDia[s.iso] = (porDia[s.iso]||0)+(s.valor||0); });
+    const dias = Object.keys(porDia).sort();
+    desenharChart('line', dias.map(d=>fmtDatePt(new Date(d+'T00:00:00'))), dias.map(d=>porDia[d]));
+  }
+  else if(tipo==='atendimentosDia'){
+    titulo.textContent = 'Atendimentos por dia';
+    let porDia = {};
+    itens.forEach(s=>{ if(s.statusAtendimento==='concluido') porDia[s.iso] = (porDia[s.iso]||0)+1; });
+    const dias = Object.keys(porDia).sort();
+    desenharChart('line', dias.map(d=>fmtDatePt(new Date(d+'T00:00:00'))), dias.map(d=>porDia[d]));
+  }
+  else if(tipo==='atendimentosSemana'){
+    titulo.textContent = 'Atendimentos por dia da semana';
+    let porSemana = [0,0,0,0,0,0,0];
+    itens.forEach(s=>{ if(s.statusAtendimento==='concluido') porSemana[new Date(s.iso+'T00:00:00').getDay()]++; });
+    desenharChart('bar', ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'], porSemana);
+  }
+  else if(tipo==='avulsoPacote'){
+    titulo.textContent = 'Avulso vs Pacote';
+    let avulso=0, pacote=0;
+    itens.forEach(s=>{
+      if(s.statusAtendimento!=='concluido') return;
+      const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+      if(isPacoteItem) pacote++; else avulso++;
+    });
+    desenharChart('pie', ['Avulso','Pacote'], [avulso, pacote]);
+  }
+  else if(tipo==='pixDinheiro'){
+    titulo.textContent = 'Pix vs Dinheiro';
+    let pix=0, dinheiro=0, outro=0;
+    itens.forEach(s=>{
+      if(!s.pago) return;
+      if(s.formaPagamento==='Pix') pix += s.valor||0;
+      else if(s.formaPagamento==='Dinheiro') dinheiro += s.valor||0;
+      else outro += s.valor||0;
+    });
+    const labels=['Pix','Dinheiro']; const data=[pix,dinheiro];
+    if(outro>0){ labels.push('Outro'); data.push(outro); }
+    desenharChart('pie', labels, data);
+  }
+  else if(tipo==='machoFemea'){
+    titulo.textContent = 'Macho vs Fêmea (todos os pets cadastrados)';
+    let macho=0, femea=0;
+    STATE.pets.forEach(p=>{ if(p.sexo==='Macho') macho++; else if(p.sexo==='Fêmea') femea++; });
+    desenharChart('pie', ['Macho','Fêmea'], [macho, femea]);
+  }
+  else if(tipo==='itemMaisUsado' || tipo==='shampooMaisUsado'){
+    titulo.textContent = tipo==='itemMaisUsado' ? 'Item mais usado' : 'Shampoo mais usado';
+    const usos = STATE.consumoEstoque.filter(u=>u.data>=startIso && u.data<=endIso);
+    let porItem = {};
+    usos.forEach(u=>{
+      const it = STATE.estoque.find(x=>x.id===u.itemId);
+      if(!it) return;
+      if(tipo==='shampooMaisUsado' && !(it.categoria||'').toLowerCase().includes('shampoo')) return;
+      if(!porItem[u.itemId]) porItem[u.itemId] = {nome:it.nome, unidade:it.unidade, qtd:0, atendimentos:new Set()};
+      porItem[u.itemId].qtd += u.quantidade;
+      porItem[u.itemId].atendimentos.add(u.agendamentoId);
+    });
+    const lista = Object.values(porItem).sort((a,b)=>b.qtd-a.qtd);
+    const area = document.getElementById('graficoListaArea');
+    if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum consumo registrado nesse período.</div>'; }
+    else{
+      area.innerHTML = lista.map((it,idx)=>
+        '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+it.qtd.toFixed(1)+(it.unidade?(' '+it.unidade):'')+' • '+it.atendimentos.size+' atend.</span></div>'
+      ).join('');
+    }
+  }
+  else if(tipo==='rankingClientes'){
+    titulo.textContent = 'Clientes que mais gastam';
+    let porTutor = {};
+    itens.forEach(s=>{
+      if(!s.pago) return;
+      const p = getPet(s.petId);
+      const tutorId = p?p.tutorId:null;
+      const key = tutorId||s.nome;
+      if(!porTutor[key]) porTutor[key] = {nome: tutorId?(getTutor(tutorId)?getTutor(tutorId).name:s.nome):s.nome, total:0};
+      porTutor[key].total += s.valor||0;
+    });
+    const lista = Object.values(porTutor).sort((a,b)=>b.total-a.total).slice(0,15);
+    const area = document.getElementById('graficoListaArea');
+    if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum pagamento nesse período.</div>'; }
+    else{
+      area.innerHTML = lista.map((it,idx)=>
+        '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+formatBRL(it.total)+'</span></div>'
+      ).join('');
+    }
+  }
+}
+document.getElementById('graficoSelecao').addEventListener('change', renderGraficos);
 document.querySelectorAll('#graficoPeriodoSwitcher button').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('#graficoPeriodoSwitcher button').forEach(b=>b.classList.remove('active'));
@@ -5008,6 +5127,9 @@ function renderConfigForm(){
   cnpjEl.value = STATE.config.cnpj || '';
   nomeEmpresaEl.onchange = async ()=>{ STATE.config.nomeEmpresa = nomeEmpresaEl.value.trim()||'Meu Dengo'; await saveConfig(); document.getElementById('headerBrandName').textContent = STATE.config.nomeEmpresa; toast('Salvo!'); };
   cnpjEl.onchange = async ()=>{ STATE.config.cnpj = cnpjEl.value.trim(); await saveConfig(); toast('Salvo!'); };
+  const metaMensalEl = document.getElementById('perfilMetaMensal');
+  metaMensalEl.value = STATE.config.metaMensal || '';
+  metaMensalEl.onchange = async ()=>{ STATE.config.metaMensal = parseFloat(metaMensalEl.value)||0; await saveConfig(); renderDashboard(); toast('Salvo!'); };
   document.querySelectorAll('.temaBtn').forEach(b=>{
     b.classList.toggle('selected', parseInt(b.dataset.tema)===STATE.config.tema);
     b.onclick = async ()=>{
@@ -5483,10 +5605,14 @@ function renderMesAgrupado(itens, areaId, painelId){
     row.addEventListener('click',()=>abrirPickerMes(linhas[idx].itens, painelId));
   });
 }
+let avulsoMesModo = 'pendente';
 function renderAvulsoMes(){
   document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado');
+  document.getElementById('avulsoMesTitulo').textContent = avulsoMesModo==='pago' ? '✅ Pagos' : '🟡 Pendentes';
+  renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado', avulsoMesModo);
 }
+document.getElementById('avulsoVerPendentesBtn').addEventListener('click',()=>{ avulsoMesModo='pendente'; renderAvulsoMes(); });
+document.getElementById('avulsoVerPagosBtn').addEventListener('click',()=>{ avulsoMesModo='pago'; renderAvulsoMes(); });
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
 
@@ -5595,7 +5721,7 @@ function renderCobDetailModal(cb){
 document.getElementById('cobDetailVoltarBtn').addEventListener('click',()=>{
   document.getElementById('cobrancaDetailModalBg').classList.remove('show');
 });
-function renderCobrancasMes(auto, mesDate, areaId){
+function renderCobrancasMes(auto, mesDate, areaId, modo){
   const ym = mesDate.getFullYear()+'-'+String(mesDate.getMonth()+1).padStart(2,'0');
   const cobs = STATE.cobrancas.filter(cb=>!!cb.auto===auto).filter(cb=>{
     let temNoMes = false;
@@ -5611,10 +5737,8 @@ function renderCobrancasMes(auto, mesDate, areaId){
     return temNoMes;
   });
   const area = document.getElementById(areaId);
-  if(cobs.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada encontrado nesse mês.</div>'; return; }
-  const calcs = cobs.map(cb=>({cb, calc:calcularCobranca(cb)}));
-  const pend = calcs.filter(x=>!x.calc.pago);
-  const pagas = calcs.filter(x=>x.calc.pago);
+  const calcs = cobs.map(cb=>({cb, calc:calcularCobranca(cb)})).filter(x=> modo==='pago' ? x.calc.pago : !x.calc.pago);
+  if(calcs.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada '+(modo==='pago'?'pago':'pendente')+' encontrado nesse mês.</div>'; return; }
   function linha(x){
     const t = getTutor(x.cb.tutorId);
     const pets = new Set(x.calc.items.map(i=>{ const p=getPet(i.slot.petId); return p?p.name:i.slot.nome; }));
@@ -5633,18 +5757,22 @@ function renderCobrancasMes(auto, mesDate, areaId){
     const label = (t?t.name:'?')+' ('+Array.from(pets).join(', ')+')'+progresso;
     return '<div class="penditem grupoMesRow" data-cobranca-id="'+x.cb.id+'" style="cursor:pointer;"><span>'+label+'</span><span>'+formatBRL(x.calc.totalFinal)+' '+(x.calc.pago?'✅':'🟡')+'</span></div>';
   }
-  let html='';
-  if(pend.length>0){ html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700; color:var(--amarelo);">🟡 Pendentes ('+pend.length+')</p>'; html += pend.map(linha).join(''); }
-  if(pagas.length>0){ html += '<p class="footer-note" style="margin:12px 0 4px; text-align:left; font-weight:700; color:var(--free);">✅ Pagas ('+pagas.length+')</p>'; html += pagas.map(linha).join(''); }
+  const totalGeral = calcs.reduce((a,x)=>a+x.calc.totalFinal,0);
+  let html = calcs.map(linha).join('');
+  html += '<div class="pendtotal"><span>Total '+(modo==='pago'?'recebido':'a receber')+'</span><span>'+formatBRL(totalGeral)+'</span></div>';
   area.innerHTML = html;
   area.querySelectorAll('.grupoMesRow').forEach(row=>{
     row.addEventListener('click',()=>abrirCardCobranca(row.dataset.cobrancaId));
   });
 }
+let pacoteMesModo = 'pendente';
 function renderPacoteMes(){
   document.getElementById('pacoteMesLabel').textContent = pacoteMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  renderCobrancasMes(true, pacoteMesDate, 'pacoteMesResultado');
+  document.getElementById('pacoteMesTitulo').textContent = pacoteMesModo==='pago' ? '✅ Pagos' : '🟡 Pendentes';
+  renderCobrancasMes(true, pacoteMesDate, 'pacoteMesResultado', pacoteMesModo);
 }
+document.getElementById('pacoteVerPendentesBtn').addEventListener('click',()=>{ pacoteMesModo='pendente'; renderPacoteMes(); });
+document.getElementById('pacoteVerPagosBtn').addEventListener('click',()=>{ pacoteMesModo='pago'; renderPacoteMes(); });
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
 
