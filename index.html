@@ -513,6 +513,7 @@
             <input id="buscaTutorInput" placeholder="Nome do tutor, do pet ou raça...">
           </div>
           <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="btnMostrarTutores">Mostrar tutores</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnExportarClientes">⬇️ Exportar cadastro de clientes</button>
           <div id="tutorList" style="display:none; margin-top:10px;"></div>
         </div>
       </div>
@@ -572,6 +573,7 @@
         <h3>💵 Fechamento diário</h3>
         <input type="date" id="fechamentoData">
         <div id="fechamentoResumo" style="margin-top:10px;"></div>
+        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnFechamentoWhats">📤 Enviar fechamento por WhatsApp</button>
       </div>
 
       <div class="card">
@@ -2987,7 +2989,13 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     const tutorNome = document.getElementById('mNovoTutorNome').value.trim();
     const petNome = document.getElementById('mNovoPetNome').value.trim();
     if(!tutorNome || !petNome){ toast('Preencha nome do tutor e do pet'); return; }
-    const novoTutor = { id:'t'+Date.now(), name:tutorNome, phone:document.getElementById('mNovoTutorTel').value.trim(), street:'', bairro:document.getElementById('mNovoTutorBairro').value.trim(), city:'', saldoCredito:0 };
+    const telNovo = document.getElementById('mNovoTutorTel').value.trim();
+    if(telNovo){
+      const telNormalizado = telNovo.replace(/\D/g,'');
+      const duplicado = telNormalizado.length>0 && STATE.tutors.find(t=>t.phone && t.phone.replace(/\D/g,'')===telNormalizado);
+      if(duplicado){ toast('Já existe um cliente com esse telefone: '+duplicado.name+'. Busca ele em Clientes/Pet e adiciona o pet lá.'); return; }
+    }
+    const novoTutor = { id:'t'+Date.now(), name:tutorNome, phone:telNovo, street:'', bairro:document.getElementById('mNovoTutorBairro').value.trim(), city:'', saldoCredito:0 };
     STATE.tutors.push(novoTutor);
     const novoPet = { id:'p'+Date.now(), tutorId:novoTutor.id, name:petNome, breed:'', porte:'Médio', sexo:'Macho', castrado:false, nascimento:'', pelagem:'Curta', alergias:'', comportamento:[], obs:'', photo:null };
     STATE.pets.push(novoPet);
@@ -3865,6 +3873,11 @@ document.getElementById('saveTutorBtn').addEventListener('click', async ()=>{
     saldoCredito: existing ? (existing.saldoCredito||0) : 0
   };
   if(!tutor.name){ toast('Informe o nome do tutor'); return; }
+  if(!id && tutor.phone){
+    const telNormalizado = tutor.phone.replace(/\D/g,'');
+    const duplicado = telNormalizado.length>0 && STATE.tutors.find(t=>t.phone && t.phone.replace(/\D/g,'')===telNormalizado);
+    if(duplicado){ toast('Já existe um cliente com esse telefone: '+duplicado.name+'. Edita o cadastro dele em vez de criar outro.'); return; }
+  }
   if(id){ STATE.tutors = STATE.tutors.map(t=>t.id===id?tutor:t); }
   else { STATE.tutors.push(tutor); }
   await saveTutors();
@@ -4469,6 +4482,23 @@ function renderHistCompraSearch(){
   }).join('');
 }
 document.getElementById('buscaHistCompra').addEventListener('input', renderHistCompraSearch);
+document.getElementById('btnExportarClientes').addEventListener('click',()=>{
+  if(STATE.tutors.length===0){ toast('Nenhum cliente cadastrado ainda.'); return; }
+  const dados = STATE.tutors.map(t=>{
+    const petsDoTutor = STATE.pets.filter(p=>p.tutorId===t.id);
+    return {
+      'Tutor': t.name,
+      'Telefone': t.phone||'',
+      'Endereço': [t.street,t.bairro,t.city].filter(Boolean).join(', '),
+      'Pets': petsDoTutor.map(p=>p.name).join(', '),
+      'Raças': petsDoTutor.map(p=>p.breed||'—').join(', '),
+      'Crédito (R$)': t.saldoCredito||0,
+      'Deve (R$)': t.saldoDevedor||0
+    };
+  });
+  baixarXLSX('clientes_meudengo.xlsx', 'Clientes', dados);
+  toast('Cadastro exportado!');
+});
 document.getElementById('btnBuscaCompra').addEventListener('click',()=>{
   const wrap = document.getElementById('buscaHistCompraWrap');
   wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
@@ -5307,6 +5337,23 @@ function renderFechamento(){
     '<div class="pendtotal"><span>Saldo do dia</span><span style="color:'+(saldo>=0?'var(--free)':'var(--full)')+';">'+formatBRL(saldo)+'</span></div>';
 }
 document.getElementById('fechamentoData').addEventListener('change', renderFechamento);
+document.getElementById('btnFechamentoWhats').addEventListener('click',()=>{
+  const iso = document.getElementById('fechamentoData').value || todayISO();
+  let entradas = 0, countEntradas = 0;
+  ['Fixo','Móvel'].forEach(op=>{
+    (STATE.agenda[iso]&&STATE.agenda[iso][op]||[]).forEach(s=>{
+      if(s.tipo==='cliente' && s.pago===true){ entradas += (s.valor||0); countEntradas++; }
+    });
+  });
+  const despesasDoDia = STATE.despesas.filter(d=>d.pago && d.dataPagamento===iso);
+  const saidas = despesasDoDia.reduce((a,d)=>a+d.valor,0);
+  const saldo = entradas-saidas;
+  const texto = '📊 Fechamento — '+fmtDateFull(new Date(iso+'T00:00:00'))+'\n'+
+    '💰 Entradas: '+formatBRL(entradas)+' ('+countEntradas+' atendimento(s))\n'+
+    '💸 Saídas: '+formatBRL(saidas)+' ('+despesasDoDia.length+' despesa(s))\n'+
+    '📌 Saldo do dia: '+formatBRL(saldo);
+  window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+});
 document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
 document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
 
