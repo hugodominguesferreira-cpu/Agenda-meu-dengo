@@ -692,16 +692,13 @@
           </div>
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="addDespesaBtn">+ Adicionar despesa</button>
           <hr class="divider">
-          <div id="despesasArea"></div>
-          <hr class="divider">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label style="margin:0;">🔍 Histórico de despesas (inclusive já pagas)</label>
-            <button id="btnBuscaDespesaHist" style="background:none; border:none; font-size:17px; color:var(--roxo); cursor:pointer;">🔍</button>
+          <input id="buscaDespesaHist" placeholder="Buscar por descrição... (opcional)">
+          <div class="iconGrid" style="margin-top:8px;">
+            <button class="iconGridBtn" id="despVerPendentesBtn">🟡<span>Pendentes</span></button>
+            <button class="iconGridBtn" id="despVerPagasBtn">✅<span>Pagas</span></button>
           </div>
-          <div id="despesaHistWrap" style="display:none; margin-top:8px;">
-            <input id="buscaDespesaHist" placeholder="Buscar por descrição...">
-            <div id="despesaHistArea" style="margin-top:10px;"></div>
-          </div>
+          <div id="despesaHistTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
+          <div id="despesaHistArea" style="margin-top:4px;"></div>
         </div>
       </div>
     </div>
@@ -6020,41 +6017,21 @@ async function marcarDespesaPaga(id){
   renderDespesas();
   toast('Despesa marcada como paga!'+(d.recorrente?' Próxima já foi criada.':''));
 }
+let despesaHistModo = 'pendente';
 function renderDespesas(){
-  const area = document.getElementById('despesasArea');
-  area.innerHTML='';
-  const abertas = STATE.despesas.filter(d=>!d.pago).sort((a,b)=>(a.dataPagamento||'').localeCompare(b.dataPagamento||''));
+  const abertas = STATE.despesas.filter(d=>!d.pago);
   let totalDespesasPendentes = abertas.reduce((a,d)=>a+d.valor,0);
   document.getElementById('despesasResumo').textContent = abertas.length===0 ? 'Nenhuma despesa pendente.' : (abertas.length+' pendente(s) — total '+formatBRL(totalDespesasPendentes));
-  if(abertas.length===0){ area.innerHTML='<div class="empty"><span class="emoji">✅</span>Nenhuma despesa em aberto!</div>'; return; }
-  abertas.forEach(d=>{
-    const status = getDespesaStatus(d);
-    const card = document.createElement('div');
-    card.className='expcard';
-    card.innerHTML = '<div><div class="edesc">'+d.descricao+(d.recorrente?' 🔁':'')+'</div>'+
-      '<div class="emeta">'+(d.dataPagamento?('venc. '+fmtDateFull(new Date(d.dataPagamento+'T00:00:00'))+' • '):'')+'<span class="badge '+status+'">'+(status==='atrasado'?'🔴 Atrasada':'🟡 Pendente')+'</span></div></div>'+
-      '<div style="text-align:right;"><div class="evalor">'+formatBRL(d.valor)+'</div>'+
-      '<button class="btn btn-ghost btn-small" data-act="pay" style="margin-top:4px;">✓ Pago</button>'+
-      '<button class="btn btn-ghost btn-small" data-act="del" style="margin-top:4px;">🗑️</button></div>';
-    card.querySelector('[data-act="pay"]').addEventListener('click',()=>marcarDespesaPaga(d.id));
-    card.querySelector('[data-act="del"]').addEventListener('click', async ()=>{
-      STATE.despesas = STATE.despesas.filter(x=>x.id!==d.id);
-      await saveDespesas();
-      renderDespesas();
-    });
-    area.appendChild(card);
-  });
+  document.getElementById('despesaHistTitulo').textContent = despesaHistModo==='pago' ? '✅ Pagas' : '🟡 Pendentes';
   renderDespesaHistorico(document.getElementById('buscaDespesaHist').value.trim());
 }
-document.getElementById('btnBuscaDespesaHist').addEventListener('click',()=>{
-  const wrap = document.getElementById('despesaHistWrap');
-  wrap.style.display = wrap.style.display==='block' ? 'none' : 'block';
-});
+document.getElementById('despVerPendentesBtn').addEventListener('click',()=>{ despesaHistModo='pendente'; renderDespesas(); });
+document.getElementById('despVerPagasBtn').addEventListener('click',()=>{ despesaHistModo='pago'; renderDespesas(); });
 function renderDespesaHistorico(termo){
   const t = (termo||'').toLowerCase();
-  const todas = STATE.despesas.filter(d=> !t || d.descricao.toLowerCase().includes(t)).sort((a,b)=>(b.dataPagamento||b.criadoEm||'').localeCompare(a.dataPagamento||a.criadoEm||''));
+  const todas = STATE.despesas.filter(d=> (despesaHistModo==='pago' ? d.pago : !d.pago) && (!t || d.descricao.toLowerCase().includes(t))).sort((a,b)=>(b.dataPagamento||b.criadoEm||'').localeCompare(a.dataPagamento||a.criadoEm||''));
   const area = document.getElementById('despesaHistArea');
-  if(todas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma despesa encontrada.</div>'; return; }
+  if(todas.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhuma despesa '+(despesaHistModo==='pago'?'paga':'pendente')+' encontrada.</div>'; return; }
   const lista = todas.slice(0,80);
   const isCusto = d => d.descricao.indexOf('Custo de materiais do dia')===0;
   function tituloCurto(d){ return isCusto(d) ? 'Custo de materiais do dia' : d.descricao; }
@@ -6068,11 +6045,13 @@ function renderDespesaHistorico(termo){
     '<div class="detailRowExpand" id="despExpand'+idx+'" style="display:none;">'+
       (isCusto(d) ? '<p class="footer-note" style="text-align:left; padding:0; margin:0 0 10px;">'+d.descricao.replace('Custo de materiais do dia — ','').split('; ').join('<br>')+'</p>' : '')+
       '<div class="row" style="margin:0;">'+
-        (d.pago?'<button class="btn btn-ghost btn-small" data-act="desfazer" data-id="'+d.id+'">↩️ Desfazer pagamento</button>':'')+
+        (d.pago?'<button class="btn btn-ghost btn-small" data-act="desfazer" data-id="'+d.id+'">↩️ Desfazer pagamento</button>':'<button class="btn btn-ghost btn-small" data-act="marcarpaga" data-id="'+d.id+'">✓ Marcar como paga</button>')+
         '<button class="btn btn-ghost btn-small" data-act="excluir" data-id="'+d.id+'" style="color:var(--full);">🗑️ Excluir</button>'+
       '</div>'+
     '</div>'
   ).join('');
+  const totalGeral = todas.reduce((a,d)=>a+d.valor,0);
+  area.innerHTML += '<div class="pendtotal"><span>Total '+(despesaHistModo==='pago'?'pago':'pendente')+'</span><span>'+formatBRL(totalGeral)+'</span></div>';
   area.querySelectorAll('[data-expand-desp]').forEach(row=>{
     row.addEventListener('click',()=>{
       const exp = document.getElementById('despExpand'+row.dataset.expandDesp);
@@ -6080,6 +6059,9 @@ function renderDespesaHistorico(termo){
       area.querySelectorAll('.detailRowExpand').forEach(e=>e.style.display='none');
       if(abrindo) exp.style.display='block';
     });
+  });
+  area.querySelectorAll('[data-act="marcarpaga"]').forEach(btn=>{
+    btn.addEventListener('click',()=>marcarDespesaPaga(btn.dataset.id));
   });
   area.querySelectorAll('[data-act="desfazer"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
