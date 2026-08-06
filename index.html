@@ -1046,6 +1046,7 @@
               <option value="atendimentosSemana">Atendimentos por dia da semana</option>
               <option value="avulsoPacote">Avulso vs Pacote</option>
               <option value="tempoEstimadoVsReal">Tempo estimado vs real por serviço</option>
+              <option value="tempoDeslocamento">Tempo médio de deslocamento</option>
             </optgroup>
             <optgroup label="Pagamentos">
               <option value="pixDinheiro">Pix vs Dinheiro</option>
@@ -4695,6 +4696,26 @@ function renderGraficos(){
       const estimadoData = labels.map(l=>Math.round(porServico[l].estimadoSoma/porServico[l].count));
       const realData = labels.map(l=>Math.round(porServico[l].realSoma/porServico[l].count));
       desenharChartComparativo(labels, estimadoData, 'Estimado', realData, 'Real');
+    }
+  }
+  else if(tipo==='tempoDeslocamento'){
+    titulo.textContent = 'Tempo médio de deslocamento (minutos)';
+    let porDiaSemana = [[],[],[],[],[],[],[]];
+    let somaTotal=0, countTotal=0;
+    itens.forEach(s=>{
+      if(!s.tempoDeslocamentoRealMin) return;
+      const dia = new Date(s.iso+'T00:00:00').getDay();
+      porDiaSemana[dia].push(s.tempoDeslocamentoRealMin);
+      somaTotal += s.tempoDeslocamentoRealMin;
+      countTotal++;
+    });
+    if(countTotal===0){
+      document.getElementById('chartPrincipal').style.display='none';
+      document.getElementById('graficoListaArea').innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Ainda não tem tempo de deslocamento registrado nesse período. Marque "No percurso" antes de "Em atendimento" pra começar a coletar esses dados.</div>';
+    } else {
+      const medias = porDiaSemana.map(arr=> arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0);
+      desenharChart('bar', ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'], medias);
+      document.getElementById('graficoListaArea').innerHTML = '<div class="footer-note" style="text-align:left; padding:0; margin-top:8px;">Média geral do período: '+Math.round(somaTotal/countTotal)+' min ('+countTotal+' deslocamento(s) registrado(s))</div>';
     }
   }
   else if(tipo==='pixDinheiro'){
