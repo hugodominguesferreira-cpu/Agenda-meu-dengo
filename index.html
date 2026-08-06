@@ -1184,7 +1184,7 @@
       <div style="display:flex; align-items:center; gap:10px; margin:10px 0 4px;">
         <img id="dPetFoto" class="rphoto" style="display:none;">
         <div style="flex:1; min-width:0;">
-          <div id="dPetNome" style="font-weight:800; font-size:16px; font-family:'Baloo 2',sans-serif; color:var(--roxo-dark);"></div>
+          <div id="dPetNome" style="font-weight:800; font-size:16px; font-family:'Baloo 2',sans-serif; color:var(--roxo-dark); text-decoration:underline; text-underline-offset:3px; cursor:pointer;"></div>
           <div id="dTutorNome" class="footer-note" style="text-align:left; padding:0;"></div>
         </div>
       </div>
@@ -3110,6 +3110,7 @@ function openDetailModal(iso, op, id){
   if(p && p.photo){ petFoto.src=p.photo; petFoto.style.objectPosition=(p.fotoPosX!=null?p.fotoPosX:50)+'% '+(p.fotoPosY!=null?p.fotoPosY:50)+'%'; petFoto.style.display='block'; } else { petFoto.style.display='none'; }
   document.getElementById('dPetNome').textContent = isCliente ? (p?p.name:slot.nome) : (slot.tipo==='almoco'?'Almoço':'Deslocamento');
   document.getElementById('dTutorNome').textContent = t ? t.name : '';
+  document.getElementById('dPetNome').dataset.tutorId = t ? t.id : '';
   document.getElementById('dWhatsIconBtn').style.display = isCliente ? 'flex' : 'none';
   document.getElementById('dLembreteIconBtn').style.display = isCliente ? 'flex' : 'none';
   document.getElementById('dRowServico').style.display = isCliente ? 'flex' : 'none';
@@ -3681,6 +3682,13 @@ document.getElementById('dPagarDinheiro').addEventListener('click',()=>marcarPag
 document.getElementById('dPagarPix').addEventListener('click',()=>marcarPago('Pix'));
 
 // ---------- WHATSAPP DIRETO DO AGENDAMENTO ----------
+document.getElementById('dPetNome').addEventListener('click',()=>{
+  const tutorId = document.getElementById('dPetNome').dataset.tutorId;
+  if(!tutorId){ toast('Esse agendamento não tem um pet vinculado'); return; }
+  document.getElementById('detailModalBg').classList.remove('show');
+  switchToTab('clientes');
+  openTutorProfile(tutorId);
+});
 document.getElementById('dWhatsIconBtn').addEventListener('click',()=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
