@@ -1045,6 +1045,7 @@
               <option value="atendimentosDia">Atendimentos por dia</option>
               <option value="atendimentosSemana">Atendimentos por dia da semana</option>
               <option value="avulsoPacote">Avulso vs Pacote</option>
+              <option value="tempoEstimadoVsReal">Tempo estimado vs real por serviço</option>
             </optgroup>
             <optgroup label="Pagamentos">
               <option value="pixDinheiro">Pix vs Dinheiro</option>
@@ -3569,18 +3570,37 @@ async function reverterConsumoAtendimento(slot){
   STATE.consumoEstoque = STATE.consumoEstoque.filter(u=>u.agendamentoId!==slot.id);
   await Promise.all([saveEstoque(), saveConsumoEstoque()]);
 }
+function registrarTempoStatus(slot, novoStatus){
+  const agora = Date.now();
+  if(novoStatus==='deslocamento'){
+    slot.tsDeslocamentoStart = agora;
+  } else if(novoStatus==='andamento'){
+    if(slot.tsDeslocamentoStart){
+      slot.tempoDeslocamentoRealMin = Math.round((agora-slot.tsDeslocamentoStart)/60000);
+      slot.tsDeslocamentoStart = null;
+    }
+    slot.tsAtendimentoStart = agora;
+  } else if(novoStatus==='concluido'){
+    if(slot.tsAtendimentoStart){
+      slot.tempoAtendimentoRealMin = Math.round((agora-slot.tsAtendimentoStart)/60000);
+      slot.tsAtendimentoStart = null;
+    }
+  }
+}
 document.getElementById('dStatus').addEventListener('change', async (e)=>{
   if(!detailRef) return;
   const slot = (STATE.agenda[detailRef.iso][detailRef.op]||[]).find(s=>s.id===detailRef.id);
   if(!slot) return;
   const statusAnterior = slot.statusAtendimento;
   if(e.target.value==='concluido'){
+    registrarTempoStatus(slot, 'concluido');
     abrirEnfeitesOuConcluir(slot);
   } else {
     if(statusAnterior==='concluido'){
       await reverterConsumoAtendimento(slot);
       toast('Estoque devolvido, pois saiu de Concluído.');
     }
+    registrarTempoStatus(slot, e.target.value);
     slot.statusAtendimento = e.target.value;
     await saveAgenda();
     renderWeek();
@@ -4587,6 +4607,17 @@ function desenharChart(tipo, labels, dataset){
     options:{ plugins:{ legend:{ display: tipo==='pie', position:'bottom' } } }
   });
 }
+function desenharChartComparativo(labels, dataset1, nome1, dataset2, nome2){
+  document.getElementById('chartPrincipal').style.display='block';
+  chartInstances.principal = new Chart(document.getElementById('chartPrincipal'), {
+    type: 'bar',
+    data: { labels: labels.length?labels:['Sem dados'], datasets:[
+      { label: nome1, data: dataset1.length?dataset1:[0], backgroundColor:'#472F7D' },
+      { label: nome2, data: dataset2.length?dataset2:[0], backgroundColor:'#AA426C' }
+    ] },
+    options:{ plugins:{ legend:{ display:true, position:'bottom' } } }
+  });
+}
 function itensNoPeriodo(startIso, endIso){
   let itens = [];
   Object.keys(STATE.agenda).forEach(iso=>{
@@ -4644,6 +4675,27 @@ function renderGraficos(){
       if(isPacoteItem) pacote++; else avulso++;
     });
     desenharChart('pie', ['Avulso','Pacote'], [avulso, pacote]);
+  }
+  else if(tipo==='tempoEstimadoVsReal'){
+    titulo.textContent = 'Tempo estimado vs real por serviço (minutos)';
+    let porServico = {};
+    itens.forEach(s=>{
+      if(s.statusAtendimento!=='concluido' || !s.tempoAtendimentoRealMin) return;
+      const label = servicoLabel(s)||'Outro';
+      if(!porServico[label]) porServico[label] = {estimadoSoma:0, realSoma:0, count:0};
+      porServico[label].estimadoSoma += (s.duracao||60);
+      porServico[label].realSoma += s.tempoAtendimentoRealMin;
+      porServico[label].count++;
+    });
+    const labels = Object.keys(porServico);
+    if(labels.length===0){
+      document.getElementById('chartPrincipal').style.display='none';
+      document.getElementById('graficoListaArea').innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Ainda não tem tempo real registrado nesse período. Marque atendimentos como "Em atendimento" e depois "Concluído" pra começar a coletar esses dados.</div>';
+    } else {
+      const estimadoData = labels.map(l=>Math.round(porServico[l].estimadoSoma/porServico[l].count));
+      const realData = labels.map(l=>Math.round(porServico[l].realSoma/porServico[l].count));
+      desenharChartComparativo(labels, estimadoData, 'Estimado', realData, 'Real');
+    }
   }
   else if(tipo==='pixDinheiro'){
     titulo.textContent = 'Pix vs Dinheiro';
