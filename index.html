@@ -5420,19 +5420,26 @@ function renderFechamento(){
 document.getElementById('fechamentoData').addEventListener('change', renderFechamento);
 document.getElementById('btnFechamentoWhats').addEventListener('click',()=>{
   const iso = document.getElementById('fechamentoData').value || todayISO();
-  let entradas = 0, countEntradas = 0;
+  let entradas = 0, countEntradas = 0, countConcluidos = 0, tempoDeslocamentoTotal = 0;
   ['Fixo','Móvel'].forEach(op=>{
     (STATE.agenda[iso]&&STATE.agenda[iso][op]||[]).forEach(s=>{
-      if(s.tipo==='cliente' && s.pago===true){ entradas += (s.valor||0); countEntradas++; }
+      if(s.tipo!=='cliente') return;
+      if(s.pago===true){ entradas += (s.valor||0); countEntradas++; }
+      if(s.statusAtendimento==='concluido') countConcluidos++;
+      if(s.tempoDeslocamentoRealMin) tempoDeslocamentoTotal += s.tempoDeslocamentoRealMin;
     });
   });
   const despesasDoDia = STATE.despesas.filter(d=>d.pago && d.dataPagamento===iso);
   const saidas = despesasDoDia.reduce((a,d)=>a+d.valor,0);
   const saldo = entradas-saidas;
+  const horasDeslocamento = Math.floor(tempoDeslocamentoTotal/60);
+  const minDeslocamento = tempoDeslocamentoTotal%60;
   const texto = '📊 Fechamento — '+fmtDateFull(new Date(iso+'T00:00:00'))+'\n'+
-    '💰 Entradas: '+formatBRL(entradas)+' ('+countEntradas+' atendimento(s))\n'+
+    '🐾 Atendimentos concluídos: '+countConcluidos+'\n'+
+    '💰 Entradas: '+formatBRL(entradas)+' ('+countEntradas+' pago(s))\n'+
     '💸 Saídas: '+formatBRL(saidas)+' ('+despesasDoDia.length+' despesa(s))\n'+
-    '📌 Saldo do dia: '+formatBRL(saldo);
+    '📌 Saldo do dia: '+formatBRL(saldo)+
+    (tempoDeslocamentoTotal>0 ? ('\n🚐 Tempo em deslocamento: '+(horasDeslocamento>0?(horasDeslocamento+'h '):'')+minDeslocamento+'min') : '');
   window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 });
 document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
