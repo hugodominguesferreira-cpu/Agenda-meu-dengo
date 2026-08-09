@@ -357,6 +357,7 @@
             <span id="digitalClock" style="font-weight:800; font-size:16px; color:var(--roxo-dark); cursor:pointer;" title="Toque pra trocar 12h/24h">--:--</span>
             <div id="weatherWidget" style="display:none; align-items:center; gap:4px; font-size:11px; color:var(--muted);"></div>
           </div>
+          <button id="btnSos" title="SOS" style="background:none; border:none; color:var(--full); font-size:18px; padding:2px;">🆘</button>
           <button id="btnSairTopo" title="Sair" style="background:none; border:none; color:var(--full); font-size:18px; padding:2px;">🚪</button>
         </div>
         <div id="dashGreeting"></div>
@@ -407,6 +408,15 @@
       <div class="card carddash" id="dashTarefasCard" style="display:none;">
         <h3>✅ Tarefas pendentes</h3>
         <div id="dashTarefas"></div>
+      </div>
+      <div class="card carddash" id="dashRevisaoPrecoCard" style="display:none;">
+        <h3>💲 Hora de revisar seus preços?</h3>
+        <p class="footer-note" style="text-align:left; padding:0; margin-bottom:8px;">Já faz mais de um ano desde a última revisão dos valores dos seus serviços. Vale conferir se ainda fazem sentido.</p>
+        <button class="btn btn-ghost btn-block" id="btnRevisaoPrecoFeita">Já revisei, lembrar de novo em 1 ano</button>
+      </div>
+      <div class="card carddash" id="dashResumoSemanalCard" style="display:none;">
+        <h3>📊 É sábado! Que tal mandar o resumo da semana?</h3>
+        <button class="btn btn-ghost btn-block" id="btnResumoSemanalHomeBtn">📤 Enviar resumo da semana por WhatsApp</button>
       </div>
     </section>
 
@@ -574,6 +584,7 @@
         <input type="date" id="fechamentoData">
         <div id="fechamentoResumo" style="margin-top:10px;"></div>
         <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnFechamentoWhats">📤 Enviar fechamento por WhatsApp</button>
+        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnResumoSemanalWhats">📊 Enviar resumo da semana por WhatsApp</button>
       </div>
 
       <div class="card">
@@ -750,6 +761,8 @@
           <button class="temaBtn" data-tema="4"><div class="temaSwatch"><div style="background:#3E4A6B;"></div><div style="background:#232B42;"></div></div><span class="temaLabel">Sóbrio</span></button>
           <button class="temaBtn" data-tema="5"><div class="temaSwatch"><div style="background:#2E6FA3;"></div><div style="background:#1B3A5C;"></div></div><span class="temaLabel">Azul</span></button>
           <button class="temaBtn" data-tema="6"><div class="temaSwatch"><div style="background:#1A1620;"></div><div style="background:#8A63C4;"></div></div><span class="temaLabel">🌙 Modo escuro</span></button>
+          <hr class="divider">
+          <label><input type="checkbox" id="modoNoturnoAuto"> 🌙 Ativar modo escuro automaticamente à noite (19h–7h)</label>
         </div>
       </div>
     </div>
@@ -1053,6 +1066,7 @@
             </optgroup>
             <optgroup label="Pets">
               <option value="machoFemea">Macho vs Fêmea</option>
+              <option value="racaMaisAtendida">Banhos por raça</option>
             </optgroup>
             <optgroup label="Estoque">
               <option value="itemMaisUsado">Item mais usado</option>
@@ -1292,6 +1306,18 @@
       <button class="btn btn-ghost btn-block" id="dWhatsAbrir">Só abrir o chat</button>
       <button class="btn btn-ghost btn-block" style="margin-top:6px;" id="dWhatsModelo">Enviar mensagem pré-escrita</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: SOS -->
+<div class="modal-bg" id="sosModalBg">
+  <div class="modal">
+    <h3 style="margin-top:0; color:var(--full);">🆘 Emergência</h3>
+    <p class="footer-note" style="text-align:left; padding:0; margin-bottom:12px;">Escolha uma opção rápida:</p>
+    <button class="btn btn-ghost btn-block" id="sosLigarSamu">🚑 Ligar SAMU (192)</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="sosLigarPolicia">🚓 Ligar Polícia (190)</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="sosCompartilharLocal">📍 Compartilhar minha localização</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="sosFechar">Fechar</button>
   </div>
 </div>
 
@@ -1697,8 +1723,18 @@ async function loadAll(){
     document.getElementById('headerLogoPh').style.display='none';
   }
   document.getElementById('headerBrandName').textContent = STATE.config.nomeEmpresa || 'Meu Dengo';
-  applyTema(STATE.config.tema||1);
+  aplicarTemaComModoNoturno();
 }
+function aplicarTemaComModoNoturno(){
+  if(STATE.config.modoNoturnoAuto){
+    const hora = new Date().getHours();
+    const éNoite = hora>=19 || hora<7;
+    applyTema(éNoite ? 6 : (STATE.config.tema||1));
+  } else {
+    applyTema(STATE.config.tema||1);
+  }
+}
+setInterval(()=>{ if(STATE.config) aplicarTemaComModoNoturno(); }, 5*60*1000);
 function applyTema(n){
   document.body.classList.remove('theme2','theme3','theme4','theme5','theme6');
   if(n===2) document.body.classList.add('theme2');
@@ -1889,6 +1925,33 @@ document.getElementById('btnResetPeriodoConfirmar').addEventListener('click', as
 function applyPermissions(){
   renderBottomNav();
 }
+document.getElementById('btnRevisaoPrecoFeita').addEventListener('click', async ()=>{
+  STATE.config.ultimaRevisaoPrecos = todayISO();
+  await saveConfig();
+  document.getElementById('dashRevisaoPrecoCard').style.display='none';
+  toast('Combinado, te lembro de novo daqui um ano!');
+});
+document.getElementById('btnSos').addEventListener('click', ()=>{
+  document.getElementById('sosModalBg').classList.add('show');
+});
+document.getElementById('sosFechar').addEventListener('click', ()=>{
+  document.getElementById('sosModalBg').classList.remove('show');
+});
+document.getElementById('sosLigarSamu').addEventListener('click', ()=>{
+  window.open('tel:192', '_self');
+});
+document.getElementById('sosLigarPolicia').addEventListener('click', ()=>{
+  window.open('tel:190', '_self');
+});
+document.getElementById('sosCompartilharLocal').addEventListener('click', ()=>{
+  if(!navigator.geolocation){ toast('Localização não disponível nesse aparelho.'); return; }
+  navigator.geolocation.getCurrentPosition((pos)=>{
+    const link = 'https://www.google.com/maps?q='+pos.coords.latitude+','+pos.coords.longitude;
+    const texto = '🆘 Preciso de ajuda, essa é minha localização atual: '+link;
+    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+    document.getElementById('sosModalBg').classList.remove('show');
+  }, ()=>{ toast('Não consegui pegar sua localização agora.'); });
+});
 document.getElementById('btnSairTopo').addEventListener('click', ()=>{
   localStorage.removeItem('md_currentUser');
   currentUser = null;
@@ -2351,6 +2414,23 @@ function renderDashboard(){
       }).join('');
     } else { tarefasCard.style.display='none'; }
   } else { tarefasCard.style.display='none'; }
+
+  // ---------- REVISÃO ANUAL DE PREÇOS ----------
+  const revisaoCard = document.getElementById('dashRevisaoPrecoCard');
+  if(isAdmin){
+    if(!STATE.config.ultimaRevisaoPrecos){
+      STATE.config.ultimaRevisaoPrecos = todayISO();
+      saveConfig();
+      revisaoCard.style.display='none';
+    } else {
+      const diasDesde = Math.round((new Date(todayISO()+'T00:00:00')-new Date(STATE.config.ultimaRevisaoPrecos+'T00:00:00'))/86400000);
+      revisaoCard.style.display = diasDesde>=365 ? 'block' : 'none';
+    }
+  } else { revisaoCard.style.display='none'; }
+
+  // ---------- RESUMO SEMANAL (SÁBADO) ----------
+  const resumoSemanalCard = document.getElementById('dashResumoSemanalCard');
+  resumoSemanalCard.style.display = (isAdmin && new Date().getDay()===6) ? 'block' : 'none';
 
   // ---------- ROTA DO DIA (PET MÓVEL) ----------
   const rotaBtn = document.getElementById('btnRotaDash');
@@ -4638,7 +4718,7 @@ function renderGraficos(){
   limparGraficoAnterior();
   const titulo = document.getElementById('graficoTitulo');
   const toggleWrap = document.getElementById('graficoVisualToggle');
-  const isRanking = ['itemMaisUsado','shampooMaisUsado','rankingClientes'].includes(tipo);
+  const isRanking = ['itemMaisUsado','shampooMaisUsado','rankingClientes','racaMaisAtendida'].includes(tipo);
   toggleWrap.style.display = isRanking ? 'flex' : 'none';
 
   if(tipo==='receitaServico'){
@@ -4736,6 +4816,28 @@ function renderGraficos(){
     let macho=0, femea=0;
     STATE.pets.forEach(p=>{ if(p.sexo==='Macho') macho++; else if(p.sexo==='Fêmea') femea++; });
     desenharChart('pie', ['Macho','Fêmea'], [macho, femea]);
+  }
+  else if(tipo==='racaMaisAtendida'){
+    titulo.textContent = 'Banhos por raça';
+    let porRaca = {};
+    itens.forEach(s=>{
+      if(s.statusAtendimento!=='concluido') return;
+      const p = getPet(s.petId);
+      const raca = (p && p.breed) ? p.breed : 'Não informada';
+      porRaca[raca] = (porRaca[raca]||0)+1;
+    });
+    const lista = Object.entries(porRaca).map(([nome,qtd])=>({nome,qtd})).sort((a,b)=>b.qtd-a.qtd);
+    if(graficoVisual==='grafico'){
+      desenharChart('bar', lista.map(it=>it.nome), lista.map(it=>it.qtd));
+    } else {
+      const area = document.getElementById('graficoListaArea');
+      if(lista.length===0){ area.innerHTML='<div class="footer-note" style="text-align:left; padding:0;">Nenhum atendimento concluído nesse período.</div>'; }
+      else{
+        area.innerHTML = lista.map((it,idx)=>
+          '<div class="penditem"><span>'+(idx+1)+'º '+it.nome+'</span><span>'+it.qtd+' banho(s)</span></div>'
+        ).join('');
+      }
+    }
   }
   else if(tipo==='itemMaisUsado' || tipo==='shampooMaisUsado'){
     titulo.textContent = tipo==='itemMaisUsado' ? 'Item mais usado' : 'Shampoo mais usado';
@@ -5264,6 +5366,9 @@ function renderConfigForm(){
   const metaMensalEl = document.getElementById('perfilMetaMensal');
   metaMensalEl.value = STATE.config.metaMensal || '';
   metaMensalEl.onchange = async ()=>{ STATE.config.metaMensal = parseFloat(metaMensalEl.value)||0; await saveConfig(); renderDashboard(); toast('Salvo!'); };
+  const modoNoturnoEl = document.getElementById('modoNoturnoAuto');
+  modoNoturnoEl.checked = !!STATE.config.modoNoturnoAuto;
+  modoNoturnoEl.onchange = async ()=>{ STATE.config.modoNoturnoAuto = modoNoturnoEl.checked; await saveConfig(); aplicarTemaComModoNoturno(); toast('Salvo!'); };
   document.querySelectorAll('.temaBtn').forEach(b=>{
     b.classList.toggle('selected', parseInt(b.dataset.tema)===STATE.config.tema);
     b.onclick = async ()=>{
@@ -5442,7 +5547,35 @@ document.getElementById('btnFechamentoWhats').addEventListener('click',()=>{
     (tempoDeslocamentoTotal>0 ? ('\n🚐 Tempo em deslocamento: '+(horasDeslocamento>0?(horasDeslocamento+'h '):'')+minDeslocamento+'min') : '');
   window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 });
-document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
+function enviarResumoSemanal(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const inicioSemana = new Date(hoje); inicioSemana.setDate(inicioSemana.getDate()-inicioSemana.getDay());
+  const fimSemana = new Date(inicioSemana); fimSemana.setDate(fimSemana.getDate()+6);
+  const inicioIso = toISO(inicioSemana), fimIso = toISO(fimSemana);
+  let entradas=0, countConcluidos=0, tempoDeslocamentoTotal=0;
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(iso<inicioIso || iso>fimIso) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente') return;
+        if(s.pago===true) entradas += (s.valor||0);
+        if(s.statusAtendimento==='concluido') countConcluidos++;
+        if(s.tempoDeslocamentoRealMin) tempoDeslocamentoTotal += s.tempoDeslocamentoRealMin;
+      });
+    });
+  });
+  const saidas = STATE.despesas.filter(d=>d.pago && d.dataPagamento>=inicioIso && d.dataPagamento<=fimIso).reduce((a,d)=>a+d.valor,0);
+  const horas = Math.floor(tempoDeslocamentoTotal/60), min = tempoDeslocamentoTotal%60;
+  const texto = '📊 Resumo da semana — '+fmtDateFull(inicioSemana)+' a '+fmtDateFull(fimSemana)+'\n'+
+    '🐾 Atendimentos concluídos: '+countConcluidos+'\n'+
+    '💰 Faturamento: '+formatBRL(entradas)+'\n'+
+    '💸 Despesas pagas: '+formatBRL(saidas)+'\n'+
+    '📌 Saldo da semana: '+formatBRL(entradas-saidas)+
+    (tempoDeslocamentoTotal>0 ? ('\n🚐 Tempo total em deslocamento: '+(horas>0?(horas+'h '):'')+min+'min') : '');
+  window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+}
+document.getElementById('btnResumoSemanalWhats').addEventListener('click', enviarResumoSemanal);
+document.getElementById('btnResumoSemanalHomeBtn').addEventListener('click', enviarResumoSemanal);
 document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
 
 // ---------- COMPARATIVO MÊS A MÊS ----------
