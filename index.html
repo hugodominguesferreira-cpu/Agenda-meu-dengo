@@ -411,7 +411,7 @@
       </div>
       <div class="card carddash" id="dashRevisaoPrecoCard" style="display:none;">
         <h3>💲 Hora de revisar seus preços?</h3>
-        <p class="footer-note" style="text-align:left; padding:0; margin-bottom:8px;">Já faz mais de um ano desde a última revisão dos valores dos seus serviços. Vale conferir se ainda fazem sentido.</p>
+        <p class="footer-note" style="text-align:left; padding:0; margin-bottom:8px;">Chegou a data que você escolheu pra rever os valores dos seus serviços. Esse é só um lembrete — o sistema não calcula reajuste sozinho, a decisão de quanto ajustar é toda sua.</p>
         <button class="btn btn-ghost btn-block" id="btnRevisaoPrecoFeita">Já revisei, lembrar de novo em 1 ano</button>
       </div>
       <div class="card carddash" id="dashResumoSemanalCard" style="display:none;">
@@ -584,7 +584,16 @@
         <input type="date" id="fechamentoData">
         <div id="fechamentoResumo" style="margin-top:10px;"></div>
         <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnFechamentoWhats">📤 Enviar fechamento por WhatsApp</button>
-        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnResumoSemanalWhats">📊 Enviar resumo da semana por WhatsApp</button>
+      </div>
+
+      <div class="card">
+        <h3>📊 Resumo semanal</h3>
+        <div class="monthnav">
+          <button id="resumoSemanaPrevBtn">‹</button>
+          <span id="resumoSemanaLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
+          <button id="resumoSemanaNextBtn">›</button>
+        </div>
+        <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnResumoSemanalWhats">📤 Enviar resumo dessa semana por WhatsApp</button>
       </div>
 
       <div class="card">
@@ -749,6 +758,12 @@
           <input id="perfilCnpj" placeholder="00.000.000/0000-00">
           <label>Meta mensal de faturamento (R$)</label>
           <input type="number" id="perfilMetaMensal" min="0" step="50" placeholder="Ex: 5000">
+          <label>🆘 Telefone de emergência (usado no botão SOS)</label>
+          <input id="perfilTelEmergencia" placeholder="DDD + número">
+          <p class="footer-note" style="margin:0 0 4px; text-align:left;">Quando cadastrado, "Compartilhar localização" no SOS manda direto pra esse número, sem precisar escolher.</p>
+          <label>📅 Próxima revisão de preços (você escolhe a data)</label>
+          <input type="date" id="perfilProximaRevisaoPrecos">
+          <p class="footer-note" style="margin:0 0 4px; text-align:left;">Só um lembrete na Home nessa data — o sistema não calcula nenhum percentual de reajuste, isso fica por sua conta.</p>
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="saveConfigBtn">Salvar logo</button>
           <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
         </div>
@@ -1926,10 +1941,12 @@ function applyPermissions(){
   renderBottomNav();
 }
 document.getElementById('btnRevisaoPrecoFeita').addEventListener('click', async ()=>{
-  STATE.config.ultimaRevisaoPrecos = todayISO();
+  const base = new Date(todayISO()+'T00:00:00');
+  base.setFullYear(base.getFullYear()+1);
+  STATE.config.proximaRevisaoPrecos = toISO(base);
   await saveConfig();
   document.getElementById('dashRevisaoPrecoCard').style.display='none';
-  toast('Combinado, te lembro de novo daqui um ano!');
+  toast('Combinado, te lembro em '+fmtDateFull(base)+'! Pode ajustar a data em Configurações se quiser.');
 });
 document.getElementById('btnSos').addEventListener('click', ()=>{
   document.getElementById('sosModalBg').classList.add('show');
@@ -1948,7 +1965,9 @@ document.getElementById('sosCompartilharLocal').addEventListener('click', ()=>{
   navigator.geolocation.getCurrentPosition((pos)=>{
     const link = 'https://www.google.com/maps?q='+pos.coords.latitude+','+pos.coords.longitude;
     const texto = '🆘 Preciso de ajuda, essa é minha localização atual: '+link;
-    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+    const tel = (STATE.config.telefoneEmergencia||'').replace(/\D/g,'');
+    const url = tel ? ('https://wa.me/55'+tel+'?text='+encodeURIComponent(texto)) : ('https://wa.me/?text='+encodeURIComponent(texto));
+    window.open(url, '_blank');
     document.getElementById('sosModalBg').classList.remove('show');
   }, ()=>{ toast('Não consegui pegar sua localização agora.'); });
 });
@@ -2418,13 +2437,10 @@ function renderDashboard(){
   // ---------- REVISÃO ANUAL DE PREÇOS ----------
   const revisaoCard = document.getElementById('dashRevisaoPrecoCard');
   if(isAdmin){
-    if(!STATE.config.ultimaRevisaoPrecos){
-      STATE.config.ultimaRevisaoPrecos = todayISO();
-      saveConfig();
+    if(!STATE.config.proximaRevisaoPrecos){
       revisaoCard.style.display='none';
     } else {
-      const diasDesde = Math.round((new Date(todayISO()+'T00:00:00')-new Date(STATE.config.ultimaRevisaoPrecos+'T00:00:00'))/86400000);
-      revisaoCard.style.display = diasDesde>=365 ? 'block' : 'none';
+      revisaoCard.style.display = todayISO()>=STATE.config.proximaRevisaoPrecos ? 'block' : 'none';
     }
   } else { revisaoCard.style.display='none'; }
 
@@ -5369,6 +5385,12 @@ function renderConfigForm(){
   const modoNoturnoEl = document.getElementById('modoNoturnoAuto');
   modoNoturnoEl.checked = !!STATE.config.modoNoturnoAuto;
   modoNoturnoEl.onchange = async ()=>{ STATE.config.modoNoturnoAuto = modoNoturnoEl.checked; await saveConfig(); aplicarTemaComModoNoturno(); toast('Salvo!'); };
+  const telEmergenciaEl = document.getElementById('perfilTelEmergencia');
+  telEmergenciaEl.value = STATE.config.telefoneEmergencia || '';
+  telEmergenciaEl.onchange = async ()=>{ STATE.config.telefoneEmergencia = telEmergenciaEl.value.trim(); await saveConfig(); toast('Salvo!'); };
+  const proximaRevisaoEl = document.getElementById('perfilProximaRevisaoPrecos');
+  proximaRevisaoEl.value = STATE.config.proximaRevisaoPrecos || '';
+  proximaRevisaoEl.onchange = async ()=>{ STATE.config.proximaRevisaoPrecos = proximaRevisaoEl.value; await saveConfig(); renderDashboard(); toast('Salvo!'); };
   document.querySelectorAll('.temaBtn').forEach(b=>{
     b.classList.toggle('selected', parseInt(b.dataset.tema)===STATE.config.tema);
     b.onclick = async ()=>{
@@ -5547,9 +5569,21 @@ document.getElementById('btnFechamentoWhats').addEventListener('click',()=>{
     (tempoDeslocamentoTotal>0 ? ('\n🚐 Tempo em deslocamento: '+(horasDeslocamento>0?(horasDeslocamento+'h '):'')+minDeslocamento+'min') : '');
   window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 });
-function enviarResumoSemanal(){
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const inicioSemana = new Date(hoje); inicioSemana.setDate(inicioSemana.getDate()-inicioSemana.getDay());
+let resumoSemanaDate = new Date();
+function getInicioSemana(d){
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  dt.setDate(dt.getDate()-dt.getDay());
+  return dt;
+}
+function renderResumoSemanaLabel(){
+  const inicioSemana = getInicioSemana(resumoSemanaDate);
+  const fimSemana = new Date(inicioSemana); fimSemana.setDate(fimSemana.getDate()+6);
+  document.getElementById('resumoSemanaLabel').textContent = fmtDatePt(inicioSemana)+' a '+fmtDatePt(fimSemana);
+}
+document.getElementById('resumoSemanaPrevBtn').addEventListener('click',()=>{ resumoSemanaDate.setDate(resumoSemanaDate.getDate()-7); renderResumoSemanaLabel(); });
+document.getElementById('resumoSemanaNextBtn').addEventListener('click',()=>{ resumoSemanaDate.setDate(resumoSemanaDate.getDate()+7); renderResumoSemanaLabel(); });
+function enviarResumoSemanal(dataBase){
+  const inicioSemana = getInicioSemana(dataBase||resumoSemanaDate);
   const fimSemana = new Date(inicioSemana); fimSemana.setDate(fimSemana.getDate()+6);
   const inicioIso = toISO(inicioSemana), fimIso = toISO(fimSemana);
   let entradas=0, countConcluidos=0, tempoDeslocamentoTotal=0;
@@ -5578,8 +5612,8 @@ function enviarResumoSemanal(){
     (tempoDeslocamentoTotal>0 ? ('\n🚐 Tempo total em deslocamento: '+(horas>0?(horas+'h '):'')+min+'min') : '');
   window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 }
-document.getElementById('btnResumoSemanalWhats').addEventListener('click', enviarResumoSemanal);
-document.getElementById('btnResumoSemanalHomeBtn').addEventListener('click', enviarResumoSemanal);
+document.getElementById('btnResumoSemanalWhats').addEventListener('click', ()=>enviarResumoSemanal(resumoSemanaDate));
+document.getElementById('btnResumoSemanalHomeBtn').addEventListener('click', ()=>enviarResumoSemanal(new Date()));
 document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
 
 // ---------- COMPARATIVO MÊS A MÊS ----------
@@ -6075,6 +6109,7 @@ async function renderFinanceiro(){
   await autoGeneratePackageCobrancas();
   await generateQuantityPackages();
   renderFechamento();
+  renderResumoSemanaLabel();
   renderRelatorioMensal();
   const groups = collectPendencias();
   let totalPend=0;
