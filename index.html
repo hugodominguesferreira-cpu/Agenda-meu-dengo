@@ -3250,7 +3250,14 @@ document.querySelectorAll('.detailRow[data-expand]').forEach(row=>{
     const abrindo = expandEl.style.display!=='block';
     document.querySelectorAll('.detailRowExpand').forEach(e=>e.style.display='none');
     document.querySelectorAll('.detailRow[data-expand]').forEach(r=>r.classList.remove('expanded'));
-    if(abrindo){ expandEl.style.display='block'; row.classList.add('expanded'); }
+    if(abrindo){
+      expandEl.style.display='block';
+      row.classList.add('expanded');
+      if(row.dataset.expand==='dExpandStatus'){
+        const sel = document.getElementById('dStatus');
+        try{ if(sel.showPicker) sel.showPicker(); else sel.click(); }catch(e){ sel.click(); }
+      }
+    }
   });
 });
 document.getElementById('dRowCobranca').addEventListener('click',()=>{
