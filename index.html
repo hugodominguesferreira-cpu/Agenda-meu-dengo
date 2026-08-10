@@ -764,6 +764,9 @@
           <label>📅 Próxima revisão de preços (você escolhe a data)</label>
           <input type="date" id="perfilProximaRevisaoPrecos">
           <p class="footer-note" style="margin:0 0 4px; text-align:left;">Só um lembrete na Home nessa data — o sistema não calcula nenhum percentual de reajuste, isso fica por sua conta.</p>
+          <label>🚐 Endereço da base (de onde sai todo dia com o Pet Móvel)</label>
+          <input id="perfilEnderecoBase" placeholder="Rua, número, bairro, cidade">
+          <p class="footer-note" style="margin:0 0 4px; text-align:left;">A "Rota do dia" vai começar sempre a partir desse endereço.</p>
           <button class="btn btn-primary btn-block" style="margin-top:10px;" id="saveConfigBtn">Salvar logo</button>
           <p class="footer-note">Os demais campos salvam sozinhos ao editar.</p>
         </div>
@@ -1324,6 +1327,25 @@
   </div>
 </div>
 
+<!-- MODAL: Editor de foto -->
+<div class="modal-bg" id="fotoEditorModalBg">
+  <div class="modal">
+    <h3 style="margin-top:0;">✂️ Editar foto</h3>
+    <div style="display:flex; justify-content:center; margin:10px 0;">
+      <div id="fotoEditorWrap" style="width:280px; height:280px; border-radius:50%; overflow:hidden; touch-action:none; background:#111; position:relative;">
+        <canvas id="fotoEditorCanvas" width="280" height="280" style="display:block;"></canvas>
+      </div>
+    </div>
+    <label>🔍 Zoom</label>
+    <input type="range" id="fotoEditorZoom" min="100" max="300" value="100" style="width:100%;">
+    <p class="footer-note" style="text-align:center; padding:0; margin-top:4px;">Arraste a foto pra reposicionar</p>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn btn-ghost btn-block" id="fotoEditorCancelar">Cancelar</button>
+      <button class="btn btn-primary btn-block" id="fotoEditorSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: SOS -->
 <div class="modal-bg" id="sosModalBg">
   <div class="modal">
@@ -1525,8 +1547,11 @@
     <label>Foto do dog</label>
     <label for="pFoto" class="btn btn-ghost btn-block" style="cursor:pointer; text-align:center; box-sizing:border-box;">📷 Escolher foto</label>
     <input type="file" accept="image/*" id="pFoto" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
-    <img id="pFotoPreview" class="photopreview" style="display:none; width:120px; height:120px; cursor:grab;">
-    <p class="footer-note" id="pFotoDica" style="display:none;">Arraste a foto pra ajustar o enquadramento</p>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <img id="pFotoPreview" class="photopreview" style="display:none; width:120px; height:120px; cursor:grab;">
+      <button type="button" class="btn btn-ghost" id="pFotoEditarBtn" style="display:none; flex:1;">✂️ Editar foto</button>
+    </div>
+    <p class="footer-note" id="pFotoDica" style="display:none;">Arraste a foto pra ajustar o enquadramento, ou toque em "Editar foto" pra cortar e aproximar</p>
     <div class="row">
       <div><label>Nome</label><input id="pNome"></div>
       <div><label>Raça</label><input id="pRaca"></div>
@@ -2462,7 +2487,8 @@ function renderDashboard(){
     }).join('');
     document.getElementById('btnAbrirRotaMaps').onclick = ()=>{
       if(enderecos.length===0){ toast('Nenhum endereço cadastrado pra esses clientes'); return; }
-      const url = 'https://www.google.com/maps/dir/'+enderecos.map(e=>encodeURIComponent(e)).join('/');
+      const pontos = STATE.config.enderecoBase ? [STATE.config.enderecoBase].concat(enderecos) : enderecos;
+      const url = 'https://www.google.com/maps/dir/'+pontos.map(e=>encodeURIComponent(e)).join('/');
       window.open(url,'_blank');
     };
   } else { rotaBtn.style.display='none'; }
@@ -4123,8 +4149,8 @@ function openPetModal(id){
   const posX = p&&p.fotoPosX!=null ? p.fotoPosX : 50;
   const posY = p&&p.fotoPosY!=null ? p.fotoPosY : 50;
   preview.style.objectPosition = posX+'% '+posY+'%';
-  if(p&&p.photo){ preview.src=p.photo; preview.style.display='block'; document.getElementById('pFotoDica').style.display='block'; }
-  else{ preview.style.display='none'; document.getElementById('pFotoDica').style.display='none'; }
+  if(p&&p.photo){ preview.src=p.photo; preview.style.display='block'; document.getElementById('pFotoDica').style.display='block'; document.getElementById('pFotoEditarBtn').style.display='block'; document.getElementById('pFoto').dataset.original=p.photo; }
+  else{ preview.style.display='none'; document.getElementById('pFotoDica').style.display='none'; document.getElementById('pFotoEditarBtn').style.display='none'; document.getElementById('pFoto').dataset.original=''; }
   renderBehaviorGrid(p?p.comportamento:[]);
   document.getElementById('petModalBg').classList.add('show');
 }
@@ -4162,22 +4188,76 @@ document.getElementById('lightboxBg').addEventListener('click',()=>document.getE
     if(!moved) openLightbox(preview.src);
   });
 })();
+let fotoEditorImg = null, fotoEditorScale = 1, fotoEditorOffsetX = 0, fotoEditorOffsetY = 0, fotoEditorBaseScale = 1;
+function abrirFotoEditor(srcDataUrl){
+  const img = new Image();
+  img.onload = ()=>{
+    fotoEditorImg = img;
+    fotoEditorBaseScale = Math.max(280/img.width, 280/img.height);
+    fotoEditorScale = 1; fotoEditorOffsetX = 0; fotoEditorOffsetY = 0;
+    document.getElementById('fotoEditorZoom').value = 100;
+    desenharFotoEditor();
+    document.getElementById('fotoEditorModalBg').classList.add('show');
+  };
+  img.src = srcDataUrl;
+}
+function desenharFotoEditor(){
+  const canvas = document.getElementById('fotoEditorCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,280,280);
+  const escalaTotal = fotoEditorBaseScale * fotoEditorScale;
+  const w = fotoEditorImg.width*escalaTotal, h = fotoEditorImg.height*escalaTotal;
+  ctx.drawImage(fotoEditorImg, 140-w/2+fotoEditorOffsetX, 140-h/2+fotoEditorOffsetY, w, h);
+}
+document.getElementById('fotoEditorZoom').addEventListener('input',(e)=>{
+  fotoEditorScale = parseInt(e.target.value)/100;
+  desenharFotoEditor();
+});
+(function(){
+  const wrap = document.getElementById('fotoEditorWrap');
+  let dragging=false, startX=0, startY=0, startOffX=0, startOffY=0;
+  wrap.addEventListener('pointerdown',(e)=>{
+    dragging=true; startX=e.clientX; startY=e.clientY;
+    startOffX=fotoEditorOffsetX; startOffY=fotoEditorOffsetY;
+  });
+  window.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    fotoEditorOffsetX = startOffX + (e.clientX-startX);
+    fotoEditorOffsetY = startOffY + (e.clientY-startY);
+    desenharFotoEditor();
+  });
+  window.addEventListener('pointerup',()=>{ dragging=false; });
+})();
+document.getElementById('fotoEditorCancelar').addEventListener('click',()=>{
+  document.getElementById('fotoEditorModalBg').classList.remove('show');
+});
+document.getElementById('fotoEditorSalvar').addEventListener('click',()=>{
+  const dataUrl = document.getElementById('fotoEditorCanvas').toDataURL('image/jpeg', 0.85);
+  document.getElementById('pFotoPreview').src = dataUrl;
+  document.getElementById('pFotoPreview').style.display='block';
+  document.getElementById('pFotoPreview').style.objectPosition='50% 50%';
+  document.getElementById('pFotoDica').style.display='block';
+  document.getElementById('pFotoEditarBtn').style.display='block';
+  document.getElementById('pFoto').dataset.value = dataUrl;
+  document.getElementById('pFoto').dataset.original = fotoEditorImg.src;
+  document.getElementById('fotoEditorModalBg').classList.remove('show');
+});
+document.getElementById('pFotoEditarBtn').addEventListener('click',()=>{
+  const original = document.getElementById('pFoto').dataset.original || document.getElementById('pFoto').dataset.value;
+  if(original) abrirFotoEditor(original);
+});
 document.getElementById('pFoto').addEventListener('change',(e)=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=(ev)=>{
     const img=new Image();
     img.onload=()=>{
-      const maxDim=220; let w=img.width,h=img.height;
+      const maxDim=800; let w=img.width,h=img.height;
       if(w>h){ if(w>maxDim){h*=maxDim/w; w=maxDim;} } else { if(h>maxDim){w*=maxDim/h; h=maxDim;} }
       const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const dataUrl=canvas.toDataURL('image/jpeg',0.75);
-      document.getElementById('pFotoPreview').src=dataUrl;
-      document.getElementById('pFotoPreview').style.display='block';
-      document.getElementById('pFotoPreview').style.objectPosition='50% 50%';
-      document.getElementById('pFotoDica').style.display='block';
-      document.getElementById('pFoto').dataset.value=dataUrl;
+      document.getElementById('pFoto').dataset.original = canvas.toDataURL('image/jpeg',0.85);
+      abrirFotoEditor(document.getElementById('pFoto').dataset.original);
     };
     img.src=ev.target.result;
   };
@@ -5398,6 +5478,9 @@ function renderConfigForm(){
   const proximaRevisaoEl = document.getElementById('perfilProximaRevisaoPrecos');
   proximaRevisaoEl.value = STATE.config.proximaRevisaoPrecos || '';
   proximaRevisaoEl.onchange = async ()=>{ STATE.config.proximaRevisaoPrecos = proximaRevisaoEl.value; await saveConfig(); renderDashboard(); toast('Salvo!'); };
+  const enderecoBaseEl = document.getElementById('perfilEnderecoBase');
+  enderecoBaseEl.value = STATE.config.enderecoBase || '';
+  enderecoBaseEl.onchange = async ()=>{ STATE.config.enderecoBase = enderecoBaseEl.value.trim(); await saveConfig(); toast('Salvo!'); };
   document.querySelectorAll('.temaBtn').forEach(b=>{
     b.classList.toggle('selected', parseInt(b.dataset.tema)===STATE.config.tema);
     b.onclick = async ()=>{
