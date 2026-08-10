@@ -5554,13 +5554,17 @@ function enviarResumoSemanal(){
   const inicioIso = toISO(inicioSemana), fimIso = toISO(fimSemana);
   let entradas=0, countConcluidos=0, tempoDeslocamentoTotal=0;
   Object.keys(STATE.agenda).forEach(iso=>{
-    if(iso<inicioIso || iso>fimIso) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
         if(s.tipo!=='cliente') return;
-        if(s.pago===true) entradas += (s.valor||0);
-        if(s.statusAtendimento==='concluido') countConcluidos++;
-        if(s.tempoDeslocamentoRealMin) tempoDeslocamentoTotal += s.tempoDeslocamentoRealMin;
+        if(iso>=inicioIso && iso<=fimIso){
+          if(s.statusAtendimento==='concluido') countConcluidos++;
+          if(s.tempoDeslocamentoRealMin) tempoDeslocamentoTotal += s.tempoDeslocamentoRealMin;
+        }
+        if(s.pago===true){
+          const dataPag = s.dataPagamento || iso;
+          if(dataPag>=inicioIso && dataPag<=fimIso) entradas += (s.valor||0);
+        }
       });
     });
   });
