@@ -3203,7 +3203,8 @@ function renderDServicosList(){
 }
 function salvarServicosDetalhe(){
   const checked = dSelectedServicos.slice();
-  applyWithScope(slot=>{ slot.servicos = checked; slot.servico = checked.join(' + '); }, 'Serviço atualizado!');
+  const novoValor = checked.reduce((a,nome)=>{ const s=getService(nome); return a+(s?s.price:0); },0);
+  applyWithScope(slot=>{ slot.servicos = checked; slot.servico = checked.join(' + '); slot.valor = novoValor; }, 'Serviço atualizado!');
 }
 document.getElementById('dServicoAddBtn').addEventListener('click',()=>{
   const val = document.getElementById('dServicoAdd').value;
@@ -4352,18 +4353,21 @@ function fillMsgPreview(){
   const servico = document.getElementById('msgServico').value;
   const valor = document.getElementById('msgValor').value;
   const valorPacote = t ? valorPacotePendenteTutor(t.id) : 0;
+  const nomePet = msgPetNomeOverride || (p?p.name:'');
   let text = tpl ? tpl.text : '';
   text = text.replaceAll('{tutor}', t?t.name:'')
-             .replaceAll('{pet}', p?p.name:'')
+             .replaceAll('{pet}', nomePet)
              .replaceAll('{servico}', servico||'')
              .replaceAll('{valor_pacote}', formatBRL(valorPacote))
              .replaceAll('{pacote}', t?pacoteStatusTutor(t.id):'')
              .replaceAll('{valor}', valor?parseFloat(valor).toFixed(2).replace('.', ','):'0,00');
   document.getElementById('msgPreview').value = text;
 }
-function openMsgModal(tutorId, defaultPetId){
+let msgPetNomeOverride = null;
+function openMsgModal(tutorId, defaultPetId, override){
   if(STATE.config.templates.length===0){ toast('Cadastre um modelo de mensagem em Configurações primeiro'); return; }
   msgModalTutorId = tutorId;
+  msgPetNomeOverride = override && override.petNomeOverride ? override.petNomeOverride : null;
   const tplSel = document.getElementById('msgTemplate');
   tplSel.innerHTML='';
   STATE.config.templates.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; tplSel.appendChild(o); });
@@ -4377,7 +4381,13 @@ function openMsgModal(tutorId, defaultPetId){
   const msgServicoSel = document.getElementById('msgServico');
   msgServicoSel.innerHTML='';
   STATE.config.services.forEach(s=>{ const o=document.createElement('option'); o.textContent=s.name; msgServicoSel.appendChild(o); });
-  if(STATE.config.services[0]) document.getElementById('msgValor').value = STATE.config.services[0].price;
+  if(override && override.servico){
+    const opt = document.createElement('option');
+    opt.textContent = override.servico; opt.value = override.servico;
+    msgServicoSel.insertBefore(opt, msgServicoSel.firstChild);
+    msgServicoSel.value = override.servico;
+    document.getElementById('msgValor').value = override.valor;
+  } else if(STATE.config.services[0]) document.getElementById('msgValor').value = STATE.config.services[0].price;
 
   fillMsgPreview();
   document.getElementById('msgModalBg').classList.add('show');
@@ -4386,6 +4396,7 @@ document.getElementById('btnMensagem').addEventListener('click',()=>{
   openMsgModal(currentTutorId, null);
 });
 document.getElementById('msgPet').addEventListener('change',()=>{
+  msgPetNomeOverride = null;
   fillMsgPreview();
 });
 document.getElementById('msgTemplate').addEventListener('change', fillMsgPreview);
@@ -6087,11 +6098,26 @@ function renderCobDetailModal(cb){
       '</div>'
     ) : '')+
     '<hr class="divider">'+
-    '<button class="btn btn-ghost btn-block" style="color:var(--full);" id="cobApagarBtn">🗑️ Apagar cobrança (desfaz o agrupamento)</button>';
+    '<button class="btn btn-ghost btn-block" id="cobEnviarMsgBtn">📤 Enviar mensagem de cobrança</button>'+
+    '<button class="btn btn-ghost btn-block" style="color:var(--full); margin-top:8px;" id="cobApagarBtn">🗑️ Apagar cobrança (desfaz o agrupamento)</button>';
 
   if(cb.desconto) content.querySelector('#cobDescontoTipo').value = cb.desconto.tipo;
   const valorPagarInput = content.querySelector('#cobValorPagarInput');
   if(valorPagarInput) attachCurrencyMask(valorPagarInput);
+
+  content.querySelector('#cobEnviarMsgBtn').addEventListener('click', ()=>{
+    const porPet = {};
+    calc.items.forEach(x=>{
+      const p = getPet(x.slot.petId);
+      const nome = p?p.name:x.slot.nome;
+      if(!porPet[nome]) porPet[nome] = [];
+      porPet[nome].push(servicoLabel(x.slot));
+    });
+    const servicoTexto = Object.entries(porPet).map(([pet,servs])=>pet+' ('+servs.join(' + ')+')').join('; ');
+    const petNomeTexto = Array.from(pets).join(' e ');
+    document.getElementById('cobrancaDetailModalBg').classList.remove('show');
+    openMsgModal(cb.tutorId, null, { servico: servicoTexto, valor: calc.devendo>0.009?calc.devendo:calc.totalFinal, petNomeOverride: petNomeTexto });
+  });
 
   content.querySelector('#cobAplicarDescontoBtn').addEventListener('click', async ()=>{
     const tipo = content.querySelector('#cobDescontoTipo').value;
