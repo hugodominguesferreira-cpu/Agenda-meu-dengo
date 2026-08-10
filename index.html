@@ -379,6 +379,7 @@
         <div class="card carddash dashHalf" id="dashCobrancasCard">
           <h3>💰 Cobranças a fazer</h3>
           <div id="dashCobrancas"></div>
+          <div id="dashTarefas"></div>
         </div>
         <div class="card carddash dashHalf" id="dashEstoqueHojeCard">
           <h3 id="dashEstoqueHojeTitulo">📦 Estoque do dia</h3>
@@ -404,10 +405,6 @@
       <div class="card carddash" id="dashAniversarioCard" style="display:none;">
         <h3>🎂 Aniversário hoje</h3>
         <div id="dashAniversario"></div>
-      </div>
-      <div class="card carddash" id="dashTarefasCard" style="display:none;">
-        <h3>✅ Tarefas pendentes</h3>
-        <div id="dashTarefas"></div>
       </div>
       <div class="card carddash" id="dashRevisaoPrecoCard" style="display:none;">
         <h3>💲 Hora de revisar seus preços?</h3>
@@ -655,6 +652,7 @@
           <div class="iconGrid">
             <button class="iconGridBtn" id="avulsoVerPendentesBtn">🟡<span>Pendentes</span></button>
             <button class="iconGridBtn" id="avulsoVerPagosBtn">✅<span>Pagos</span></button>
+            <button class="iconGridBtn" id="avulsoVerAgendadosBtn">📅<span>Agendados</span></button>
           </div>
           <div id="avulsoMesTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
           <div id="avulsoMesResultado" style="margin-top:4px;"></div>
@@ -2444,20 +2442,19 @@ function renderDashboard(){
   } else { aniversarioCard.style.display='none'; }
 
   // ---------- TAREFAS PENDENTES (venceram ou vencem hoje) ----------
-  const tarefasCard = document.getElementById('dashTarefasCard');
+  const dashTarefasEl = document.getElementById('dashTarefas');
   if(isAdmin){
     const hoje = todayISO();
     const tarefasUrgentes = (STATE.tarefas||[]).filter(t=>t.status==='pendente' && t.dataPrevista && t.dataPrevista<=hoje)
       .sort((a,b)=>a.dataPrevista.localeCompare(b.dataPrevista));
     if(tarefasUrgentes.length>0){
-      tarefasCard.style.display='block';
-      document.getElementById('dashTarefas').innerHTML = tarefasUrgentes.map(t=>{
+      dashTarefasEl.innerHTML = tarefasUrgentes.map(t=>{
         const atrasada = t.dataPrevista<hoje;
         const dias = Math.round((new Date(hoje+'T00:00:00')-new Date(t.dataPrevista+'T00:00:00'))/86400000);
         return '<div class="penditem" style="color:'+(atrasada?'var(--full)':'var(--amarelo)')+'; font-weight:700;"><span>⚠️ '+t.descricao+'</span><span>'+(atrasada?('venceu há '+dias+' dia'+(dias===1?'':'s')):'vence hoje')+'</span></div>';
       }).join('');
-    } else { tarefasCard.style.display='none'; }
-  } else { tarefasCard.style.display='none'; }
+    } else { dashTarefasEl.innerHTML=''; }
+  } else { dashTarefasEl.innerHTML=''; }
 
   // ---------- REVISÃO ANUAL DE PREÇOS ----------
   const revisaoCard = document.getElementById('dashRevisaoPrecoCard');
@@ -6036,13 +6033,46 @@ function renderMesAgrupado(itens, areaId, painelId){
   });
 }
 let avulsoMesModo = 'pendente';
+function renderAvulsosAgendados(mesDate, areaId){
+  const ym = mesDate.getFullYear()+'-'+String(mesDate.getMonth()+1).padStart(2,'0');
+  let itens = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    if(!iso.startsWith(ym)) return;
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || (s.valor||0)<=0) return;
+        if(s.statusAtendimento==='concluido' || s.statusAtendimento==='cancelado') return;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+        if(isPacoteItem) return;
+        const p = getPet(s.petId);
+        itens.push({iso, op, id:s.id, nome:s.nome, petNome:p?p.name:s.nome, servico:servicoLabel(s), valor:s.valor, tutorId:p?p.tutorId:null});
+      });
+    });
+  });
+  const area = document.getElementById(areaId);
+  if(itens.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nenhum avulso agendado (ainda não atendido) pra esse mês.</div>'; return; }
+  const grupos = agruparPorTutor(itens);
+  let html = grupos.map(g=>{
+    const label = g.tutorNome+' ('+Array.from(g.pets).join(', ')+')';
+    const detalhe = g.itens.length===1 ? fmtDateFull(new Date(g.itens[0].iso+'T00:00:00')) : g.itens.length+' atendimentos';
+    return '<div class="penditem grupoMesRow" data-idx="'+grupos.indexOf(g)+'" style="cursor:pointer;"><span>'+label+' • '+detalhe+'</span><span>'+formatBRL(g.total)+'</span></div>';
+  }).join('');
+  const totalGeral = grupos.reduce((a,g)=>a+g.total,0);
+  html += '<div class="pendtotal"><span>Total previsto</span><span>'+formatBRL(totalGeral)+'</span></div>';
+  area.innerHTML = html;
+  area.querySelectorAll('.grupoMesRow').forEach((row,idx)=>{
+    row.addEventListener('click',()=>abrirPickerMes(grupos[idx].itens, 'fsAvulsos'));
+  });
+}
 function renderAvulsoMes(){
   document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  document.getElementById('avulsoMesTitulo').textContent = avulsoMesModo==='pago' ? '✅ Pagos' : '🟡 Pendentes';
-  renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado', avulsoMesModo);
+  document.getElementById('avulsoMesTitulo').textContent = avulsoMesModo==='pago' ? '✅ Pagos' : (avulsoMesModo==='agendado' ? '📅 Agendados (ainda não atendidos)' : '🟡 Pendentes');
+  if(avulsoMesModo==='agendado') renderAvulsosAgendados(avulsoMesDate, 'avulsoMesResultado');
+  else renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado', avulsoMesModo);
 }
 document.getElementById('avulsoVerPendentesBtn').addEventListener('click',()=>{ avulsoMesModo='pendente'; renderAvulsoMes(); });
 document.getElementById('avulsoVerPagosBtn').addEventListener('click',()=>{ avulsoMesModo='pago'; renderAvulsoMes(); });
+document.getElementById('avulsoVerAgendadosBtn').addEventListener('click',()=>{ avulsoMesModo='agendado'; renderAvulsoMes(); });
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
 
