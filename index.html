@@ -595,8 +595,7 @@
 
       <div class="card">
         <div class="iconGrid">
-          <button class="iconGridBtn" data-panel="fsRelatorioMensal">📊<span>Relatório mensal</span></button>
-          <button class="iconGridBtn" data-panel="fsComparativo">📈<span>Comparativo</span></button>
+          <button class="iconGridBtn" data-panel="fsRelatorioMensal">📊<span>Resumo do mês</span></button>
           <button class="iconGridBtn" data-panel="fsAvulsos">🗂️<span>Avulsos</span></button>
           <button class="iconGridBtn" data-panel="fsPacotesFin">📦<span>Pacotes</span></button>
           <button class="iconGridBtn" data-panel="fsDespesas">💸<span>Despesas</span></button>
@@ -604,24 +603,9 @@
       </div>
     </section>
 
-    <!-- FS: Comparativo mês a mês -->
-    <div class="fsPanel" id="fsComparativo">
-      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📈 Comparativo</h3></div>
-      <div class="fsPanelBody">
-        <div class="card">
-          <div class="monthnav">
-            <button id="compPrevMonth">‹</button>
-            <span id="compMonthLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
-            <button id="compNextMonth">›</button>
-          </div>
-          <div id="comparativoArea" style="margin-top:10px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- FS: Relatório mensal -->
+    <!-- FS: Resumo do mês -->
     <div class="fsPanel" id="fsRelatorioMensal">
-      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📊 Relatório mensal</h3></div>
+      <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>📊 Resumo do mês</h3></div>
       <div class="fsPanelBody">
         <div class="card">
           <div class="monthnav">
@@ -629,7 +613,9 @@
             <span id="relMonthLabel" style="font-weight:700; color:var(--muted); font-size:13px;"></span>
             <button id="relNextMonth">›</button>
           </div>
-          <div id="relatorioMensal"></div>
+          <div id="relatorioMensal" style="margin-top:10px;"></div>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="btnResumoMesWhats">📤 Enviar resumo do mês por WhatsApp</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="btnExportarResumoMes">⬇️ Exportar resumo do mês</button>
         </div>
       </div>
     </div>
@@ -2316,7 +2302,6 @@ document.addEventListener('click',(e)=>{
   if(iconBtn && iconBtn.dataset.panel){
     openFsPanel(iconBtn.dataset.panel);
     if(iconBtn.dataset.panel==='fsGraficos') renderGraficos();
-    if(iconBtn.dataset.panel==='fsComparativo') renderComparativo();
     if(iconBtn.dataset.panel==='fsAvulsos') renderAvulsoMes();
     if(iconBtn.dataset.panel==='fsPacotesFin') renderPacoteMes();
   }
@@ -5712,18 +5697,22 @@ function enviarResumoSemanal(dataBase){
 }
 document.getElementById('btnResumoSemanalWhats').addEventListener('click', ()=>enviarResumoSemanal(resumoSemanaDate));
 document.getElementById('btnResumoSemanalHomeBtn').addEventListener('click', ()=>enviarResumoSemanal(new Date()));
-document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
-
-// ---------- COMPARATIVO MÊS A MÊS ----------
-let compMonthDate = new Date();
+// ---------- RESUMO DO MÊS (consolidado) ----------
 function getMonthStats(ym){
-  let entradas=0, atendimentos=0, despesasTotal=0;
+  let entradas=0, atendimentosConcluidos=0, atendimentosAgendados=0, despesasTotal=0;
+  let valorTotalMes=0, totalPacotes=0, avulsosAtendidosValor=0, avulsosAgendadosValor=0;
   Object.keys(STATE.agenda).forEach(iso=>{
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
       (STATE.agenda[iso][op]||[]).forEach(s=>{
-        if(s.tipo!=='cliente') return;
-        if(s.statusAtendimento==='concluido') atendimentos++;
+        if(s.tipo!=='cliente' || s.statusAtendimento==='cancelado') return;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+        const concluido = s.statusAtendimento==='concluido';
+        if(concluido) atendimentosConcluidos++; else atendimentosAgendados++;
+        valorTotalMes += (s.valor||0);
+        if(isPacoteItem) totalPacotes += (s.valor||0);
+        else if(concluido) avulsosAtendidosValor += (s.valor||0);
+        else avulsosAgendadosValor += (s.valor||0);
         if(s.pago===true) entradas += (s.valor||0);
       });
     });
@@ -5733,8 +5722,9 @@ function getMonthStats(ym){
     const ref = d.dataPagamento || d.criadoEm;
     if(ref && ref.startsWith(ym)) despesasTotal += (d.valor||0);
   });
-  const ticketMedio = atendimentos>0 ? entradas/atendimentos : 0;
-  return {entradas, atendimentos, despesasTotal, ticketMedio, lucro: entradas-despesasTotal};
+  const totalAtendimentos = atendimentosConcluidos+atendimentosAgendados;
+  const ticketMedio = totalAtendimentos>0 ? valorTotalMes/totalAtendimentos : 0;
+  return { entradas, despesasTotal, lucro: entradas-despesasTotal, atendimentosConcluidos, atendimentosAgendados, totalAtendimentos, valorTotalMes, ticketMedio, totalPacotes, avulsosAtendidosValor, avulsosAgendadosValor };
 }
 function variacaoHtml(atual, anterior){
   if(anterior===0) return atual>0 ? '<span style="color:var(--free); font-weight:700;">▲ novo</span>' : '';
@@ -5743,49 +5733,75 @@ function variacaoHtml(atual, anterior){
   const cor = pct>0?'var(--free)':(pct<0?'var(--full)':'var(--muted)');
   return '<span style="color:'+cor+'; font-weight:700;">'+seta+' '+Math.abs(pct).toFixed(0)+'%</span>';
 }
-function renderComparativo(){
-  document.getElementById('compMonthLabel').textContent = compMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  const ymAtual = compMonthDate.getFullYear()+'-'+String(compMonthDate.getMonth()+1).padStart(2,'0');
-  const anteriorDate = new Date(compMonthDate); anteriorDate.setMonth(anteriorDate.getMonth()-1);
+function montarTextoResumoMes(ym, mesDate){
+  const atual = getMonthStats(ym);
+  const anteriorDate = new Date(mesDate); anteriorDate.setMonth(anteriorDate.getMonth()-1);
   const ymAnterior = anteriorDate.getFullYear()+'-'+String(anteriorDate.getMonth()+1).padStart(2,'0');
-  const atual = getMonthStats(ymAtual);
   const anterior = getMonthStats(ymAnterior);
-  const anteriorLabel = anteriorDate.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
-  document.getElementById('comparativoArea').innerHTML =
-    '<div class="penditem"><span>Faturamento</span><span>'+formatBRL(atual.entradas)+' '+variacaoHtml(atual.entradas, anterior.entradas)+'</span></div>'+
-    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.entradas)+' em '+anteriorLabel+'</div>'+
-    '<div class="penditem"><span>Atendimentos concluídos</span><span>'+atual.atendimentos+' '+variacaoHtml(atual.atendimentos, anterior.atendimentos)+'</span></div>'+
-    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+anterior.atendimentos+' em '+anteriorLabel+'</div>'+
-    '<div class="penditem"><span>Ticket médio</span><span>'+formatBRL(atual.ticketMedio)+'</span></div>'+
-    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.ticketMedio)+' em '+anteriorLabel+'</div>'+
-    '<div class="penditem"><span>Despesas</span><span>'+formatBRL(atual.despesasTotal)+' '+variacaoHtml(atual.despesasTotal, anterior.despesasTotal)+'</span></div>'+
-    '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 10px;">vs '+formatBRL(anterior.despesasTotal)+' em '+anteriorLabel+'</div>'+
-    '<div class="pendtotal"><span>Lucro</span><span>'+formatBRL(atual.lucro)+'</span></div>';
+  const meta = STATE.config.metaMensal||0;
+  const faltamReceber = Math.max(0, meta-atual.entradas);
+  const faltamAtendimentos = (meta>0 && atual.ticketMedio>0) ? Math.ceil(faltamReceber/atual.ticketMedio) : null;
+  return {atual, anterior, anteriorLabel: anteriorDate.toLocaleDateString('pt-BR',{month:'short',year:'numeric'}), meta, faltamReceber, faltamAtendimentos};
 }
-document.getElementById('compPrevMonth').addEventListener('click',()=>{ compMonthDate.setMonth(compMonthDate.getMonth()-1); renderComparativo(); });
-document.getElementById('compNextMonth').addEventListener('click',()=>{ compMonthDate.setMonth(compMonthDate.getMonth()+1); renderComparativo(); });
 function renderRelatorioMensal(){
   document.getElementById('relMonthLabel').textContent = relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
-  let entradas=0;
-  Object.keys(STATE.agenda).forEach(iso=>{
-    if(!iso.startsWith(ym)) return;
-    ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente' && s.pago===true) entradas += (s.valor||0); });
-    });
-  });
-  let saidas=0;
-  STATE.despesas.forEach(d=>{
-    if(!d.pago) return;
-    const ref = d.dataPagamento || d.criadoEm;
-    if(ref && ref.startsWith(ym)) saidas += (d.valor||0);
-  });
-  const lucro = entradas - saidas;
-  document.getElementById('relatorioMensal').innerHTML =
-    '<div class="penditem"><span>Entradas</span><span style="color:var(--free); font-weight:700;">'+formatBRL(entradas)+'</span></div>'+
-    '<div class="penditem"><span>Saídas</span><span style="color:var(--full); font-weight:700;">'+formatBRL(saidas)+'</span></div>'+
-    '<div class="pendtotal"><span>Lucro</span><span>'+formatBRL(lucro)+'</span></div>';
+  const {atual, anterior, anteriorLabel, meta, faltamReceber, faltamAtendimentos} = montarTextoResumoMes(ym, relMonthDate);
+  let html = '';
+  html += '<div class="penditem"><span>🐕 Dogs atendidos</span><span>'+atual.atendimentosConcluidos+' '+variacaoHtml(atual.atendimentosConcluidos, anterior.atendimentosConcluidos)+'</span></div>';
+  html += '<div class="penditem"><span>📅 Dogs agendados</span><span>'+atual.atendimentosAgendados+'</span></div>';
+  html += '<div class="penditem"><span>💲 Ticket médio</span><span>'+formatBRL(atual.ticketMedio)+'</span></div>';
+  html += '<hr class="divider">';
+  html += '<div class="penditem"><span>📦 Total de Pacotes</span><span>'+formatBRL(atual.totalPacotes)+'</span></div>';
+  html += '<div class="penditem"><span>🗂️ Avulsos atendidos</span><span>'+formatBRL(atual.avulsosAtendidosValor)+'</span></div>';
+  html += '<div class="penditem"><span>🗂️ Avulsos agendados</span><span>'+formatBRL(atual.avulsosAgendadosValor)+'</span></div>';
+  html += '<hr class="divider">';
+  html += '<div class="penditem"><span>💰 Entradas</span><span style="color:var(--free); font-weight:700;">'+formatBRL(atual.entradas)+' '+variacaoHtml(atual.entradas, anterior.entradas)+'</span></div>';
+  html += '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 6px;">vs '+formatBRL(anterior.entradas)+' em '+anteriorLabel+'</div>';
+  html += '<div class="penditem"><span>💸 Saídas</span><span style="color:var(--full); font-weight:700;">'+formatBRL(atual.despesasTotal)+' '+variacaoHtml(atual.despesasTotal, anterior.despesasTotal)+'</span></div>';
+  html += '<div class="pendtotal"><span>Lucro real</span><span>'+formatBRL(atual.lucro)+'</span></div>';
+  if(meta>0){
+    html += '<hr class="divider">';
+    const pct = Math.min(100, (atual.entradas/meta)*100);
+    html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:4px; font-weight:700;">🎯 Meta: '+formatBRL(atual.entradas)+' de '+formatBRL(meta)+' ('+pct.toFixed(0)+'%)</div>';
+    html += '<div style="background:var(--card-soft); border-radius:20px; height:14px; overflow:hidden; margin-bottom:6px;"><div style="height:100%; width:'+pct+'%; background:linear-gradient(90deg,var(--rosa),var(--roxo)); border-radius:20px;"></div></div>';
+    if(faltamAtendimentos!=null && faltamAtendimentos>0) html += '<div class="footer-note" style="text-align:left; padding:0;">Faltam <b>'+faltamAtendimentos+' atendimento(s)</b> (no ticket médio atual) pra bater a meta.</div>';
+    else if(faltamReceber<=0) html += '<div class="footer-note" style="text-align:left; padding:0; color:var(--free); font-weight:700;">🎉 Meta batida esse mês!</div>';
+  }
+  document.getElementById('relatorioMensal').innerHTML = html;
 }
+document.getElementById('relPrevMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()-1); renderRelatorioMensal(); });
+document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthDate.setMonth(relMonthDate.getMonth()+1); renderRelatorioMensal(); });
+document.getElementById('btnResumoMesWhats').addEventListener('click',()=>{
+  const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
+  const {atual, meta, faltamAtendimentos} = montarTextoResumoMes(ym, relMonthDate);
+  const texto = '📊 Resumo — '+relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'\n'+
+    '🐕 Dogs atendidos: '+atual.atendimentosConcluidos+' • Agendados: '+atual.atendimentosAgendados+'\n'+
+    '💲 Ticket médio: '+formatBRL(atual.ticketMedio)+'\n'+
+    '📦 Pacotes: '+formatBRL(atual.totalPacotes)+' • 🗂️ Avulsos: '+formatBRL(atual.avulsosAtendidosValor+atual.avulsosAgendadosValor)+'\n'+
+    '💰 Entradas: '+formatBRL(atual.entradas)+' • 💸 Saídas: '+formatBRL(atual.despesasTotal)+'\n'+
+    '📌 Lucro real: '+formatBRL(atual.lucro)+
+    (meta>0 ? ('\n🎯 Meta: '+formatBRL(atual.entradas)+' de '+formatBRL(meta)+(faltamAtendimentos>0?(' — faltam '+faltamAtendimentos+' atendimento(s)'):' — meta batida! 🎉')) : '');
+  window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+});
+document.getElementById('btnExportarResumoMes').addEventListener('click',()=>{
+  const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
+  const {atual} = montarTextoResumoMes(ym, relMonthDate);
+  const dados = [{
+    'Mês': relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),
+    'Dogs atendidos': atual.atendimentosConcluidos,
+    'Dogs agendados': atual.atendimentosAgendados,
+    'Ticket médio': atual.ticketMedio,
+    'Total Pacotes': atual.totalPacotes,
+    'Avulsos atendidos': atual.avulsosAtendidosValor,
+    'Avulsos agendados': atual.avulsosAgendadosValor,
+    'Entradas': atual.entradas,
+    'Saídas': atual.despesasTotal,
+    'Lucro real': atual.lucro
+  }];
+  baixarXLSX('resumo_mes_meudengo.xlsx', 'Resumo', dados);
+  toast('Resumo exportado!');
+});
 
 // ---------- PACOTES AUTOMÁTICOS ----------
 async function generateQuantityPackages(){
