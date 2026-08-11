@@ -1330,6 +1330,17 @@
   </div>
 </div>
 
+<!-- MODAL: Sugestão do próximo atendimento -->
+<div class="modal-bg" id="sugestaoProximoModalBg">
+  <div class="modal">
+    <h3 style="margin-top:0;">⏭️ Próximo atendimento</h3>
+    <p id="sugestaoProximoTexto" style="text-align:left;"></p>
+    <button class="btn btn-ghost btn-block" id="sugestaoProximoPercurso">🚐 No percurso</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" id="sugestaoProximoAtendimento">✂️ Em atendimento</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="sugestaoProximoAgoraNao">Agora não</button>
+  </div>
+</div>
+
 <!-- MODAL: SOS -->
 <div class="modal-bg" id="sosModalBg">
   <div class="modal">
@@ -3605,7 +3616,42 @@ async function aplicarDescontoAutomaticoEConcluir(slot){
   renderWeek();
   if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot);
   await verificarUltimoAtendimentoDoDia();
+  await sugerirProximoAtendimento(slot);
 }
+async function sugerirProximoAtendimento(slotConcluido){
+  const iso = todayISO();
+  let candidatos = [];
+  ['Fixo','Móvel'].forEach(op=>{
+    (STATE.agenda[iso][op]||[]).forEach(s=>{
+      if(s.tipo==='cliente' && s.statusAtendimento==='nenhum' && s.id!==slotConcluido.id){
+        candidatos.push({s, op});
+      }
+    });
+  });
+  if(candidatos.length===0) return;
+  candidatos.sort((a,b)=>timeToMinutes(a.s.inicio)-timeToMinutes(b.s.inicio));
+  const proximoInicio = timeToMinutes(slotConcluido.inicio);
+  let proximo = candidatos.find(c=>timeToMinutes(c.s.inicio)>=proximoInicio) || candidatos[0];
+  document.getElementById('sugestaoProximoTexto').textContent = '✅ '+slotConcluido.nome+' concluído! Quer já atualizar o próximo — '+proximo.s.nome+' às '+proximo.s.inicio+'?';
+  sugestaoProximoRef = proximo;
+  document.getElementById('sugestaoProximoModalBg').classList.add('show');
+}
+let sugestaoProximoRef = null;
+async function marcarStatusRapido(status){
+  if(!sugestaoProximoRef) return;
+  const {s, op} = sugestaoProximoRef;
+  registrarTempoStatus(s, status);
+  s.statusAtendimento = status;
+  await saveAgenda();
+  renderWeek();
+  document.getElementById('sugestaoProximoModalBg').classList.remove('show');
+  toast('Status atualizado!');
+}
+document.getElementById('sugestaoProximoPercurso').addEventListener('click',()=>marcarStatusRapido('deslocamento'));
+document.getElementById('sugestaoProximoAtendimento').addEventListener('click',()=>marcarStatusRapido('andamento'));
+document.getElementById('sugestaoProximoAgoraNao').addEventListener('click',()=>{
+  document.getElementById('sugestaoProximoModalBg').classList.remove('show');
+});
 async function verificarUltimoAtendimentoDoDia(){
   const iso = todayISO();
   let restantes = 0;
