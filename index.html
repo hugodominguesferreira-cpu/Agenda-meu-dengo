@@ -5755,11 +5755,14 @@ function renderRelatorioMensal(){
   html += '<div class="penditem"><span>📦 Total de Pacotes</span><span>'+formatBRL(atual.totalPacotes)+'</span></div>';
   html += '<div class="penditem"><span>🗂️ Avulsos atendidos</span><span>'+formatBRL(atual.avulsosAtendidosValor)+'</span></div>';
   html += '<div class="penditem"><span>🗂️ Avulsos agendados</span><span>'+formatBRL(atual.avulsosAgendadosValor)+'</span></div>';
+  html += '<div class="pendtotal"><span>Total do mês</span><span>'+formatBRL(atual.valorTotalMes)+'</span></div>';
   html += '<hr class="divider">';
   html += '<div class="penditem"><span>💰 Entradas</span><span style="color:var(--free); font-weight:700;">'+formatBRL(atual.entradas)+' '+variacaoHtml(atual.entradas, anterior.entradas)+'</span></div>';
   html += '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 6px;">vs '+formatBRL(anterior.entradas)+' em '+anteriorLabel+'</div>';
   html += '<div class="penditem"><span>💸 Saídas</span><span style="color:var(--full); font-weight:700;">'+formatBRL(atual.despesasTotal)+' '+variacaoHtml(atual.despesasTotal, anterior.despesasTotal)+'</span></div>';
   html += '<div class="pendtotal"><span>Lucro real</span><span>'+formatBRL(atual.lucro)+'</span></div>';
+  const margem = atual.entradas>0 ? (atual.lucro/atual.entradas)*100 : 0;
+  html += '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 6px; font-weight:700;">margem de '+margem.toFixed(0)+'% sobre o faturamento</div>';
   if(meta>0){
     html += '<hr class="divider">';
     const pct = Math.min(100, (atual.entradas/meta)*100);
@@ -5775,18 +5778,20 @@ document.getElementById('relNextMonth').addEventListener('click',()=>{ relMonthD
 document.getElementById('btnResumoMesWhats').addEventListener('click',()=>{
   const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
   const {atual, meta, faltamAtendimentos} = montarTextoResumoMes(ym, relMonthDate);
+  const margem = atual.entradas>0 ? (atual.lucro/atual.entradas)*100 : 0;
   const texto = '📊 Resumo — '+relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'\n'+
     '🐕 Dogs atendidos: '+atual.atendimentosConcluidos+' • Agendados: '+atual.atendimentosAgendados+'\n'+
     '💲 Ticket médio: '+formatBRL(atual.ticketMedio)+'\n'+
     '📦 Pacotes: '+formatBRL(atual.totalPacotes)+' • 🗂️ Avulsos: '+formatBRL(atual.avulsosAtendidosValor+atual.avulsosAgendadosValor)+'\n'+
     '💰 Entradas: '+formatBRL(atual.entradas)+' • 💸 Saídas: '+formatBRL(atual.despesasTotal)+'\n'+
-    '📌 Lucro real: '+formatBRL(atual.lucro)+
+    '📌 Lucro real: '+formatBRL(atual.lucro)+' (margem de '+margem.toFixed(0)+'%)'+
     (meta>0 ? ('\n🎯 Meta: '+formatBRL(atual.entradas)+' de '+formatBRL(meta)+(faltamAtendimentos>0?(' — faltam '+faltamAtendimentos+' atendimento(s)'):' — meta batida! 🎉')) : '');
   window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 });
 document.getElementById('btnExportarResumoMes').addEventListener('click',()=>{
   const ym = relMonthDate.getFullYear()+'-'+String(relMonthDate.getMonth()+1).padStart(2,'0');
   const {atual} = montarTextoResumoMes(ym, relMonthDate);
+  const margem = atual.entradas>0 ? (atual.lucro/atual.entradas)*100 : 0;
   const dados = [{
     'Mês': relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),
     'Dogs atendidos': atual.atendimentosConcluidos,
@@ -5797,7 +5802,8 @@ document.getElementById('btnExportarResumoMes').addEventListener('click',()=>{
     'Avulsos agendados': atual.avulsosAgendadosValor,
     'Entradas': atual.entradas,
     'Saídas': atual.despesasTotal,
-    'Lucro real': atual.lucro
+    'Lucro real': atual.lucro,
+    'Margem de lucro (%)': margem.toFixed(1)
   }];
   baixarXLSX('resumo_mes_meudengo.xlsx', 'Resumo', dados);
   toast('Resumo exportado!');
