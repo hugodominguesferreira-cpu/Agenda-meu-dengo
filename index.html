@@ -543,7 +543,19 @@
             <button id="btnMensagem">📨 Mensagem</button>
             <button id="btnHistorico">💰 Histórico</button>
             <button id="btnEditarTutor">✏️ Editar</button>
+            <button id="btnPortalTutor">🔗 Portal</button>
           </div>
+        </div>
+        <div class="card" id="portalTutorCard" style="display:none;">
+          <h3>🔗 Portal do Cliente</h3>
+          <p class="footer-note" style="margin:0 0 8px; text-align:left; word-break:break-all;" id="portalTutorLink"></p>
+          <div class="row">
+            <button class="btn btn-ghost btn-block" id="btnCopiarLinkPortal">📋 Copiar link</button>
+            <button class="btn btn-ghost btn-block" id="btnRevogarLinkPortal">🔄 Gerar novo link</button>
+          </div>
+          <hr class="divider">
+          <h3 style="margin-top:0;">📦 Pedidos do portal</h3>
+          <div id="portalTutorPedidos"><p class="footer-note" style="text-align:left; padding:0;">Carregando...</p></div>
         </div>
         <div class="card">
           <h3>Pets</h3>
@@ -721,6 +733,7 @@
           <button class="iconGridBtn" data-panel="fsServicos">✂️<span>Serviços</span></button>
           <button class="iconGridBtn" data-panel="fsOperacao">📍<span>Operação</span></button>
           <button class="iconGridBtn" data-panel="fsUsuarios">👥<span>Usuários</span></button>
+          <button class="iconGridBtn" data-panel="fsPortal">🔗<span>Portal do Cliente</span></button>
           <button class="iconGridBtn" data-panel="fsZonaRisco">⚠️<span>Zona de risco</span></button>
         </div>
       </div>
@@ -877,6 +890,33 @@
         </div>
       </div>
     </div>
+
+<!-- FS: Portal do Cliente -->
+<div class="fsPanel" id="fsPortal">
+  <div class="fsPanelHeader"><button class="fsCloseBtn">×</button><h3>🔗 Portal do Cliente</h3></div>
+  <div class="fsPanelBody">
+    <div class="card">
+      <h3>Sincronizar dados</h3>
+      <p class="footer-note" style="margin:0 0 10px; text-align:left;">Atualiza o que cada cliente vê no portal (próximo agendamento, pacotes, saldo). Rode isso depois de mudanças importantes na agenda ou nos pagamentos.</p>
+      <button class="btn btn-primary btn-block" id="btnSyncPortals">🔄 Sincronizar todos os portais</button>
+    </div>
+    <div class="card">
+      <h3>Catálogo de produtos</h3>
+      <p class="footer-note" style="margin:0 0 8px; text-align:left;">Produtos que aparecem na vitrine do portal.</p>
+      <div id="produtosArea"></div>
+      <hr class="divider">
+      <label>Novo produto</label>
+      <input id="newProdNome" placeholder="Nome do produto">
+      <div class="row">
+        <div><label>Preço (R$)</label><input type="text" inputmode="numeric" id="newProdPreco" placeholder="R$0,00"></div>
+        <div><label>Vídeo (link do YouTube, opcional)</label><input id="newProdVideo" placeholder="https://..."></div>
+      </div>
+      <label>Foto (opcional)</label>
+      <input type="file" id="newProdFoto" accept="image/*">
+      <button class="btn btn-ghost btn-block" style="margin-top:10px;" id="addProdutoBtn">+ Adicionar produto</button>
+    </div>
+  </div>
+</div>
 
     <!-- FS: Zona de risco -->
     <div class="fsPanel" id="fsZonaRisco">
@@ -1680,6 +1720,7 @@ let STATE = {
   estoqueCategorias: ['Geral'],
   tarefas: [],
   tarefaCategorias: ['Manutenção'],
+  produtos: [],
   config: {
     logo: DEFAULT_LOGO,
     templates: [
@@ -1730,6 +1771,7 @@ async function loadAll(){
   try{ STATE.estoqueCategorias = (await fbGet('estoqueCategorias')) || ['Geral']; }catch(e){ STATE.estoqueCategorias=['Geral']; }
   try{ STATE.tarefas = (await fbGet('tarefas')) || []; }catch(e){ STATE.tarefas=[]; }
   try{ STATE.tarefaCategorias = (await fbGet('tarefaCategorias')) || ['Manutenção']; }catch(e){ STATE.tarefaCategorias=['Manutenção']; }
+  try{ STATE.produtos = (await fbGet('produtos')) || []; }catch(e){ STATE.produtos=[]; }
   try{
     const parsed = await fbGet('config');
     if(parsed){
@@ -1788,6 +1830,113 @@ async function saveCompras(){ try{ await fbSet('compras', STATE.compras); }catch
 async function saveConsumoEstoque(){ try{ await fbSet('consumoEstoque', STATE.consumoEstoque); }catch(e){ toast('Erro ao salvar consumo de estoque'); } }
 async function saveEstoqueCategorias(){ try{ await fbSet('estoqueCategorias', STATE.estoqueCategorias); }catch(e){ toast('Erro ao salvar categorias'); } }
 async function saveTarefas(){ try{ await fbSet('tarefas', STATE.tarefas); }catch(e){ toast('Erro ao salvar tarefas'); } }
+async function saveProdutos(){
+  try{ await fbSet('produtos', STATE.produtos); await syncCatalogoPublico(); }
+  catch(e){ toast('Erro ao salvar produtos'); }
+}
+
+async function syncCatalogoPublico(){
+  try{
+    await setDoc(doc(db, 'meudengo_produtos', 'catalogo'), { value: STATE.produtos.filter(p=>p.ativo!==false) });
+  }catch(e){ console.warn('Não foi possível sincronizar o catálogo público', e); }
+}
+
+async function syncPortal(tutorId){
+  const tutor = STATE.tutors.find(t=>t.id===tutorId);
+  if(!tutor) return;
+
+  if(!tutor.portalToken){
+    tutor.portalToken = crypto.randomUUID().replace(/-/g,'');
+    await saveTutors();
+  }
+
+  const petsDoTutor = STATE.pets.filter(p=>p.tutorId===tutorId);
+
+  const todosSlots = [];
+  for(const iso in STATE.agenda){
+    for(const operacao in STATE.agenda[iso]){
+      for(const slot of STATE.agenda[iso][operacao]){
+        if(slot.tipo==='cliente') todosSlots.push({...slot, _iso: iso});
+      }
+    }
+  }
+
+  const hojeISO = todayISO();
+
+  const petsBlob = petsDoTutor.map(pet=>{
+    const slotsDoPet = todosSlots.filter(s=>s.petId===pet.id);
+
+    const futuros = slotsDoPet
+      .filter(s=>s._iso>=hojeISO && s.statusAtendimento!=='cancelado')
+      .sort((a,b)=>(a._iso+a.inicio).localeCompare(b._iso+b.inicio));
+    const proximo = futuros[0];
+
+    const passados = slotsDoPet
+      .filter(s=>s.statusAtendimento==='concluido')
+      .sort((a,b)=>(b._iso+b.inicio).localeCompare(a._iso+a.inicio));
+    const ultimo = passados[0];
+
+    let pacoteQtd = null;
+    let pacoteMensal = null;
+
+    const seriesAtivas = slotsDoPet.filter(s=>s.seriesId && s.statusAtendimento!=='cancelado');
+    if(seriesAtivas.length>0){
+      const seriesId = seriesAtivas[seriesAtivas.length-1].seriesId;
+      const slotsDaSerie = slotsDoPet.filter(s=>s.seriesId===seriesId);
+      const exemploSlot = slotsDaSerie[0];
+
+      if(exemploSlot.pacoteQtd){
+        const usados = slotsDaSerie.filter(s=>s.statusAtendimento==='concluido').length;
+        pacoteQtd = { total: exemploSlot.pacoteQtd, usados };
+      } else if(!exemploSlot.recorrenteAvulso){
+        const slotComCobranca = slotsDaSerie.find(s=>s.cobrancaId);
+        const cobranca = slotComCobranca ? STATE.cobrancas.find(c=>c.id===slotComCobranca.cobrancaId) : null;
+        pacoteMensal = { servico: exemploSlot.servico, vencimento: cobranca ? cobranca.dataPagamento : null };
+      }
+    }
+
+    return {
+      id: pet.id, nome: pet.name, raca: pet.breed, nascimento: pet.nascimento,
+      foto: pet.photo || null, fotoPosX: pet.fotoPosX ?? 50, fotoPosY: pet.fotoPosY ?? 50,
+      proximoAgendamento: proximo ? { data: proximo._iso, hora: proximo.inicio, servico: proximo.servico } : null,
+      ultimoAtendimento: ultimo ? { data: ultimo._iso, servico: ultimo.servico, valor: ultimo.valor } : null,
+      pacoteQtd, pacoteMensal
+    };
+  });
+
+  const blob = {
+    tutorNome: tutor.name,
+    saldoCredito: tutor.saldoCredito || 0,
+    saldoDevedor: tutor.saldoDevedor || 0,
+    pets: petsBlob
+  };
+
+  await setDoc(doc(db, 'meudengo_portal', tutor.portalToken), { value: blob });
+}
+
+async function syncAllPortals(){
+  toast('Sincronizando portais...');
+  for(const tutor of STATE.tutors){ await syncPortal(tutor.id); }
+  toast('Portais sincronizados! 🐾');
+}
+
+async function getPedidosDoTutor(tutorId){
+  const tutor = STATE.tutors.find(t=>t.id===tutorId);
+  if(!tutor?.portalToken) return [];
+  try{
+    const snap = await getDoc(doc(db, 'meudengo_portal_pedidos', tutor.portalToken));
+    return snap.exists() ? (snap.data().value.pedidos||[]) : [];
+  }catch(e){ return []; }
+}
+
+async function revogarLinkPortal(tutorId){
+  const tutor = STATE.tutors.find(t=>t.id===tutorId);
+  if(!tutor) return;
+  tutor.portalToken = crypto.randomUUID().replace(/-/g,'');
+  await saveTutors();
+  await syncPortal(tutorId);
+  toast('Novo link gerado! O link antigo parou de funcionar.');
+}
 async function saveTarefaCategorias(){ try{ await fbSet('tarefaCategorias', STATE.tarefaCategorias); }catch(e){ toast('Erro ao salvar categorias'); } }
 async function saveConfig(){ try{ await fbSet('config', STATE.config); }catch(e){ toast('Erro ao salvar configurações'); } }
 let lastLocalAgendaSave = 0;
@@ -2305,7 +2454,10 @@ function attachTimeMask(id){
 
 // ---------- DRAWER / TABS ----------
 const TAB_LABELS = {dashboard:'Home', agenda:'Agenda', sugestao:'Sugestão', clientes:'Clientes/Pet', financeiro:'Financeiro', config:'Configurações', estoque:'Estoque', relatorios:'Relatórios'};
-function openFsPanel(id){ document.getElementById(id).classList.add('show'); }
+function openFsPanel(id){
+  document.getElementById(id).classList.add('show');
+  if(id==='fsPortal') renderProdutosArea();
+}
 function closeFsPanel(id){ document.getElementById(id).classList.remove('show'); }
 document.addEventListener('click',(e)=>{
   if(e.target.classList.contains('fsCloseBtn')){ e.target.closest('.fsPanel').classList.remove('show'); }
@@ -4084,6 +4236,7 @@ function openTutorProfile(id){
   currentTutorId = id;
   const t = getTutor(id);
   if(!t) return;
+  document.getElementById('portalTutorCard').style.display='none';
   document.getElementById('tutoresListView').style.display='none';
   document.getElementById('tutorProfileView').style.display='block';
   document.getElementById('profNome').textContent = t.name;
@@ -4107,6 +4260,36 @@ document.getElementById('btnMaps').addEventListener('click',()=>{
   const q = encodeURIComponent([t.street,t.bairro,t.city].filter(Boolean).join(', '));
   if(!q){ toast('Sem endereço cadastrado'); return; }
   window.open('https://www.google.com/maps/search/?api=1&query='+q, '_blank');
+});
+document.getElementById('btnPortalTutor').addEventListener('click', async ()=>{
+  const t = getTutor(currentTutorId); if(!t) return;
+  const card = document.getElementById('portalTutorCard');
+  const visivel = card.style.display==='block';
+  if(visivel){ card.style.display='none'; return; }
+
+  if(!t.portalToken){ await syncPortal(t.id); }
+
+  const urlBase = 'https://SEU-DOMINIO-DO-PORTAL-AQUI'; // TODO: trocar pela URL real do portal.html publicado
+  document.getElementById('portalTutorLink').textContent = urlBase + '/?t=' + t.portalToken;
+  card.style.display='block';
+
+  const pedidos = await getPedidosDoTutor(t.id);
+  const pedidosEl = document.getElementById('portalTutorPedidos');
+  pedidosEl.innerHTML = pedidos.length
+    ? pedidos.map(p=>`<div class="footer-note" style="text-align:left; padding:2px 0;">📦 ${p.produtoNome} — ${p.data}</div>`).join('')
+    : '<p class="footer-note" style="text-align:left; padding:0;">Nenhum pedido ainda.</p>';
+});
+
+document.getElementById('btnCopiarLinkPortal')?.addEventListener('click', ()=>{
+  const texto = document.getElementById('portalTutorLink').textContent;
+  navigator.clipboard.writeText(texto).then(()=> toast('Link copiado!'));
+});
+
+document.getElementById('btnRevogarLinkPortal')?.addEventListener('click', async ()=>{
+  if(!confirm('Isso desativa o link atual do cliente e cria um novo. Continuar?')) return;
+  await revogarLinkPortal(currentTutorId);
+  document.getElementById('btnPortalTutor').click();
+  document.getElementById('btnPortalTutor').click();
 });
 document.getElementById('btnEditarTutor').addEventListener('click',()=>{
   const t = getTutor(currentTutorId); if(!t) return;
@@ -6644,6 +6827,71 @@ async function startApp(){
   attachRealtimeListeners();
 }
 
+function renderProdutosArea(){
+  const el = document.getElementById('produtosArea');
+  if(!el) return;
+  if(STATE.produtos.length===0){ el.innerHTML = '<p class="footer-note" style="text-align:left; padding:0;">Nenhum produto cadastrado ainda.</p>'; return; }
+  el.innerHTML = STATE.produtos.map(p=>`
+    <div class="row" style="align-items:center; margin-bottom:8px;">
+      <div style="flex:1;">
+        <b>${p.nome}</b> — ${formatBRL(p.preco)}
+        ${p.ativo===false ? ' <span style="color:var(--full); font-size:11px;">(inativo)</span>' : ''}
+      </div>
+      <button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" data-toggle-prod="${p.id}">${p.ativo===false?'Ativar':'Pausar'}</button>
+      <button class="btn btn-ghost" style="padding:4px 10px; font-size:12px; color:var(--full);" data-del-prod="${p.id}">Excluir</button>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('[data-del-prod]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Excluir esse produto?')) return;
+      STATE.produtos = STATE.produtos.filter(p=>p.id!==btn.dataset.delProd);
+      await saveProdutos();
+      renderProdutosArea();
+      toast('Produto removido');
+    });
+  });
+  el.querySelectorAll('[data-toggle-prod]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const p = STATE.produtos.find(x=>x.id===btn.dataset.toggleProd);
+      p.ativo = p.ativo===false ? true : false;
+      await saveProdutos();
+      renderProdutosArea();
+    });
+  });
+}
+
+document.getElementById('addProdutoBtn')?.addEventListener('click', async ()=>{
+  const nome = document.getElementById('newProdNome').value.trim();
+  const precoRaw = document.getElementById('newProdPreco').value.replace(/\D/g,'');
+  const preco = precoRaw ? parseInt(precoRaw,10)/100 : 0;
+  const video = document.getElementById('newProdVideo').value.trim();
+  const fotoInput = document.getElementById('newProdFoto');
+
+  if(!nome){ toast('Informe o nome do produto'); return; }
+
+  const salvarProduto = (fotoBase64)=>{
+    STATE.produtos.push({ id:'pr'+Date.now(), nome, preco, video, foto: fotoBase64||null, ativo:true });
+    saveProdutos().then(()=>{
+      renderProdutosArea();
+      document.getElementById('newProdNome').value='';
+      document.getElementById('newProdPreco').value='';
+      document.getElementById('newProdVideo').value='';
+      fotoInput.value='';
+      toast('Produto adicionado! 🐾');
+    });
+  };
+
+  if(fotoInput.files && fotoInput.files[0]){
+    const reader = new FileReader();
+    reader.onload = ()=> salvarProduto(reader.result);
+    reader.readAsDataURL(fotoInput.files[0]);
+  } else {
+    salvarProduto(null);
+  }
+});
+
+document.getElementById('btnSyncPortals')?.addEventListener('click', syncAllPortals);
 (async function init(){
   if('serviceWorker' in navigator){
     try{ await navigator.serviceWorker.register('sw.js'); }catch(e){ console.log('SW falhou', e); }
