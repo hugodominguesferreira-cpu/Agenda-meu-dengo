@@ -5983,7 +5983,7 @@ document.getElementById('btnResumoSemanalHomeBtn').addEventListener('click', ()=
 // ---------- RESUMO DO MÊS (consolidado) ----------
 function getMonthStats(ym){
   let entradas=0, atendimentosConcluidos=0, atendimentosAgendados=0, despesasTotal=0;
-  let valorTotalMes=0, totalPacotes=0, avulsosAtendidosValor=0, avulsosAgendadosValor=0;
+  let valorTotalMes=0, totalPacotes=0, avulsosAtendidosValor=0, avulsosAgendadosValor=0, pacotesAgendadosValor=0;
   Object.keys(STATE.agenda).forEach(iso=>{
     if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
@@ -5993,7 +5993,7 @@ function getMonthStats(ym){
         const concluido = s.statusAtendimento==='concluido';
         if(concluido) atendimentosConcluidos++; else atendimentosAgendados++;
         valorTotalMes += (s.valor||0);
-        if(isPacoteItem) totalPacotes += (s.valor||0);
+        if(isPacoteItem){ totalPacotes += (s.valor||0); if(!concluido) pacotesAgendadosValor += (s.valor||0); }
         else if(concluido) avulsosAtendidosValor += (s.valor||0);
         else avulsosAgendadosValor += (s.valor||0);
         if(s.pago===true) entradas += (s.valor||0);
@@ -6007,7 +6007,8 @@ function getMonthStats(ym){
   });
   const totalAtendimentos = atendimentosConcluidos+atendimentosAgendados;
   const ticketMedio = totalAtendimentos>0 ? valorTotalMes/totalAtendimentos : 0;
-  return { entradas, despesasTotal, lucro: entradas-despesasTotal, atendimentosConcluidos, atendimentosAgendados, totalAtendimentos, valorTotalMes, ticketMedio, totalPacotes, avulsosAtendidosValor, avulsosAgendadosValor };
+  const valorTotalAgendado = pacotesAgendadosValor + avulsosAgendadosValor;
+  return { entradas, despesasTotal, lucro: entradas-despesasTotal, atendimentosConcluidos, atendimentosAgendados, totalAtendimentos, valorTotalMes, ticketMedio, totalPacotes, avulsosAtendidosValor, avulsosAgendadosValor, pacotesAgendadosValor, valorTotalAgendado };
 }
 function variacaoHtml(atual, anterior){
   if(anterior===0) return atual>0 ? '<span style="color:var(--free); font-weight:700;">▲ novo</span>' : '';
@@ -6033,6 +6034,7 @@ function renderRelatorioMensal(){
   let html = '';
   html += '<div class="penditem"><span>🐕 Dogs atendidos</span><span>'+atual.atendimentosConcluidos+' '+variacaoHtml(atual.atendimentosConcluidos, anterior.atendimentosConcluidos)+'</span></div>';
   html += '<div class="penditem"><span>📅 Dogs agendados</span><span>'+atual.atendimentosAgendados+'</span></div>';
+  html += '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 6px;">valor total agendado: '+formatBRL(atual.valorTotalAgendado)+'</div>';
   html += '<div class="penditem"><span>💲 Ticket médio</span><span>'+formatBRL(atual.ticketMedio)+'</span></div>';
   html += '<hr class="divider">';
   html += '<div class="penditem"><span>📦 Total de Pacotes</span><span>'+formatBRL(atual.totalPacotes)+'</span></div>';
@@ -6063,7 +6065,7 @@ document.getElementById('btnResumoMesWhats').addEventListener('click',()=>{
   const {atual, meta, faltamAtendimentos} = montarTextoResumoMes(ym, relMonthDate);
   const margem = atual.entradas>0 ? (atual.lucro/atual.entradas)*100 : 0;
   const texto = '📊 Resumo — '+relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'\n'+
-    '🐕 Dogs atendidos: '+atual.atendimentosConcluidos+' • Agendados: '+atual.atendimentosAgendados+'\n'+
+    '🐕 Dogs atendidos: '+atual.atendimentosConcluidos+' • Agendados: '+atual.atendimentosAgendados+' ('+formatBRL(atual.valorTotalAgendado)+')\n'+
     '💲 Ticket médio: '+formatBRL(atual.ticketMedio)+'\n'+
     '📦 Pacotes: '+formatBRL(atual.totalPacotes)+' • 🗂️ Avulsos: '+formatBRL(atual.avulsosAtendidosValor+atual.avulsosAgendadosValor)+'\n'+
     '💰 Entradas: '+formatBRL(atual.entradas)+' • 💸 Saídas: '+formatBRL(atual.despesasTotal)+'\n'+
@@ -6079,6 +6081,7 @@ document.getElementById('btnExportarResumoMes').addEventListener('click',()=>{
     'Mês': relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),
     'Dogs atendidos': atual.atendimentosConcluidos,
     'Dogs agendados': atual.atendimentosAgendados,
+    'Valor total agendado': atual.valorTotalAgendado,
     'Ticket médio': atual.ticketMedio,
     'Total Pacotes': atual.totalPacotes,
     'Avulsos atendidos': atual.avulsosAtendidosValor,
