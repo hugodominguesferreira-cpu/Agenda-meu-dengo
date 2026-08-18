@@ -368,6 +368,23 @@
           <button id="btnRotaDash" class="dashIconBtn" style="display:none;" data-panel="fsRotaDia">🗺️<span>Rota do dia</span></button>
         </div>
       </div>
+      <div class="card carddash" id="dashEstoqueBaixoCard" style="display:none;">
+        <h3>⚠️ Estoque baixo</h3>
+        <div id="dashEstoqueBaixo"></div>
+      </div>
+      <div class="card carddash" id="dashAniversarioCard" style="display:none;">
+        <h3>🎂 Aniversário hoje</h3>
+        <div id="dashAniversario"></div>
+      </div>
+      <div class="card carddash" id="dashRevisaoPrecoCard" style="display:none;">
+        <h3>💲 Hora de revisar seus preços?</h3>
+        <p class="footer-note" style="text-align:left; padding:0; margin-bottom:8px;">Chegou a data que você escolheu pra rever os valores dos seus serviços. Esse é só um lembrete — o sistema não calcula reajuste sozinho, a decisão de quanto ajustar é toda sua.</p>
+        <button class="btn btn-ghost btn-block" id="btnRevisaoPrecoFeita">Já revisei, lembrar de novo em 1 ano</button>
+      </div>
+      <div class="card carddash" id="dashResumoSemanalCard" style="display:none;">
+        <h3>📊 É sábado! Que tal mandar o resumo da semana?</h3>
+        <button class="btn btn-ghost btn-block" id="btnResumoSemanalHomeBtn">📤 Enviar resumo da semana por WhatsApp</button>
+      </div>
       <div class="card carddash" id="dashMetaCard" style="display:none;">
         <h3>🎯 Meta do mês</h3>
         <div class="footer-note" id="dashMetaTexto" style="text-align:left; padding:0; margin-bottom:6px;"></div>
@@ -397,23 +414,6 @@
           <div class="footer-note" id="rotaTimelineLabel" style="text-align:center; padding:0; margin:2px 0 10px;"></div>
         </div>
         <div id="dashHoje"></div>
-      </div>
-      <div class="card carddash" id="dashEstoqueBaixoCard" style="display:none;">
-        <h3>⚠️ Estoque baixo</h3>
-        <div id="dashEstoqueBaixo"></div>
-      </div>
-      <div class="card carddash" id="dashAniversarioCard" style="display:none;">
-        <h3>🎂 Aniversário hoje</h3>
-        <div id="dashAniversario"></div>
-      </div>
-      <div class="card carddash" id="dashRevisaoPrecoCard" style="display:none;">
-        <h3>💲 Hora de revisar seus preços?</h3>
-        <p class="footer-note" style="text-align:left; padding:0; margin-bottom:8px;">Chegou a data que você escolheu pra rever os valores dos seus serviços. Esse é só um lembrete — o sistema não calcula reajuste sozinho, a decisão de quanto ajustar é toda sua.</p>
-        <button class="btn btn-ghost btn-block" id="btnRevisaoPrecoFeita">Já revisei, lembrar de novo em 1 ano</button>
-      </div>
-      <div class="card carddash" id="dashResumoSemanalCard" style="display:none;">
-        <h3>📊 É sábado! Que tal mandar o resumo da semana?</h3>
-        <button class="btn btn-ghost btn-block" id="btnResumoSemanalHomeBtn">📤 Enviar resumo da semana por WhatsApp</button>
       </div>
     </section>
 
@@ -585,7 +585,7 @@
       <button class="btn btn-ghost" style="margin-bottom:10px; font-size:12.5px; padding:6px 12px;" data-admgo="adm">‹ Voltar ao ADM</button>
       <div class="summarybar">
         <div class="summarybox pend"><div class="val" id="totalPendente">R$ 0</div><div class="lab">pendente</div></div>
-        <div class="summarybox recb"><div class="val" id="totalRecebido">R$ 0</div><div class="lab">recebido no mês</div></div>
+        <div class="summarybox recb" id="btnVerRecebidoMes" style="cursor:pointer;"><div class="val" id="totalRecebido">R$ 0</div><div class="lab">recebido no mês</div></div>
       </div>
 
       <div class="card">
@@ -1367,6 +1367,15 @@
       <button class="btn btn-ghost btn-block" id="fotoEditorCancelar">Cancelar</button>
       <button class="btn btn-primary btn-block" id="fotoEditorSalvar">Salvar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Recebido no mês -->
+<div class="modal-bg" id="recebidoMesModalBg">
+  <div class="modal">
+    <h3 style="margin-top:0;">💰 Recebido no mês</h3>
+    <div id="recebidoMesArea"></div>
+    <button class="btn btn-ghost btn-block" style="margin-top:16px;" id="recebidoMesFechar">‹ Voltar</button>
   </div>
 </div>
 
@@ -4916,6 +4925,51 @@ function renderHistCompraSearch(){
   }).join('');
 }
 document.getElementById('buscaHistCompra').addEventListener('input', renderHistCompraSearch);
+document.getElementById('btnVerRecebidoMes').addEventListener('click', abrirRecebidoMes);
+document.getElementById('recebidoMesFechar').addEventListener('click',()=>{
+  document.getElementById('recebidoMesModalBg').classList.remove('show');
+});
+function abrirRecebidoMes(){
+  const now = new Date();
+  const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const hojeIso = todayISO();
+  let itens = [];
+  Object.keys(STATE.agenda).forEach(iso=>{
+    ['Fixo','Móvel'].forEach(op=>{
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || s.pago!==true) return;
+        const dataPag = s.dataPagamento || iso;
+        if(!dataPag.startsWith(ym) || dataPag>hojeIso) return;
+        const isPacoteItem = s.seriesId && (!s.recorrenteAvulso || s.pacoteQtd);
+        const p = getPet(s.petId);
+        itens.push({ dataPag, nome: p?p.name:s.nome, tutor: p?(getTutor(p.tutorId)?getTutor(p.tutorId).name:''):'', servico: servicoLabel(s), valor: s.valor||0, isPacote: isPacoteItem });
+      });
+    });
+  });
+  itens.sort((a,b)=>a.dataPag.localeCompare(b.dataPag));
+  const pacotes = itens.filter(i=>i.isPacote);
+  const avulsos = itens.filter(i=>!i.isPacote);
+  const area = document.getElementById('recebidoMesArea');
+  if(itens.length===0){ area.innerHTML = '<p class="footer-note" style="text-align:left; padding:0;">Nada recebido ainda esse mês.</p>'; }
+  else {
+    function linha(i){ return '<div class="penditem"><span>'+fmtDateFull(new Date(i.dataPag+'T00:00:00'))+' • '+i.nome+(i.tutor?' ('+i.tutor+')':'')+'</span><span>'+formatBRL(i.valor)+'</span></div>'; }
+    let html = '';
+    if(pacotes.length>0){
+      html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700;">📦 Pacotes</p>';
+      html += pacotes.map(linha).join('');
+      html += '<div class="footer-note" style="text-align:right; padding:0; margin:2px 0 10px; font-weight:700;">Subtotal: '+formatBRL(pacotes.reduce((a,i)=>a+i.valor,0))+'</div>';
+    }
+    if(avulsos.length>0){
+      html += '<p class="footer-note" style="margin:0 0 4px; text-align:left; font-weight:700;">🗂️ Avulsos</p>';
+      html += avulsos.map(linha).join('');
+      html += '<div class="footer-note" style="text-align:right; padding:0; margin:2px 0 10px; font-weight:700;">Subtotal: '+formatBRL(avulsos.reduce((a,i)=>a+i.valor,0))+'</div>';
+    }
+    const totalGeral = itens.reduce((a,i)=>a+i.valor,0);
+    html += '<div class="pendtotal"><span>Total recebido no mês</span><span>'+formatBRL(totalGeral)+'</span></div>';
+    area.innerHTML = html;
+  }
+  document.getElementById('recebidoMesModalBg').classList.add('show');
+}
 document.getElementById('btnExportarClientes').addEventListener('click',()=>{
   if(STATE.tutors.length===0){ toast('Nenhum cliente cadastrado ainda.'); return; }
   const dados = STATE.tutors.map(t=>{
@@ -6373,6 +6427,8 @@ function renderCobDetailModal(cb){
       '<hr class="divider">'+
       '<label>Valor a pagar agora (R$)</label>'+
       '<input type="text" inputmode="numeric" id="cobValorPagarInput" value="'+formatBRLMaskValue(calc.devendo)+'">'+
+      '<label>Data em que o pagamento foi feito</label>'+
+      '<input type="date" id="cobDataPagamentoInput" value="'+todayISO()+'">'+
       '<div class="row" style="margin-top:8px;">'+
         '<button class="btn btn-ghost btn-block" id="cobPagarDinheiro">💵 Dinheiro</button>'+
         '<button class="btn btn-ghost btn-block" id="cobPagarPix">📱 Pix</button>'+
@@ -6412,7 +6468,8 @@ function renderCobDetailModal(cb){
     async function pagar(forma){
       let valorInformado = parseBRLMask(valorPagarInput.value);
       if(valorInformado<=0){ toast('Informe um valor válido'); return; }
-      const hoje = todayISO();
+      const dataEl = content.querySelector('#cobDataPagamentoInput');
+      const dataPag = (dataEl && dataEl.value) ? dataEl.value : todayISO();
       let restante = valorInformado;
       for(const x of calc.items){
         if(restante<=0) break;
@@ -6421,7 +6478,7 @@ function renderCobDetailModal(cb){
         const aplicar = Math.min(restante, devendoItem);
         x.slot.valorPago = (x.slot.valorPago||0)+aplicar;
         x.slot.formaPagamento = forma;
-        x.slot.dataPagamento = hoje;
+        x.slot.dataPagamento = dataPag;
         if(x.slot.valorPago>=x.slot.valor) x.slot.pago = true;
         restante -= aplicar;
       }
@@ -6677,10 +6734,14 @@ async function renderFinanceiro(){
   document.getElementById('totalPendente').textContent = formatBRL(totalPend);
   let totalRecebido=0;
   const now=new Date(); const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const hojeIso = todayISO();
   Object.keys(STATE.agenda).forEach(iso=>{
-    if(!iso.startsWith(ym)) return;
     ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.tipo==='cliente' && s.pago===true) totalRecebido += (s.valor||0); });
+      (STATE.agenda[iso][op]||[]).forEach(s=>{
+        if(s.tipo!=='cliente' || s.pago!==true) return;
+        const dataPag = s.dataPagamento || iso;
+        if(dataPag.startsWith(ym) && dataPag<=hojeIso) totalRecebido += (s.valor||0);
+      });
     });
   });
   document.getElementById('totalRecebido').textContent = formatBRL(totalRecebido);
