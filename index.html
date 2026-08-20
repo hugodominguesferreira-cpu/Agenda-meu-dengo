@@ -6041,6 +6041,8 @@ function renderRelatorioMensal(){
   html += '<div class="penditem"><span>🗂️ Avulsos atendidos</span><span>'+formatBRL(atual.avulsosAtendidosValor)+'</span></div>';
   html += '<div class="penditem"><span>🗂️ Avulsos agendados</span><span>'+formatBRL(atual.avulsosAgendadosValor)+'</span></div>';
   html += '<div class="pendtotal"><span>Total do mês</span><span>'+formatBRL(atual.valorTotalMes)+'</span></div>';
+  html += '<div class="penditem"><span>✅ Já recebido</span><span style="color:var(--free); font-weight:700;">'+formatBRL(atual.entradas)+'</span></div>';
+  html += '<div class="penditem"><span>🟡 A receber</span><span style="color:var(--amarelo); font-weight:700;">'+formatBRL(Math.max(0,atual.valorTotalMes-atual.entradas))+'</span></div>';
   html += '<hr class="divider">';
   html += '<div class="penditem"><span>💰 Entradas</span><span style="color:var(--free); font-weight:700;">'+formatBRL(atual.entradas)+' '+variacaoHtml(atual.entradas, anterior.entradas)+'</span></div>';
   html += '<div class="footer-note" style="text-align:right; padding:0; margin:-6px 0 6px;">vs '+formatBRL(anterior.entradas)+' em '+anteriorLabel+'</div>';
@@ -6066,6 +6068,7 @@ document.getElementById('btnResumoMesWhats').addEventListener('click',()=>{
   const margem = atual.entradas>0 ? (atual.lucro/atual.entradas)*100 : 0;
   const texto = '📊 Resumo — '+relMonthDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})+'\n'+
     '🐕 Dogs atendidos: '+atual.atendimentosConcluidos+' • Agendados: '+atual.atendimentosAgendados+' ('+formatBRL(atual.valorTotalAgendado)+')\n'+
+    '✅ Já recebido: '+formatBRL(atual.entradas)+' • 🟡 A receber: '+formatBRL(Math.max(0,atual.valorTotalMes-atual.entradas))+'\n'+
     '💲 Ticket médio: '+formatBRL(atual.ticketMedio)+'\n'+
     '📦 Pacotes: '+formatBRL(atual.totalPacotes)+' • 🗂️ Avulsos: '+formatBRL(atual.avulsosAtendidosValor+atual.avulsosAgendadosValor)+'\n'+
     '💰 Entradas: '+formatBRL(atual.entradas)+' • 💸 Saídas: '+formatBRL(atual.despesasTotal)+'\n'+
@@ -6082,6 +6085,8 @@ document.getElementById('btnExportarResumoMes').addEventListener('click',()=>{
     'Dogs atendidos': atual.atendimentosConcluidos,
     'Dogs agendados': atual.atendimentosAgendados,
     'Valor total agendado': atual.valorTotalAgendado,
+    'Já recebido': atual.entradas,
+    'A receber': Math.max(0,atual.valorTotalMes-atual.entradas),
     'Ticket médio': atual.ticketMedio,
     'Total Pacotes': atual.totalPacotes,
     'Avulsos atendidos': atual.avulsosAtendidosValor,
