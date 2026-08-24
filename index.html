@@ -3922,11 +3922,28 @@ document.getElementById('dStatus').addEventListener('change', async (e)=>{
     }
     registrarTempoStatus(slot, e.target.value);
     slot.statusAtendimento = e.target.value;
+    if(e.target.value==='cancelado' && (slot.valorPago||0)>0){
+      await tratarCancelamentoComPagamento(slot);
+    }
     await saveAgenda();
     renderWeek();
     if(detailRef) atualizarResumosDetalhe(detailRef.iso, slot);
   }
 });
+async function tratarCancelamentoComPagamento(slot){
+  const valorPagoNesteItem = slot.valorPago||0;
+  if(valorPagoNesteItem<=0) return;
+  const p = getPet(slot.petId);
+  if(!p) return;
+  const t = getTutor(p.tutorId);
+  if(!t) return;
+  t.saldoCredito = (t.saldoCredito||0) + valorPagoNesteItem;
+  slot.valorPago = 0;
+  slot.pago = false;
+  await saveTutors();
+  await aplicarCreditoTutor(t.id, slot.id);
+  toast('Atendimento cancelado! '+formatBRL(valorPagoNesteItem)+' virou crédito pro próximo atendimento/pacote.');
+}
 function findNextUnpaidSlotForTutor(tutorId, excludeSlotId){
   let candidatos = [];
   Object.keys(STATE.agenda).forEach(iso=>{
@@ -6394,7 +6411,7 @@ function calcularCobranca(cb){
   let items=[];
   Object.keys(STATE.agenda).forEach(iso=>{
     ['Fixo','Móvel'].forEach(op=>{
-      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id) items.push({iso, op, slot:s}); });
+      (STATE.agenda[iso][op]||[]).forEach(s=>{ if(s.cobrancaId===cb.id && s.statusAtendimento!=='cancelado') items.push({iso, op, slot:s}); });
     });
   });
   const subtotal = items.reduce((a,x)=>a+(x.slot.valor||0),0);
@@ -6419,6 +6436,17 @@ function renderCobDetailModal(cb){
   content.innerHTML =
     '<h3 style="margin-top:0;">'+(t?t.name:'?')+'</h3>'+
     '<p class="footer-note" style="margin:0 0 10px; text-align:left;">'+Array.from(pets).join(', ')+'</p>'+
+    '<label>Atendimentos agrupados nessa cobrança</label>'+
+    '<div id="cobItensLista">'+
+      calc.items.map((x,idx)=>{
+        const p = getPet(x.slot.petId);
+        return '<div class="row" style="align-items:center; margin-bottom:4px;">'+
+          '<div class="footer-note" style="flex:1; text-align:left; padding:0;">'+fmtDateFull(new Date(x.iso+'T00:00:00'))+' • '+(p?p.name:x.slot.nome)+' • '+servicoLabel(x.slot)+' — '+formatBRL(x.slot.valor||0)+'</div>'+
+          '<button type="button" class="btn btn-ghost" style="flex:0 0 auto; padding:4px 10px; color:var(--full);" data-remover-item="'+idx+'">✕</button>'+
+        '</div>';
+      }).join('')+
+    '</div>'+
+    '<hr class="divider">'+
     '<div class="penditem"><span>Subtotal</span><span>'+formatBRL(calc.subtotal)+'</span></div>'+
     (calc.descontoValor>0 ? '<div class="penditem" style="color:var(--full);"><span>Desconto</span><span>-'+formatBRL(calc.descontoValor)+'</span></div>' : '')+
     '<div class="pendtotal"><span>Total do pacote</span><span>'+formatBRL(calc.totalFinal)+'</span></div>'+
@@ -6464,6 +6492,19 @@ function renderCobDetailModal(cb){
     openMsgModal(cb.tutorId, null, { servico: servicoTexto, valor: calc.devendo>0.009?calc.devendo:calc.totalFinal, petNomeOverride: petNomeTexto });
   });
 
+  content.querySelectorAll('[data-remover-item]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const idx = parseInt(btn.dataset.removerItem);
+      const item = calc.items[idx];
+      if(!item) return;
+      if(!confirm('Remover esse atendimento dessa cobrança? Ele deixa de contar no valor do pacote, mas o agendamento em si continua existindo na agenda.')) return;
+      item.slot.cobrancaId = null;
+      await saveAgenda();
+      renderCobDetailModal(cb);
+      renderWeek();
+      toast('Removido do agrupamento!');
+    });
+  });
   content.querySelector('#cobAplicarDescontoBtn').addEventListener('click', async ()=>{
     const tipo = content.querySelector('#cobDescontoTipo').value;
     const valor = parseFloat(content.querySelector('#cobDescontoValor').value)||0;
