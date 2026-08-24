@@ -503,6 +503,25 @@
             <div><label>Bairro</label><input id="tBairro"></div>
             <div><label>Cidade</label><input id="tCidade"></div>
           </div>
+          <hr class="divider">
+          <label>🐾 Nome do pet (opcional, cadastra já junto)</label>
+          <input id="tPetNome" placeholder="Deixe em branco se não quiser cadastrar agora">
+          <div id="tPetCamposExtra" style="display:none;">
+            <div class="row">
+              <div><label>Raça</label><input id="tPetRaca"></div>
+              <div><label>Nascimento / idade</label><input id="tPetNascimento" placeholder="Ex: 12/05/2021 ou 3 anos"></div>
+            </div>
+            <div class="row">
+              <div><label>Porte</label><select id="tPetPorte"><option>Pequeno</option><option selected>Médio</option><option>Grande</option></select></div>
+              <div><label>Sexo</label><select id="tPetSexo"><option>Macho</option><option>Fêmea</option></select></div>
+            </div>
+            <div class="row">
+              <div><label>Pelagem</label><select id="tPetPelagem"><option>Curta</option><option>Média</option><option>Longa</option></select></div>
+              <div><label><input type="checkbox" id="tPetCastrado"> Castrado</label></div>
+            </div>
+            <label>Alergias (opcional)</label>
+            <textarea id="tPetAlergias" placeholder="Ex: alergia a determinado shampoo..."></textarea>
+          </div>
           <div class="row" style="margin-top:12px;">
             <button class="btn btn-primary btn-block" id="saveTutorBtn">Salvar</button>
             <button class="btn btn-ghost btn-block" id="cancelTutorBtn" style="display:none;">Cancelar</button>
@@ -4246,14 +4265,37 @@ document.getElementById('saveTutorBtn').addEventListener('click', async ()=>{
   if(id){ STATE.tutors = STATE.tutors.map(t=>t.id===id?tutor:t); }
   else { STATE.tutors.push(tutor); }
   await saveTutors();
+  const petNome = document.getElementById('tPetNome').value.trim();
+  if(!id && petNome){
+    STATE.pets.push({
+      id:'p'+Date.now(), tutorId:tutor.id, name:petNome,
+      breed: document.getElementById('tPetRaca').value.trim(),
+      porte: document.getElementById('tPetPorte').value,
+      sexo: document.getElementById('tPetSexo').value,
+      castrado: document.getElementById('tPetCastrado').checked,
+      nascimento: document.getElementById('tPetNascimento').value.trim(),
+      pelagem: document.getElementById('tPetPelagem').value,
+      alergias: document.getElementById('tPetAlergias').value.trim(),
+      comportamento: [], obs: '', photo: null
+    });
+    await savePets();
+  }
   clearTutorForm();
   renderTutorList();
-  toast('Tutor salvo!');
+  toast(petNome && !id ? 'Tutor e pet salvos!' : 'Tutor salvo!');
+});
+document.getElementById('tPetNome').addEventListener('input', (e)=>{
+  document.getElementById('tPetCamposExtra').style.display = e.target.value.trim() ? 'block' : 'none';
 });
 document.getElementById('cancelTutorBtn').addEventListener('click',clearTutorForm);
 function clearTutorForm(){
   document.getElementById('tEditId').value='';
-  ['tNome','tTel','tRua','tBairro','tCidade'].forEach(id=>document.getElementById(id).value='');
+  ['tNome','tTel','tRua','tBairro','tCidade','tPetNome','tPetRaca','tPetNascimento','tPetAlergias'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('tPetPorte').value='Médio';
+  document.getElementById('tPetSexo').value='Macho';
+  document.getElementById('tPetPelagem').value='Curta';
+  document.getElementById('tPetCastrado').checked=false;
+  document.getElementById('tPetCamposExtra').style.display='none';
   document.getElementById('cancelTutorBtn').style.display='none';
 }
 
