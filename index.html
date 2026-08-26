@@ -669,6 +669,7 @@
           <div class="iconGrid">
             <button class="iconGridBtn" id="avulsoVerPendentesBtn">🟡<span>Pendentes</span></button>
             <button class="iconGridBtn" id="avulsoVerPagosBtn">✅<span>Pagos</span></button>
+            <button class="iconGridBtn" id="avulsoVerAtrasadosBtn">🔴<span>Atrasados</span></button>
             <button class="iconGridBtn" id="avulsoVerAgendadosBtn">📅<span>Agendados</span></button>
           </div>
           <div id="avulsoMesTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
@@ -695,6 +696,7 @@
           <div class="iconGrid">
             <button class="iconGridBtn" id="pacoteVerPendentesBtn">🟡<span>Pendentes</span></button>
             <button class="iconGridBtn" id="pacoteVerPagosBtn">✅<span>Pagos</span></button>
+            <button class="iconGridBtn" id="pacoteVerAtrasadosBtn">🔴<span>Atrasados</span></button>
           </div>
           <div id="pacoteMesTitulo" class="footer-note" style="text-align:left; padding:0; margin-top:10px; font-weight:700;"></div>
           <div id="pacoteMesResultado" style="margin-top:4px;"></div>
@@ -1197,10 +1199,12 @@
         <div><label><input type="checkbox" id="mPago"> Já foi pago</label></div>
       </div>
       <hr class="divider">
-      <label>Outro pet do mesmo cliente nesse horário (opcional)</label>
+      <label>Outro pet do mesmo cliente (opcional)</label>
       <p class="footer-note" style="margin:0 0 6px; text-align:left;">Pra outro cliente, crie um agendamento separado.</p>
       <div id="mOutrosPetsList" class="addedServicesList"></div>
       <button type="button" class="btn btn-ghost btn-block" id="mAddOutroPetBtn">+ Adicionar outro pet</button>
+      <label style="margin-top:10px;"><input type="checkbox" id="mJuntarBloco"> Juntar num único card visual na agenda (mesmo horário)</label>
+      <p class="footer-note" style="margin:0; text-align:left;">Desmarcado (padrão): cada pet fica com seu próprio card, no seu próprio horário — como se fossem cadastrados separadamente.</p>
       <div id="mOutroPetForm" style="display:none; margin-top:10px; background:var(--card-soft); border-radius:14px; padding:12px;">
         <label>Pet</label>
         <select id="outroPetSelect"></select>
@@ -1210,6 +1214,8 @@
           <select id="outroPetServicoAdd" style="flex:2;"></select>
           <button type="button" class="btn btn-ghost" style="flex:0 0 auto;" id="outroPetServicoAddBtn">+</button>
         </div>
+        <label>Horário desse pet</label>
+        <input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="14:00" id="outroPetInicio">
         <div class="row" style="margin-top:8px;">
           <button type="button" class="btn btn-ghost" id="cancelarOutroPetBtn">Cancelar</button>
           <button type="button" class="btn btn-primary" id="confirmarOutroPetBtn">Adicionar à lista</button>
@@ -2700,29 +2706,34 @@ function renderDashboard(){
     });
   }
 
-  const groups = collectPendencias();
   const cb = document.getElementById('dashCobrancas');
-  const keys = Object.keys(groups);
-  let totalPend = 0;
-  keys.forEach(k=>groups[k].items.forEach(i=>totalPend+=i.valor));
-  const cobrancasAtrasadas = STATE.cobrancas.filter(c=>!c.auto && getCobrancaStatus(c)==='atrasado');
-  const pacotesAtrasados = STATE.cobrancas.filter(c=>c.auto && getCobrancaStatus(c)==='atrasado');
+  const hojeIso = todayISO();
+  const cobrancasAtrasadas = STATE.cobrancas
+    .map(c=>({cb:c, calc:calcularCobranca(c)}))
+    .filter(x=>!x.calc.pago && x.calc.items.length>0 && x.cb.dataPagamento && x.cb.dataPagamento<hojeIso);
   const despesasHoje = STATE.despesas.filter(d=>!d.pago && d.dataPagamento===iso);
   const despesasAtrasadas = STATE.despesas.filter(d=>getDespesaStatus(d)==='atrasado');
 
-  if(keys.length===0 && cobrancasAtrasadas.length===0 && pacotesAtrasados.length===0 && despesasHoje.length===0 && despesasAtrasadas.length===0){
+  if(cobrancasAtrasadas.length===0 && despesasHoje.length===0 && despesasAtrasadas.length===0){
     cb.innerHTML = '<div class="empty"><span class="emoji">✅</span>Nada pendente por aqui!</div>';
   } else {
     let html = '';
-    if(totalPend>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px;">💰 '+keys.length+' tutor(es) com pendência avulsa — total '+formatBRL(totalPend)+'</div>';
-    if(pacotesAtrasados.length>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px; color:var(--full); font-weight:700;">🔴 '+pacotesAtrasados.length+' pacote(s) atrasado(s)</div>';
-    if(cobrancasAtrasadas.length>0) html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px; color:var(--full); font-weight:700;">🔴 '+cobrancasAtrasadas.length+' cobrança(s) agrupada(s) atrasada(s)</div>';
+    if(cobrancasAtrasadas.length>0){
+      html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:4px; color:var(--full); font-weight:700;">🔴 '+cobrancasAtrasadas.length+' cobrança(s) atrasada(s)</div>';
+      html += cobrancasAtrasadas.map(x=>{
+        const t = getTutor(x.cb.tutorId);
+        return '<div class="penditem dashCobrancaAtrasadaRow" data-cobranca-id="'+x.cb.id+'" style="cursor:pointer;"><span>'+(x.cb.auto?'📦 ':'🗂️ ')+(t?t.name:'?')+'</span><span>'+formatBRL(x.calc.devendo)+'</span></div>';
+      }).join('');
+    }
     if(despesasHoje.length>0){
       const totalDespHoje = despesasHoje.reduce((a,d)=>a+d.valor,0);
-      html += '<div class="footer-note" style="text-align:left; padding:0; margin-bottom:6px;">💸 '+despesasHoje.length+' pagamento(s) pra hoje — total '+formatBRL(totalDespHoje)+'</div>';
+      html += '<div class="footer-note" style="text-align:left; padding:0; margin:6px 0; ">💸 '+despesasHoje.length+' pagamento(s) pra hoje — total '+formatBRL(totalDespHoje)+'</div>';
     }
     if(despesasAtrasadas.length>0) html += '<div class="footer-note" style="text-align:left; padding:0; color:var(--full); font-weight:700;">🔴 '+despesasAtrasadas.length+' despesa(s) atrasada(s)</div>';
     cb.innerHTML = html;
+    cb.querySelectorAll('.dashCobrancaAtrasadaRow').forEach(row=>{
+      row.addEventListener('click',()=>abrirCardCobranca(row.dataset.cobrancaId));
+    });
   }
 }
 
@@ -3058,6 +3069,7 @@ function openModal(startMin, op){
   populatePetSelect();
   populateModalServiceSelect();
   mOutrosPets = [];
+  document.getElementById('mJuntarBloco').checked = false;
   renderMOutrosPetsList();
   document.getElementById('mOutroPetForm').style.display='none';
   document.getElementById('modalBg').classList.add('show');
@@ -3192,7 +3204,7 @@ function renderMOutrosPetsList(){
   mOutrosPets.forEach((op,idx)=>{
     const row = document.createElement('div');
     row.className='addedServiceRow';
-    row.innerHTML = '<span><span class="asName">'+op.nome+'</span><span class="asPrice">'+op.servicos.join(' + ')+' • '+formatBRL(op.valor)+'</span></span><button data-idx="'+idx+'">✕</button>';
+    row.innerHTML = '<span><span class="asName">'+op.nome+' • '+op.inicio+'</span><span class="asPrice">'+op.servicos.join(' + ')+' • '+formatBRL(op.valor)+'</span></span><button data-idx="'+idx+'">✕</button>';
     row.querySelector('button').addEventListener('click',()=>{ mOutrosPets.splice(idx,1); renderMOutrosPetsList(); });
     list.appendChild(row);
   });
@@ -3247,6 +3259,9 @@ document.getElementById('mAddOutroPetBtn').addEventListener('click',()=>{
   outroPetServicosSel = STATE.config.services[0] ? [STATE.config.services[0].name] : [];
   renderOutroPetServicoAddSelect();
   renderOutroPetServicosList();
+  let cursorMin = timeToMinutes(document.getElementById('mInicio').value||'08:00') + (parseInt(document.getElementById('mDuracao').value)||60);
+  mOutrosPets.forEach(op=>{ cursorMin += op.duracao; });
+  document.getElementById('outroPetInicio').value = minutesToTime(cursorMin);
   document.getElementById('mOutroPetForm').style.display='block';
 });
 document.getElementById('cancelarOutroPetBtn').addEventListener('click',()=>{
@@ -3260,7 +3275,8 @@ document.getElementById('confirmarOutroPetBtn').addEventListener('click',()=>{
   const t = getTutor(p.tutorId);
   let valor=0, duracao=0;
   outroPetServicosSel.forEach(name=>{ const svc=getService(name); if(svc){ valor+=svc.price; duracao+=svc.duration; } });
-  mOutrosPets.push({ petId, nome:p.name+' ('+(t?t.name:'?')+')', servicos:outroPetServicosSel.slice(), servico:outroPetServicosSel.join(' + '), valor, duracao:duracao||60 });
+  const inicioOutro = document.getElementById('outroPetInicio').value || '08:00';
+  mOutrosPets.push({ petId, nome:p.name+' ('+(t?t.name:'?')+')', servicos:outroPetServicosSel.slice(), servico:outroPetServicosSel.join(' + '), valor, duracao:duracao||60, inicio:inicioOutro });
   renderMOutrosPetsList();
   document.getElementById('mOutroPetForm').style.display='none';
   toast('Pet adicionado!');
@@ -3313,7 +3329,8 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
   const pago = document.getElementById('mPago').checked;
 
   const seriesId = vezes>1 ? 's'+Date.now() : null;
-  const usaGrupo = mOutrosPets.length>0;
+  const juntarBloco = document.getElementById('mJuntarBloco').checked;
+  const usaGrupo = mOutrosPets.length>0 && juntarBloco;
   const outrosSeriesIds = mOutrosPets.map((op,idx)=> vezes>1 ? 's'+Date.now()+'_x'+idx : null);
   const baseDate = new Date(selectedDateISO+'T00:00:00');
   for(let i=0;i<vezes;i++){
@@ -3323,14 +3340,9 @@ document.getElementById('mSalvar').addEventListener('click', async ()=>{
     if(!STATE.agenda[iso][operacao]) STATE.agenda[iso][operacao]=[];
     const grupoIdData = usaGrupo ? 'g'+Date.now()+'_'+i : null;
     STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i, tipo, nome, petId, seriesId, servico, servicos, valor, pago, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio, duracao, recorrenteAvulso, pacoteQtd, grupoId: grupoIdData });
-    if(usaGrupo){
-      let cursorMin = timeToMinutes(inicio) + duracao;
-      mOutrosPets.forEach((op2,idx)=>{
-        const inicioOutro = minutesToTime(cursorMin);
-        STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i+'_g'+idx, tipo:'cliente', nome:op2.nome, petId:op2.petId, seriesId:outrosSeriesIds[idx], servico:op2.servico, servicos:op2.servicos, valor:op2.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:inicioOutro, duracao:op2.duracao, recorrenteAvulso, pacoteQtd, grupoId:grupoIdData });
-        cursorMin += op2.duracao;
-      });
-    }
+    mOutrosPets.forEach((op2,idx)=>{
+      STATE.agenda[iso][operacao].push({ id:'a'+Date.now()+'_'+i+'_g'+idx, tipo:'cliente', nome:op2.nome, petId:op2.petId, seriesId:outrosSeriesIds[idx], servico:op2.servico, servicos:op2.servicos, valor:op2.valor, pago:false, formaPagamento:null, statusAtendimento:'nenhum', cobrancaId:null, inicio:op2.inicio, duracao:op2.duracao, recorrenteAvulso, pacoteQtd, grupoId:grupoIdData });
+    });
   }
   await saveAgenda();
   document.getElementById('modalBg').classList.remove('show');
@@ -6438,13 +6450,14 @@ function renderAvulsosAgendados(mesDate, areaId){
 }
 function renderAvulsoMes(){
   document.getElementById('avulsoMesLabel').textContent = avulsoMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  document.getElementById('avulsoMesTitulo').textContent = avulsoMesModo==='pago' ? '✅ Pagos' : (avulsoMesModo==='agendado' ? '📅 Agendados (ainda não atendidos)' : '🟡 Pendentes');
+  document.getElementById('avulsoMesTitulo').textContent = avulsoMesModo==='pago' ? '✅ Pagos' : (avulsoMesModo==='agendado' ? '📅 Agendados (ainda não atendidos)' : (avulsoMesModo==='atrasado' ? '🔴 Atrasados' : '🟡 Pendentes'));
   if(avulsoMesModo==='agendado') renderAvulsosAgendados(avulsoMesDate, 'avulsoMesResultado');
   else renderCobrancasMes(false, avulsoMesDate, 'avulsoMesResultado', avulsoMesModo);
 }
 document.getElementById('avulsoVerPendentesBtn').addEventListener('click',()=>{ avulsoMesModo='pendente'; renderAvulsoMes(); });
 document.getElementById('avulsoVerPagosBtn').addEventListener('click',()=>{ avulsoMesModo='pago'; renderAvulsoMes(); });
 document.getElementById('avulsoVerAgendadosBtn').addEventListener('click',()=>{ avulsoMesModo='agendado'; renderAvulsoMes(); });
+document.getElementById('avulsoVerAtrasadosBtn').addEventListener('click',()=>{ avulsoMesModo='atrasado'; renderAvulsoMes(); });
 document.getElementById('avulsoMesPrevBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()-1); renderAvulsoMes(); });
 document.getElementById('avulsoMesNextBtn').addEventListener('click',()=>{ avulsoMesDate.setMonth(avulsoMesDate.getMonth()+1); renderAvulsoMes(); });
 
@@ -6611,8 +6624,12 @@ function renderCobrancasMes(auto, mesDate, areaId, modo){
     return temNoMes;
   });
   const area = document.getElementById(areaId);
-  const calcs = cobs.map(cb=>({cb, calc:calcularCobranca(cb)})).filter(x=> modo==='pago' ? x.calc.pago : !x.calc.pago);
-  if(calcs.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada '+(modo==='pago'?'pago':'pendente')+' encontrado nesse mês.</div>'; return; }
+  const hojeIso = todayISO();
+  let calcs = cobs.map(cb=>({cb, calc:calcularCobranca(cb)}));
+  if(modo==='pago') calcs = calcs.filter(x=>x.calc.pago);
+  else if(modo==='atrasado') calcs = calcs.filter(x=>!x.calc.pago && x.cb.dataPagamento && x.cb.dataPagamento<hojeIso);
+  else calcs = calcs.filter(x=>!x.calc.pago);
+  if(calcs.length===0){ area.innerHTML = '<div class="footer-note" style="text-align:left; padding:0;">Nada '+(modo==='pago'?'pago':(modo==='atrasado'?'atrasado':'pendente'))+' encontrado nesse mês.</div>'; return; }
   function linha(x){
     const t = getTutor(x.cb.tutorId);
     const pets = new Set(x.calc.items.map(i=>{ const p=getPet(i.slot.petId); return p?p.name:i.slot.nome; }));
@@ -6642,11 +6659,12 @@ function renderCobrancasMes(auto, mesDate, areaId, modo){
 let pacoteMesModo = 'pendente';
 function renderPacoteMes(){
   document.getElementById('pacoteMesLabel').textContent = pacoteMesDate.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  document.getElementById('pacoteMesTitulo').textContent = pacoteMesModo==='pago' ? '✅ Pagos' : '🟡 Pendentes';
+  document.getElementById('pacoteMesTitulo').textContent = pacoteMesModo==='pago' ? '✅ Pagos' : (pacoteMesModo==='atrasado' ? '🔴 Atrasados' : '🟡 Pendentes');
   renderCobrancasMes(true, pacoteMesDate, 'pacoteMesResultado', pacoteMesModo);
 }
 document.getElementById('pacoteVerPendentesBtn').addEventListener('click',()=>{ pacoteMesModo='pendente'; renderPacoteMes(); });
 document.getElementById('pacoteVerPagosBtn').addEventListener('click',()=>{ pacoteMesModo='pago'; renderPacoteMes(); });
+document.getElementById('pacoteVerAtrasadosBtn').addEventListener('click',()=>{ pacoteMesModo='atrasado'; renderPacoteMes(); });
 document.getElementById('pacoteMesPrevBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()-1); renderPacoteMes(); });
 document.getElementById('pacoteMesNextBtn').addEventListener('click',()=>{ pacoteMesDate.setMonth(pacoteMesDate.getMonth()+1); renderPacoteMes(); });
 
