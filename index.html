@@ -1689,7 +1689,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromCache, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, getDocFromCache, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1714,7 +1714,7 @@ try{
 const COL = 'meudengo';
 async function fbGet(path){
   try{
-    const snap = await getDoc(doc(db, COL, path));
+    const snap = await getDocFromServer(doc(db, COL, path));
     return snap.exists() ? snap.data().value : null;
   }catch(e){
     try{
